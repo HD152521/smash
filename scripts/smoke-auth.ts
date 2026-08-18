@@ -188,11 +188,13 @@ async function main() {
     )
 
     // ── 잘못된 코드 ───────────────────────────────────────────────────
+    // join_tournament 은 예외를 던지지 않는다 — 던지면 트랜잭션이 롤백되면서
+    // 브루트포스 시도 기록까지 사라져 차단 카운터가 무력화된다.
     const wrong = await rpc(bob.token, 'join_tournament', { p_code: 'ZZZZZZ' })
     check(
       '없는 코드로는 참가할 수 없다',
-      wrong.status >= 400,
-      `status=${wrong.status} ${String(wrong.body?.message ?? '').slice(0, 40)}`,
+      wrong.body?.ok === false && wrong.body?.error === 'not_found',
+      `error=${String(wrong.body?.error ?? '(없음)')} ${String(wrong.body?.message ?? '').slice(0, 30)}`,
     )
 
     // ── 정상 참가 ─────────────────────────────────────────────────────
@@ -200,7 +202,7 @@ async function main() {
       p_code: tournament.invite_code,
       p_display_name: '밥',
     })
-    check('초대 코드로 참가', joined.status === 200, `status=${joined.status}`)
+    check('초대 코드로 참가', joined.body?.ok === true, `status=${joined.status}`)
 
     const bobSeesNow = await select(bob.token, `tournaments?id=eq.${tournament.id}`)
     check(

@@ -1,6 +1,15 @@
 import { supabase } from '@/lib/supabase'
 import { unwrap } from '@/lib/errors'
-import type { GroupRow, MemberRole, TournamentRow, TournamentStatus } from '@/types/database'
+import type {
+  CourtRow,
+  JoinTournamentResult,
+  GroupRow,
+  MatchOverviewRow,
+  MatchRow,
+  MemberRole,
+  TournamentRow,
+  TournamentStatus,
+} from '@/types/database'
 
 export interface CreateTournamentInput {
   name: string
@@ -25,12 +34,18 @@ export async function createTournament(input: CreateTournamentInput): Promise<To
   return unwrap(res) as TournamentRow
 }
 
+/**
+ * 참가. 서버가 예외 대신 결과 객체를 돌려주므로 여기서 예외로 바꿔 준다.
+ * (예외를 던지면 브루트포스 시도 기록이 롤백되어 차단이 무력화된다)
+ */
 export async function joinTournament(code: string, displayName?: string): Promise<TournamentRow> {
   const res = await supabase.rpc('join_tournament', {
     p_code: code,
     p_display_name: displayName ?? null,
   })
-  return unwrap(res) as TournamentRow
+  const result = unwrap(res) as unknown as JoinTournamentResult
+  if (!result.ok) throw new Error(result.message)
+  return result.tournament
 }
 
 /** 내 대회 모음에 필요한 만큼만 */
@@ -141,4 +156,119 @@ export async function setMyGroup(tournamentId: string, groupId: string | null) {
     p_group_id: groupId,
   })
   return unwrap(res)
+}
+
+// ── 관리자 기능 ──────────────────────────────────────────────────────
+
+/**
+ * 역할 변경. owner 는 넘기거나 뺏을 수 없다 (대회 삭제 권한이 딸려 있다).
+ * RLS 의 tm_update_admin 정책이 관리자만 통과시킨다.
+ */
+export async function setMemberRole(memberId: string, role: Exclude<MemberRole, 'owner'>) {
+  const res = await supabase.rpc('set_member_role', { p_member_id: memberId, p_role: role })
+  return unwrap(res)
+}
+
+/** 관리자가 남의 조를 옮긴다 (대회 시작 후 본인은 못 바꾸므로 필요) */
+export async function setMemberGroup(memberId: string, groupId: string | null) {
+  const res = await supabase
+    .from('tournament_members')
+    .update({ group_id: groupId })
+    .eq('id', memberId)
+    .select()
+    .single()
+  return unwrap(res)
+}
+
+export async function setTournamentStatus(tournamentId: string, status: TournamentStatus) {
+  const res = await supabase.rpc('set_tournament_status', {
+    p_tournament_id: tournamentId,
+    p_status: status,
+  })
+  return unwrap(res)
+}
+
+export async function regenerateInviteCode(tournamentId: string) {
+  const res = await supabase.rpc('regenerate_invite_code', { p_tournament_id: tournamentId })
+  return unwrap(res)
+}
+
+// ── 코트 ─────────────────────────────────────────────────────────────
+
+export async function fetchCourts(tournamentId: string): Promise<CourtRow[]> {
+  const res = await supabase
+    .from('courts')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('sort_order')
+  return unwrap(res) as CourtRow[]
+}
+
+export async function createCourt(tournamentId: string, name: string, sortOrder: number) {
+  const res = await supabase
+    .from('courts')
+    .insert({ tournament_id: tournamentId, name, sort_order: sortOrder })
+    .select()
+    .single()
+  return unwrap(res)
+}
+
+export async function deleteCourt(courtId: string) {
+  const { error } = await supabase.from('courts').delete().eq('id', courtId)
+  if (error) throw error
+}
+
+// ── 경기 ─────────────────────────────────────────────────────────────
+
+export interface CreateMatchInput {
+  tournamentId: string
+  courtId: string | null
+  label?: string | null
+  groupA: string
+  playersA: string[]
+  groupB: string
+  playersB: string[]
+  referees?: string[]
+}
+
+/**
+ * 경기 편성. 목표 점수와 승점은 클라이언트가 보내지 않는다 —
+ * 서버가 조의 is_joker 와 대회 config 에서 계산해 스냅샷으로 굳힌다.
+ */
+export async function createMatch(input: CreateMatchInput): Promise<MatchRow> {
+  const res = await supabase.rpc('create_match', {
+    p_tournament_id: input.tournamentId,
+    p_court_id: input.courtId,
+    p_label: input.label ?? null,
+    p_group_a: input.groupA,
+    p_players_a: input.playersA,
+    p_group_b: input.groupB,
+    p_players_b: input.playersB,
+    p_referees: input.referees ?? [],
+  })
+  return unwrap(res) as MatchRow
+}
+
+export async function fetchMatches(tournamentId: string): Promise<MatchOverviewRow[]> {
+  const res = await supabase
+    .from('match_overview')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('created_at', { ascending: false })
+  return unwrap(res) as unknown as MatchOverviewRow[]
+}
+
+/**
+ * 경기 무효 처리.
+ *
+ * 삭제하지 않는다 — score_events 가 cascade 로 함께 사라져
+ * "누가 몇 대 몇으로 이겼는지" 를 되짚을 수 없게 되기 때문이다.
+ * 무효 상태로 남기면 순위 집계에서는 빠지고 기록은 보존된다.
+ */
+export async function voidMatch(matchId: string, reason?: string): Promise<MatchRow> {
+  const res = await supabase.rpc('void_match', {
+    p_match_id: matchId,
+    p_reason: reason ?? null,
+  })
+  return unwrap(res) as MatchRow
 }

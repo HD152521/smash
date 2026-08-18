@@ -15,11 +15,12 @@
     "test:cov": "vitest run --coverage",
     "db:push": "supabase db push --db-url \"$SUPABASE_DB_URL\"",
     "db:types": "tsx scripts/gen-types.ts",
-    "db:seed": "tsx scripts/seed.ts",
+    "db:seed": "tsx scripts/seed-demo.ts",
     "db:link": "supabase link --project-ref $SUPABASE_PROJECT_REF",
     "db:verify": "tsx scripts/verify-schema.ts",
     "db:smoke": "tsx scripts/smoke-auth.ts",
-    "db:confirm": "tsx scripts/confirm-emails.ts"
+    "db:confirm": "tsx scripts/confirm-emails.ts",
+    "db:smoke:security": "tsx scripts/smoke-security.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

@@ -80,6 +80,19 @@ export type StandingRow = {
   diff: number
 }
 
+/**
+ * join_tournament 는 예외 대신 결과를 돌려준다.
+ * 예외를 던지면 트랜잭션이 롤백되면서 브루트포스 시도 기록까지 지워져,
+ * 차단 카운터가 영원히 0 이 되기 때문이다.
+ */
+export type JoinTournamentResult =
+  | { ok: true; tournament: TournamentRow }
+  | {
+      ok: false
+      error: 'unauthenticated' | 'rate_limited' | 'bad_format' | 'not_found' | 'finished'
+      message: string
+    }
+
 // ── 4. Functions 를 얹은 최종 Database 타입 ──────────────────────────
 type GenTables = GeneratedDatabase['public']['Tables']
 
@@ -117,7 +130,15 @@ export type Database = {
       }
       join_tournament: {
         Args: { p_code: string; p_display_name?: string | null }
-        Returns: TournamentRow
+        Returns: JoinTournamentResult
+      }
+      set_member_role: {
+        Args: { p_member_id: string; p_role: 'admin' | 'member' }
+        Returns: TournamentMemberRow
+      }
+      void_match: {
+        Args: { p_match_id: string; p_reason?: string | null }
+        Returns: MatchRow
       }
       set_my_group: {
         Args: { p_tournament_id: string; p_group_id: string | null }

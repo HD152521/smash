@@ -9,8 +9,20 @@ import {
   fetchTournament,
   joinTournament,
   setMyGroup,
+  createCourt,
+  createMatch,
+  deleteCourt,
+  voidMatch,
+  fetchCourts,
+  fetchMatches,
+  regenerateInviteCode,
+  setMemberGroup,
+  setMemberRole,
+  setTournamentStatus,
+  type CreateMatchInput,
   type CreateTournamentInput,
 } from './api'
+import type { TournamentStatus } from '@/types/database'
 
 export const tournamentKeys = {
   mine: ['tournaments', 'mine'] as const,
@@ -87,5 +99,109 @@ export function useSetMyGroup(tournamentId: string) {
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'members'] })
       void qc.invalidateQueries({ queryKey: tournamentKeys.mine })
     },
+  })
+}
+
+// ── 관리자 ───────────────────────────────────────────────────────────
+
+function useTournamentInvalidator(tournamentId: string) {
+  const qc = useQueryClient()
+  return () => {
+    void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId] })
+    void qc.invalidateQueries({ queryKey: tournamentKeys.mine })
+  }
+}
+
+export function useSetMemberRole(tournamentId: string) {
+  const invalidate = useTournamentInvalidator(tournamentId)
+  return useMutation({
+    mutationFn: ({ memberId, role }: { memberId: string; role: 'admin' | 'member' }) =>
+      setMemberRole(memberId, role),
+    onSuccess: invalidate,
+  })
+}
+
+export function useSetMemberGroup(tournamentId: string) {
+  const invalidate = useTournamentInvalidator(tournamentId)
+  return useMutation({
+    mutationFn: ({ memberId, groupId }: { memberId: string; groupId: string | null }) =>
+      setMemberGroup(memberId, groupId),
+    onSuccess: invalidate,
+  })
+}
+
+export function useSetTournamentStatus(tournamentId: string) {
+  const invalidate = useTournamentInvalidator(tournamentId)
+  return useMutation({
+    mutationFn: (status: TournamentStatus) => setTournamentStatus(tournamentId, status),
+    onSuccess: invalidate,
+  })
+}
+
+export function useRegenerateInviteCode(tournamentId: string) {
+  const invalidate = useTournamentInvalidator(tournamentId)
+  return useMutation({
+    mutationFn: () => regenerateInviteCode(tournamentId),
+    onSuccess: invalidate,
+  })
+}
+
+// ── 코트 ─────────────────────────────────────────────────────────────
+
+export function useCourts(tournamentId: string | undefined) {
+  return useQuery({
+    queryKey: ['tournaments', tournamentId, 'courts'],
+    queryFn: () => fetchCourts(tournamentId!),
+    enabled: Boolean(tournamentId),
+  })
+}
+
+export function useCreateCourt(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, sortOrder }: { name: string; sortOrder: number }) =>
+      createCourt(tournamentId, name, sortOrder),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
+  })
+}
+
+export function useDeleteCourt(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (courtId: string) => deleteCourt(courtId),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
+  })
+}
+
+// ── 경기 ─────────────────────────────────────────────────────────────
+
+export function useMatches(tournamentId: string | undefined) {
+  return useQuery({
+    queryKey: ['tournaments', tournamentId, 'matches'],
+    queryFn: () => fetchMatches(tournamentId!),
+    enabled: Boolean(tournamentId),
+  })
+}
+
+export function useCreateMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: Omit<CreateMatchInput, 'tournamentId'>) =>
+      createMatch({ ...input, tournamentId }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] })
+    },
+  })
+}
+
+export function useVoidMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ matchId, reason }: { matchId: string; reason?: string }) => voidMatch(matchId, reason),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
   })
 }

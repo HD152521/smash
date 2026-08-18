@@ -1,0 +1,354 @@
+import { useState } from 'react'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Check } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/features/auth/useAuth'
+import {
+  useCourts,
+  useCreateMatch,
+  useGroups,
+  useMembers,
+  useTournament,
+} from '@/features/tournament/queries'
+import { toUserMessage } from '@/lib/errors'
+import { cn } from '@/lib/utils'
+import type { MemberSummary } from '@/features/tournament/api'
+import type { GroupRow, TournamentConfig } from '@/types/database'
+
+/**
+ * 경기 편성 — 조 vs 조.
+ *
+ * 목표 점수와 승점은 여기서 보내지 않는다. 서버가 조의 is_joker 와
+ * 대회 설정에서 계산해 스냅샷으로 굳힌다. 화면은 그 결과를 미리 보여줄 뿐이다.
+ */
+export function MatchCreatePage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const tournament = useTournament(id)
+  const groups = useGroups(id)
+  const members = useMembers(id)
+  const courts = useCourts(id)
+  const create = useCreateMatch(id ?? '')
+
+  const me = members.data?.find((m) => m.userId === user?.id)
+  const isAdmin = me?.role === 'owner' || me?.role === 'admin'
+
+  const [courtId, setCourtId] = useState<string>('')
+  const [groupA, setGroupA] = useState<string>('')
+  const [groupB, setGroupB] = useState<string>('')
+  const [playersA, setPlayersA] = useState<string[]>([])
+  const [playersB, setPlayersB] = useState<string[]>([])
+  const [referees, setReferees] = useState<string[]>([])
+
+  if (members.data && !isAdmin) return <Navigate to={`/t/${id}`} replace />
+
+  if (!tournament.data || !groups.data || !members.data) {
+    return (
+      <main className="mx-auto w-full max-w-2xl px-5 pt-10">
+        <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+      </main>
+    )
+  }
+
+  const config = tournament.data.config as TournamentConfig
+  const squadSize = config.format === 'singles' ? 1 : 2
+
+  const gA = groups.data.find((g) => g.id === groupA)
+  const gB = groups.data.find((g) => g.id === groupB)
+  const targetA = gA?.is_joker ? config.jokerPoints : config.normalPoints
+  const targetB = gB?.is_joker ? config.jokerPoints : config.normalPoints
+
+  const playing = new Set([...playersA, ...playersB])
+  const ready =
+    Boolean(groupA) &&
+    Boolean(groupB) &&
+    groupA !== groupB &&
+    playersA.length === squadSize &&
+    playersB.length === squadSize
+
+  function togglePlayer(side: 'A' | 'B', memberId: string) {
+    const [list, setList] = side === 'A' ? [playersA, setPlayersA] : [playersB, setPlayersB]
+    const next = list.includes(memberId)
+      ? list.filter((x) => x !== memberId)
+      : // 정원을 넘기면 가장 오래된 선택을 밀어낸다 — 해제 후 재선택을 강요하지 않는다
+        [...list, memberId].slice(-squadSize)
+    ;(setList as (v: string[]) => void)(next)
+    // 뛰는 사람은 그 경기 심판을 볼 수 없다 (서버도 거부한다)
+    setReferees((r) => r.filter((x) => !next.includes(x)))
+  }
+
+  async function handleSubmit() {
+    try {
+      await create.mutateAsync({
+        courtId: courtId || null,
+        groupA,
+        playersA,
+        groupB,
+        playersB,
+        referees,
+      })
+      navigate(`/t/${id}/admin`, { replace: true })
+    } catch {
+      // create.error 로 화면에 뿌린다
+    }
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-28">
+      <Link
+        to={`/t/${id}/admin`}
+        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
+      >
+        <ArrowLeft className="size-4" aria-hidden />
+        관리로
+      </Link>
+
+      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">경기 편성</h1>
+
+      {/* 코트 */}
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold text-ink-2">코트</h2>
+        {courts.data && courts.data.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {courts.data.map((c) => (
+              <Chip key={c.id} active={courtId === c.id} onClick={() => setCourtId(c.id === courtId ? '' : c.id)}>
+                {c.name}
+              </Chip>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-ink-3">
+            등록된 코트가 없습니다. 코트 없이도 편성할 수 있습니다.
+          </p>
+        )}
+      </section>
+
+      {/* A / B 팀 */}
+      <TeamSection
+        side="A"
+        label="A팀"
+        groups={groups.data}
+        members={members.data}
+        selectedGroup={groupA}
+        disabledGroup={groupB}
+        onSelectGroup={(g) => {
+          setGroupA(g)
+          setPlayersA([])
+        }}
+        selectedPlayers={playersA}
+        onTogglePlayer={(m) => togglePlayer('A', m)}
+        squadSize={squadSize}
+        target={targetA}
+        isJoker={Boolean(gA?.is_joker)}
+      />
+
+      <TeamSection
+        side="B"
+        label="B팀"
+        groups={groups.data}
+        members={members.data}
+        selectedGroup={groupB}
+        disabledGroup={groupA}
+        onSelectGroup={(g) => {
+          setGroupB(g)
+          setPlayersB([])
+        }}
+        selectedPlayers={playersB}
+        onTogglePlayer={(m) => togglePlayer('B', m)}
+        squadSize={squadSize}
+        target={targetB}
+        isJoker={Boolean(gB?.is_joker)}
+      />
+
+      {/* 심판 */}
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold text-ink-2">
+          심판 <span className="font-normal text-ink-3">(선택 · 점수를 기록할 사람)</span>
+        </h2>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {members.data
+            .filter((m) => !playing.has(m.id))
+            .map((m) => (
+              <Chip
+                key={m.id}
+                active={referees.includes(m.id)}
+                onClick={() =>
+                  setReferees((r) =>
+                    r.includes(m.id) ? r.filter((x) => x !== m.id) : [...r, m.id],
+                  )
+                }
+              >
+                {m.displayName}
+              </Chip>
+            ))}
+        </div>
+        {referees.length === 0 && (
+          <p className="mt-2 text-xs text-ink-3">
+            심판을 지정하지 않으면 관리자만 점수를 기록할 수 있습니다.
+          </p>
+        )}
+      </section>
+
+      {create.error && (
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b">
+          {toUserMessage(create.error, '경기를 만들지 못했습니다')}
+        </p>
+      )}
+
+      {/* 하단 고정 요약 + 생성 */}
+      <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-0/90 px-5 py-4 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
+          <p className="tabular min-w-0 flex-1 truncate text-sm text-ink-2">
+            {ready ? (
+              <>
+                <b className="text-ink-1">{gA?.name}</b>
+                {gA?.is_joker && ' 🃏'} {targetA}점
+                <span className="mx-1.5 text-ink-3">vs</span>
+                <b className="text-ink-1">{gB?.name}</b>
+                {gB?.is_joker && ' 🃏'} {targetB}점
+              </>
+            ) : (
+              `양 팀의 조와 선수 ${squadSize}명씩을 골라주세요`
+            )}
+          </p>
+          <Button size="lg" disabled={!ready} loading={create.isPending} onClick={() => void handleSubmit()}>
+            경기 만들기
+          </Button>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+interface TeamSectionProps {
+  side: 'A' | 'B'
+  label: string
+  groups: GroupRow[]
+  members: MemberSummary[]
+  selectedGroup: string
+  disabledGroup: string
+  onSelectGroup: (groupId: string) => void
+  selectedPlayers: string[]
+  onTogglePlayer: (memberId: string) => void
+  squadSize: number
+  target: number
+  isJoker: boolean
+}
+
+function TeamSection({
+  side,
+  label,
+  groups,
+  members,
+  selectedGroup,
+  disabledGroup,
+  onSelectGroup,
+  selectedPlayers,
+  onTogglePlayer,
+  squadSize,
+  target,
+  isJoker,
+}: TeamSectionProps) {
+  const roster = members.filter((m) => m.groupId === selectedGroup)
+
+  return (
+    <section className="mt-8">
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-sm font-semibold text-ink-2">
+          <span className={cn('font-black', side === 'A' ? 'text-team-a' : 'text-team-b')}>
+            {label}
+          </span>
+        </h2>
+        {selectedGroup && (
+          <span className="tabular text-xs font-bold text-ink-3">
+            {isJoker && '🃏 '}
+            목표 {target}점
+          </span>
+        )}
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {groups.map((g) => (
+          <Chip
+            key={g.id}
+            active={selectedGroup === g.id}
+            disabled={disabledGroup === g.id}
+            onClick={() => onSelectGroup(g.id)}
+          >
+            {g.name}
+            {g.is_joker && ' 🃏'}
+          </Chip>
+        ))}
+      </div>
+
+      {selectedGroup && (
+        <>
+          <p className="mt-3 text-xs text-ink-3">
+            {selectedPlayers.length} / {squadSize}명 선택
+          </p>
+          {roster.length === 0 ? (
+            <p className="mt-2 text-sm text-warn">이 조에 배정된 참가자가 없습니다.</p>
+          ) : (
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {roster.map((m) => {
+                const on = selectedPlayers.includes(m.id)
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onTogglePlayer(m.id)}
+                    aria-pressed={on}
+                    className={cn(
+                      'flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-semibold transition-colors',
+                      on
+                        ? side === 'A'
+                          ? 'border-team-a bg-team-a-soft text-ink-1'
+                          : 'border-team-b bg-team-b-soft text-ink-1'
+                        : 'border-border-subtle bg-surface-1 text-ink-1 hover:bg-surface-2',
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{m.displayName}</span>
+                    {on && <Check className="size-4 shrink-0" aria-hidden />}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+function Chip({
+  children,
+  active,
+  disabled,
+  onClick,
+}: {
+  children: React.ReactNode
+  active: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={cn(
+        'rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+        'disabled:cursor-not-allowed disabled:opacity-30',
+        active
+          ? 'border-brand-500 bg-brand-50 text-brand-700'
+          : 'border-border-subtle bg-surface-1 text-ink-1 hover:bg-surface-2',
+      )}
+    >
+      {children}
+    </button>
+  )
+}

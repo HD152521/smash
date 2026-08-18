@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, Copy, Settings, Users } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Settings, Sliders, Users } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { useGroups, useMembers, useTournament } from '@/features/tournament/queries'
@@ -57,15 +57,14 @@ export function TournamentPage() {
           {t.status === 'live' ? (
             <LiveBadge />
           ) : (
-            <Badge tone={t.status === 'finished' ? 'neutral' : 'ok'}>{STATUS_LABEL[t.status]}</Badge>
+            <Badge tone={t.status === 'finished' ? 'neutral' : 'ok'}>
+              {STATUS_LABEL[t.status]}
+            </Badge>
           )}
-          {me && me.role !== 'member' && (
-            <Badge>{me.role === 'owner' ? '주최자' : '관리자'}</Badge>
-          )}
+          {me && me.role !== 'member' && <Badge>{me.role === 'owner' ? '주최자' : '관리자'}</Badge>}
           {myGroup && (
             <Badge tone={myGroup.is_joker ? 'joker' : 'neutral'}>
-              {myGroup.is_joker && <span aria-hidden>🃏</span>}
-              내 조 · {myGroup.name}
+              {myGroup.is_joker && <span aria-hidden>🃏</span>}내 조 · {myGroup.name}
             </Badge>
           )}
         </div>
@@ -80,7 +79,22 @@ export function TournamentPage() {
         </p>
       </header>
 
-      {isAdmin && <InviteCodeCard code={t.invite_code} />}
+      {isAdmin && (
+        <>
+          <InviteCodeCard code={t.invite_code} />
+          <Link
+            to={`/t/${id}/admin`}
+            className="mt-3 flex items-center justify-between rounded-2xl border border-border-subtle
+                       bg-surface-1 p-4 transition-colors hover:bg-surface-2"
+          >
+            <span className="flex items-center gap-2 font-semibold text-ink-1">
+              <Sliders className="size-4 text-ink-2" aria-hidden />
+              대회 관리
+            </span>
+            <span className="text-sm text-ink-3">멤버 · 코트 · 경기 편성</span>
+          </Link>
+        </>
+      )}
 
       {me && !me.groupId && t.status !== 'draft' && (
         <p className="mt-6 rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm font-semibold text-ink-1">
@@ -149,7 +163,11 @@ function InviteCodeCard({ code }: { code: string }) {
         aria-label="초대 코드 복사"
         className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/15 transition-colors hover:bg-white/25"
       >
-        {copied ? <Check className="size-5" aria-hidden /> : <Copy className="size-5" aria-hidden />}
+        {copied ? (
+          <Check className="size-5" aria-hidden />
+        ) : (
+          <Copy className="size-5" aria-hidden />
+        )}
       </button>
     </div>
   )
