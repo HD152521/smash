@@ -29,7 +29,12 @@ export function useWakeLock(enabled: boolean): { supported: boolean; active: boo
         }
         sentinel = next
         setActive(true)
-        next.addEventListener('release', () => setActive(false))
+        // sentinel 을 비우지 않으면 onVisibility 의 !sentinel 이 영영 false 라
+        // 백그라운드 한 번 갔다 온 뒤로는 다시 못 잡는다 (이 훅의 존재 이유가 사라진다)
+        next.addEventListener('release', () => {
+          sentinel = null
+          setActive(false)
+        })
       } catch {
         // 배터리 절약 모드 등에서 거부될 수 있다. 앱은 계속 돌아야 한다.
         setActive(false)

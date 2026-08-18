@@ -46,7 +46,6 @@ export function MatchScorePage() {
       return undoScore(matchId!)
     },
     onSuccess: () => {
-      scoring.resetOptimistic()
       void scoring.refetch()
       setActionError(null)
     },
@@ -59,7 +58,6 @@ export function MatchScorePage() {
       return finishMatch(matchId!, winner)
     },
     onSuccess: () => {
-      scoring.resetOptimistic()
       void scoring.refetch()
       setActionError(null)
     },
@@ -68,7 +66,7 @@ export function MatchScorePage() {
 
   if (scoring.error) {
     return (
-      <Wrap id={id}>
+      <Wrap>
         <p role="alert" className="p-6 text-center text-sm text-team-b">
           {toUserMessage(scoring.error, '경기를 불러오지 못했습니다')}
         </p>
@@ -78,7 +76,7 @@ export function MatchScorePage() {
 
   if (!m) {
     return (
-      <Wrap id={id}>
+      <Wrap>
         <div className="grid h-dvh place-items-center">
           <Loader2 className="size-8 animate-spin text-ink-3" aria-hidden />
         </div>
@@ -93,7 +91,7 @@ export function MatchScorePage() {
   const matchPoint = isLive && isMatchPoint(s, targetA, targetB)
 
   return (
-    <Wrap id={id}>
+    <Wrap>
       {/* 상단 바 */}
       <header className="flex items-center justify-between gap-3 px-4 py-3">
         <Link
@@ -107,10 +105,7 @@ export function MatchScorePage() {
         <div className="flex items-center gap-2 text-xs font-semibold">
           {m.court_name && <span className="text-ink-2">{m.court_name}</span>}
           {scoring.pendingCount > 0 && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-2 py-1 text-warn"
-              title="네트워크가 회복되면 자동으로 전송됩니다"
-            >
+            <span className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-2 py-1 text-warn">
               <CloudOff className="size-3.5" aria-hidden />
               {scoring.pendingCount}개 전송 대기
             </span>
@@ -123,6 +118,13 @@ export function MatchScorePage() {
           )}
         </div>
       </header>
+
+      {scoring.pendingCount > 0 && (
+        <p className="mx-4 rounded-xl bg-warn/10 p-3 text-sm font-medium text-warn">
+          점수 {scoring.pendingCount}개가 아직 전송되지 않았습니다. 연결이 회복되면 자동으로
+          보냅니다. 지금 경기를 끝내면 이 점수가 빠집니다.
+        </p>
+      )}
 
       {actionError && (
         <p role="alert" className="mx-4 rounded-xl bg-team-b/10 p-3 text-sm font-medium text-team-b">
@@ -228,8 +230,7 @@ export function MatchScorePage() {
   )
 }
 
-function Wrap({ id, children }: { id: string | undefined; children: React.ReactNode }) {
-  void id
+function Wrap({ children }: { children: React.ReactNode }) {
   // 심판 화면은 어두운 배경으로 고정한다 — 체육관 조명 아래에서 점수가 가장 잘 읽힌다
   return (
     <div data-theme="dark" className="no-touch-callout flex min-h-dvh flex-col bg-surface-0">
@@ -268,7 +269,7 @@ function ScorePanel({
       type="button"
       onClick={onScore}
       disabled={disabled}
-      aria-label={`${groupName} 득점`}
+      aria-label={`${groupName} 득점, 현재 ${score}점, 목표 ${target}점`}
       className={cn(
         'relative flex flex-col items-center justify-center rounded-3xl px-4 py-6',
         'transition-[transform,background-color] duration-100 active:scale-[0.99]',
@@ -278,29 +279,31 @@ function ScorePanel({
         isWinner && 'ring-4 ring-brand-500',
       )}
     >
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <span className="flex flex-wrap items-center justify-center gap-2">
         <span className="text-lg font-black text-ink-1">{groupName}</span>
         {isJoker && (
           <span className="rounded-full bg-joker px-2 py-0.5 text-xs font-black text-joker-ink">
             🃏 조커
           </span>
         )}
-      </div>
+      </span>
 
       {players.length > 0 && (
-        <p className="mt-1 truncate text-sm font-medium text-ink-2">{players.join(' · ')}</p>
+        <span className="mt-1 block truncate text-sm font-medium text-ink-2">
+          {players.join(' · ')}
+        </span>
       )}
 
       <output className="tabular mt-2 text-[clamp(4rem,22vw,9rem)] leading-none font-black text-ink-1">
         {score}
       </output>
 
-      <p className="tabular mt-1 text-sm font-bold text-ink-3">
+      <span className="tabular mt-1 block text-sm font-bold text-ink-3">
         목표 {target}점
         {!isWinner && remaining > 0 && remaining <= 3 && (
           <span className="ml-2 text-live">{remaining}점 남음</span>
         )}
-      </p>
+      </span>
 
       {isWinner && (
         <span className="mt-2 rounded-full bg-brand-500 px-3 py-1 text-sm font-black text-white">

@@ -77,9 +77,9 @@ function FullPageSpinner() {
 /** 로그인 확인 + 청크 로딩을 한 번에 감싼다 */
 function Protected({ children }: { children: ReactNode }) {
   return (
-    <Protected>
+    <RequireAuth>
       <Suspense fallback={<FullPageSpinner />}>{children}</Suspense>
-    </Protected>
+    </RequireAuth>
   )
 }
 
