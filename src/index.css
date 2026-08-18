@@ -68,7 +68,13 @@
   }
 }
 
-:root[data-theme='dark'] {
+/*
+ * :root 만이 아니라 어떤 엘리먼트에든 걸리게 한다.
+ * 심판 화면·관전 화면은 페이지 전체 테마와 무관하게 항상 어둡게 둔다
+ * (체육관 조명 아래에서 점수가 가장 잘 읽힌다).
+ */
+:root[data-theme='dark'],
+[data-theme='dark'] {
   --surface-0: oklch(17% 0.012 255);
   --surface-1: oklch(21% 0.014 255);
   --surface-2: oklch(26% 0.016 255);

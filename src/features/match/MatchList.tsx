@@ -108,7 +108,7 @@ function MatchRowBody({ m, iAmReferee }: { m: MatchOverviewRow; iAmReferee: bool
           won={finished && m.winner_side === 'A'}
         />
         <span className="tabular shrink-0 text-lg font-black text-ink-1">
-          {m.score_a} : {m.score_b}
+          {m.score_a ?? 0} : {m.score_b ?? 0}
         </span>
         <TeamLabel
           name={m.group_b_name}

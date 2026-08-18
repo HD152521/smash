@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { useMatchScoring } from '@/features/scoring/useMatchScoring'
 import { finishMatch, startMatch, undoScore } from '@/features/scoring/api'
 import { useWakeLock } from '@/hooks/useWakeLock'
+import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
 import { decideWinner, isMatchPoint, pointsToWin } from '@/lib/rules'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,8 @@ export function MatchScorePage() {
   const m = scoring.match
   const isLive = m?.status === 'live'
   useWakeLock(isLive)
+  // 관리자가 다른 기기에서 경기를 무효 처리하거나 재개할 수 있다
+  useRealtimeMatches(id)
 
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -188,8 +191,8 @@ export function MatchScorePage() {
         {m.status === 'finished' && (
           <div className="flex w-full items-center gap-3">
             <p className="tabular flex-1 text-sm font-bold text-ink-1">
-              {m.winner_side === 'A' ? m.group_a_name : m.group_b_name} 승 · {m.score_a} :{' '}
-              {m.score_b}
+              {m.winner_side === 'A' ? m.group_a_name : m.group_b_name} 승 · {m.score_a ?? 0} :{' '}
+              {m.score_b ?? 0}
             </p>
             {/* 마지막 한 점이 경기를 끝내버린 경우를 위해. 서버가 2분 안쪽만 허용한다. */}
             <Button

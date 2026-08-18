@@ -5,6 +5,7 @@ import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { useGroups, useMatches, useMembers, useTournament } from '@/features/tournament/queries'
 import { MatchList } from '@/features/match/MatchList'
+import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
 import { toUserMessage } from '@/lib/errors'
 import type { TournamentStatus } from '@/types/database'
 
@@ -21,6 +22,7 @@ export function TournamentPage() {
   const groups = useGroups(id)
   const members = useMembers(id)
   const matches = useMatches(id)
+  const realtime = useRealtimeMatches(id)
 
   const me = members.data?.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
@@ -105,7 +107,22 @@ export function TournamentPage() {
       )}
 
       <section className="mt-10">
-        <h2 className="mb-3 text-lg font-bold text-ink-1">경기</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-ink-1">
+            경기
+            {realtime === 'live' && (
+              <span className="ml-2 text-xs font-semibold text-ok">실시간</span>
+            )}
+          </h2>
+          {(matches.data ?? []).some((m) => m.status === 'live') && (
+            <Link
+              to={`/t/${id}/live`}
+              className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-brand-600 hover:bg-surface-2"
+            >
+              관전 화면
+            </Link>
+          )}
+        </div>
         {matches.isPending ? (
           <div className="h-24 animate-pulse rounded-2xl bg-surface-2" aria-busy />
         ) : (
