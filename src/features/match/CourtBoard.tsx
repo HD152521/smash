@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, CircleDot } from 'lucide-react'
+import { ChevronRight, CircleDot, ListOrdered } from 'lucide-react'
 import { LiveBadge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
@@ -41,13 +43,64 @@ export function CourtBoard({
 
   return (
     <div className="flex flex-col gap-3">
-      {courts.map((court) => {
-        const onCourt = matches.filter((m) => m.court_id === court.id)
-        const live = onCourt.find((m) => m.status === 'live')
-        const queued = onCourt.filter((m) => m.status === 'scheduled')
-        const finishedCount = onCourt.filter((m) => m.status === 'finished').length
+      {courts.map((court) => (
+        <CourtCard
+          key={court.id}
+          court={court}
+          matches={matches}
+          tournamentId={tournamentId}
+          myDisplayName={myDisplayName}
+          canScore={canScore}
+        />
+      ))}
 
-        return (
+      {unassigned.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-dashed border-border-subtle">
+          <header className="border-b border-border-subtle px-4 py-2.5">
+            <h3 className="font-bold text-ink-2">코트 미배정</h3>
+          </header>
+          {unassigned.map((m) => (
+            <MatchRow
+              key={m.id}
+              m={m}
+              tournamentId={tournamentId}
+              myDisplayName={myDisplayName}
+              canScore={canScore}
+            />
+          ))}
+        </section>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 코트 하나.
+ *
+ * 대기 경기를 전부 펼쳐 두면 코트가 3~4개일 때 카드가 길어져서
+ * 정작 봐야 할 '지금 몇 대 몇' 이 화면 밖으로 밀린다.
+ * 그래서 대기열은 개수만 보여주고, 누르면 모달에서 골라 들어간다.
+ */
+function CourtCard({
+  court,
+  matches,
+  tournamentId,
+  myDisplayName,
+  canScore,
+}: {
+  court: CourtRow
+  matches: MatchOverviewRow[]
+  tournamentId: string
+  myDisplayName: string | undefined
+  canScore: boolean
+}) {
+  const [queueOpen, setQueueOpen] = useState(false)
+  const onCourt = matches.filter((m) => m.court_id === court.id)
+  const live = onCourt.find((m) => m.status === 'live')
+  const queued = onCourt.filter((m) => m.status === 'scheduled')
+  const finishedCount = onCourt.filter((m) => m.status === 'finished').length
+
+  return (
           <section
             key={court.id}
             className={cn(
@@ -83,41 +136,47 @@ export function CourtBoard({
               <p className="px-4 py-5 text-center text-sm text-ink-3">비어 있음</p>
             )}
 
-            {queued.length > 0 && (
-              <div className="border-t border-border-subtle bg-surface-2/50">
-                <p className="px-4 pt-2.5 text-xs font-bold tracking-wide text-ink-3">다음</p>
-                {queued.map((m) => (
-                  <MatchRow
-                    key={m.id}
-                    m={m}
-                    tournamentId={tournamentId}
-                    myDisplayName={myDisplayName}
-                    canScore={canScore}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        )
-      })}
-
-      {unassigned.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-dashed border-border-subtle">
-          <header className="border-b border-border-subtle px-4 py-2.5">
-            <h3 className="font-bold text-ink-2">코트 미배정</h3>
-          </header>
-          {unassigned.map((m) => (
-            <MatchRow
-              key={m.id}
-              m={m}
-              tournamentId={tournamentId}
-              myDisplayName={myDisplayName}
-              canScore={canScore}
-            />
-          ))}
-        </section>
+      {queued.length > 0 && (
+        <div className="border-t border-border-subtle bg-surface-2/50">
+          <button
+            type="button"
+            onClick={() => setQueueOpen(true)}
+            className="flex min-h-11 w-full items-center gap-2 px-4 py-3 text-left text-sm
+                       font-semibold text-ink-2 transition-colors hover:bg-surface-2
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <ListOrdered className="size-4 shrink-0" aria-hidden />
+            <span className="flex-1">대기 {queued.length}경기</span>
+            <ChevronRight className="size-4 shrink-0 text-ink-3" aria-hidden />
+          </button>
+        </div>
       )}
-    </div>
+
+      <Modal
+        open={queueOpen}
+        onClose={() => setQueueOpen(false)}
+        title={`${court.name} 대기 경기`}
+      >
+        <ul className="flex flex-col gap-2">
+          {queued.map((m) => (
+            <li key={m.id}>
+              <MatchRow
+                m={m}
+                tournamentId={tournamentId}
+                myDisplayName={myDisplayName}
+                canScore={canScore}
+                boxed
+              />
+            </li>
+          ))}
+        </ul>
+        {!canScore && (
+          <p className="mt-3 text-xs text-ink-3">
+            심판으로 지정된 경기만 눌러서 시작할 수 있습니다.
+          </p>
+        )}
+      </Modal>
+    </section>
   )
 }
 
@@ -127,12 +186,15 @@ function MatchRow({
   myDisplayName,
   canScore,
   emphasis = false,
+  boxed = false,
 }: {
   m: MatchOverviewRow
   tournamentId: string
   myDisplayName: string | undefined
   canScore: boolean
   emphasis?: boolean
+  /** 모달 안에서는 목록 행이 아니라 카드로 보여준다 */
+  boxed?: boolean
 }) {
   const iAmReferee = myDisplayName ? Boolean(m.referees?.includes(myDisplayName)) : false
   const clickable = (canScore || iAmReferee) && m.status !== 'void'
@@ -181,7 +243,10 @@ function MatchRow({
   const className = cn(
     'flex items-center gap-3 px-4',
     emphasis ? 'py-4' : 'py-3',
+    boxed && 'min-h-16 rounded-xl border border-border-subtle bg-surface-1',
     clickable && 'transition-colors hover:bg-surface-2',
+    clickable &&
+      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
   )
 
   return clickable ? (
