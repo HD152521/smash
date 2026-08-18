@@ -27,24 +27,34 @@
 
 `.env.local` 을 채웁니다 (`.env.example` 참고).
 
-| 변수 | 언제 | 설명 |
+| 변수 | 언제 | 어디서 |
 |---|---|---|
-| `VITE_SUPABASE_URL` | 지금 | Supabase Project URL |
-| `VITE_SUPABASE_ANON_KEY` | 지금 | anon public key — **공개돼도 안전** |
-| `SUPABASE_SERVICE_ROLE_KEY` | 나중 | 시드 스크립트 전용. **`VITE_` 접두사 절대 금지** |
+| `VITE_SUPABASE_URL` | 지금 | Settings → **Data API** → Project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | 지금 | Settings → **API Keys** → Publishable key (`sb_publishable_…`) |
+| `SUPABASE_SECRET_KEY` | 나중 | Settings → **API Keys** → Secret keys → Reveal (`sb_secret_…`) |
+
+Project Ref (마이그레이션용)는 대시보드 주소창에서 바로 읽습니다:
+`supabase.com/dashboard/project/` **`<이 부분>`**
 
 **두 키의 차이**
 
-| | anon key | service_role key |
+Supabase 가 2025 년에 키 이름을 바꿨습니다. 대시보드에 보이는 새 이름 기준입니다.
+
+| | Publishable key | Secret key |
 |---|---|---|
+| 예전 이름 | `anon` | `service_role` |
+| 접두사 | `sb_publishable_…` | `sb_secret_…` |
 | 쓰는 곳 | 브라우저 (앱 전체) | 로컬 스크립트 (시드) |
-| 권한 | **없음** — RLS 정책이 결정 | **전부** — RLS 무시 |
-| 노출돼도 되나 | 네 (원래 공개용) | **절대 안 됨** |
-| 유출되면 | 아무 일 없음 | 전 대회 데이터 열람·조작·삭제 가능 → 즉시 재발급 |
+| 권한 | **없음** — RLS 정책이 결정 | **전부** — `BYPASSRLS` 로 RLS 무시 |
+| 노출돼도 되나 | 네 (공개 전제로 설계됨) | **절대 안 됨** |
+| 유출되면 | 아무 일 없음 | 전 대회 데이터 열람·조작·삭제 → 즉시 폐기·재발급 |
 
 `VITE_` 가 붙은 값은 빌드 시 브라우저 번들에 문자열로 박힙니다.
-anon key 는 그래도 되도록 설계된 키지만, `service_role` 에 붙이면
+Publishable key 는 그래도 되도록 만들어진 키지만, Secret key 에 붙이면
 사이트 방문자 전원에게 마스터 키를 배포하는 셈이 됩니다.
+
+레거시 `anon`/`service_role` 키도 2026 년 폐지 시한까지는 동작하지만,
+새 프로젝트는 새 키(`sb_…`)를 쓰면 됩니다.
 
 ### 2. OAuth 콘솔 설정
 

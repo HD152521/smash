@@ -6,7 +6,7 @@ import { z } from 'zod'
  */
 const schema = z.object({
   VITE_SUPABASE_URL: z.string().url('VITE_SUPABASE_URL 이 올바른 URL 이 아닙니다'),
-  VITE_SUPABASE_ANON_KEY: z.string().min(20, 'VITE_SUPABASE_ANON_KEY 가 비어 있습니다'),
+  VITE_SUPABASE_PUBLISHABLE_KEY: z.string().min(20, 'VITE_SUPABASE_PUBLISHABLE_KEY 가 비어 있습니다'),
 })
 
 const parsed = schema.safeParse(import.meta.env)
