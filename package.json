@@ -17,7 +17,8 @@
     "db:types": "tsx scripts/gen-types.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:link": "supabase link --project-ref $SUPABASE_PROJECT_REF",
-    "db:verify": "tsx scripts/verify-schema.ts"
+    "db:verify": "tsx scripts/verify-schema.ts",
+    "db:smoke": "tsx scripts/smoke-auth.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
