@@ -45,7 +45,7 @@ export function TournamentSetupPage() {
   const config = tournament.data.config
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-10 pb-28">
+    <main className="mx-auto w-full max-w-2xl px-5 pt-10 pb-40">
       <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">
         {tournament.data.name}
       </p>

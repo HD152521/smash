@@ -96,7 +96,7 @@ export function MatchCreatePage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-28">
+    <main className={cn('mx-auto w-full max-w-2xl px-5 pt-6', ready ? 'pb-40' : 'pb-16')}>
       <Link
         to={`/t/${id}/admin`}
         className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
@@ -197,27 +197,34 @@ export function MatchCreatePage() {
         </p>
       )}
 
-      {/* 하단 고정 요약 + 생성 */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-0/90 px-5 py-4 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
-          <p className="tabular min-w-0 flex-1 truncate text-sm text-ink-2">
-            {ready ? (
-              <>
-                <b className="text-ink-1">{gA?.name}</b>
-                {gA?.is_joker && ' 🃏'} {targetA}점
-                <span className="mx-1.5 text-ink-3">vs</span>
-                <b className="text-ink-1">{gB?.name}</b>
-                {gB?.is_joker && ' 🃏'} {targetB}점
-              </>
-            ) : (
-              `양 팀의 조와 선수 ${squadSize}명씩을 골라주세요`
-            )}
-          </p>
-          <Button size="lg" disabled={!ready} loading={create.isPending} onClick={() => void handleSubmit()}>
-            경기 만들기
-          </Button>
+      {/*
+        요약 바는 편성이 끝났을 때만 띄운다.
+        항상 띄워 두면 폰에서 화면 아래 90px 을 계속 가려서, 그 자리에 온
+        조·선수 버튼을 눌러도 바가 대신 먹는다 (히트 테스트로 확인함).
+        선택 중에는 바에 보여줄 쓸모 있는 정보도 없다.
+      */}
+      {!ready && (
+        <p className="mt-10 rounded-2xl border border-dashed border-border-subtle p-4 text-center text-sm text-ink-3">
+          양 팀의 조와 선수 {squadSize}명씩을 고르면 편성할 수 있습니다
+        </p>
+      )}
+
+      {ready && (
+        <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-0/95 px-5 py-4 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
+            <p className="tabular min-w-0 flex-1 truncate text-sm text-ink-2">
+              <b className="text-ink-1">{gA?.name}</b>
+              {gA?.is_joker && ' 🃏'} {targetA}점
+              <span className="mx-1.5 text-ink-3">vs</span>
+              <b className="text-ink-1">{gB?.name}</b>
+              {gB?.is_joker && ' 🃏'} {targetB}점
+            </p>
+            <Button size="lg" loading={create.isPending} onClick={() => void handleSubmit()}>
+              경기 만들기
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </main>
   )
 }
