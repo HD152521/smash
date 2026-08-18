@@ -37,7 +37,7 @@ export type {
 import type { MatchOverviewRow as _MO, TeamSide } from './database.gen'
 
 // ── 1. jsonb 컬럼의 실제 모양 ────────────────────────────────────────
-export interface TournamentConfig {
+export type TournamentConfig = {
   format: 'doubles' | 'singles'
   /** 일반조 목표 점수 */
   normalPoints: number
@@ -65,7 +65,7 @@ export type ProfileRow = ProfilesRow
 export type { MatchOverviewRow }
 
 // ── 3. RPC 반환 타입 (테이블이 아니라 함수 결과) ─────────────────────
-export interface StandingRow {
+export type StandingRow = {
   group_id: string
   group_name: string
   is_joker: boolean
@@ -81,8 +81,27 @@ export interface StandingRow {
 }
 
 // ── 4. Functions 를 얹은 최종 Database 타입 ──────────────────────────
-export interface Database {
-  public: GeneratedDatabase['public'] & {
+type GenTables = GeneratedDatabase['public']['Tables']
+
+/**
+ * supabase-js 는 public 스키마를 Tables/Views/Functions/Enums/CompositeTypes 로
+ * 정확히 가진 객체 타입으로 기대한다.
+ * 생성물에 `& { Functions: ... }` 를 교집합하면 .rpc() 가 인자를 never 로 추론한다.
+ * 그래서 키를 하나씩 명시적으로 조립한다.
+ */
+export type Database = {
+  public: {
+    Tables: Omit<GenTables, 'tournaments'> & {
+      // config 는 생성기가 Json 으로 뽑지만 실제 모양이 정해져 있다
+      tournaments: {
+        Row: TournamentRow
+        Insert: GenTables['tournaments']['Insert']
+        Update: GenTables['tournaments']['Update']
+        Relationships: []
+      }
+    }
+    Views: GeneratedDatabase['public']['Views']
+    Enums: GeneratedDatabase['public']['Enums']
     Functions: {
       create_tournament: {
         Args: {

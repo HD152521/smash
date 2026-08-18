@@ -117,7 +117,12 @@ async function main() {
   for (const [table, columns] of [...byTable].sort((a, b) => a[0].localeCompare(b[0]))) {
     const isView = columns[0]!.kind === 'v'
     const iface = `${pascal(table)}Row`
-    out.push(`export interface ${iface} {`)
+    // interface 가 아니라 type 으로 뽑는다.
+    // TypeScript 에서 interface 는 암묵적 인덱스 시그니처가 없어
+    // Record<string, unknown> 에 할당되지 않는다.
+    // supabase-js 의 GenericTable.Row 가 그 제약이라, interface 로 뽑으면
+    // 스키마 인식이 통째로 실패하고 .rpc()/.from() 이 조용히 any 가 된다.
+    out.push(`export type ${iface} = {`)
     for (const c of columns) {
       const t = tsType(c.udt_name, enums)
       out.push(`  ${c.column_name}: ${t}${c.is_nullable === 'YES' ? ' | null' : ''}`)
@@ -140,7 +145,7 @@ async function main() {
     }
   }
 
-  out.push('export interface Database {')
+  out.push('export type Database = {')
   out.push('  public: {')
   out.push('    Tables: {')
   out.push(tables.join('\n'))

@@ -13,7 +13,7 @@ export type MemberRole = 'owner' | 'admin' | 'member'
 export type TeamSide = 'A' | 'B'
 export type TournamentStatus = 'draft' | 'live' | 'finished'
 
-export interface AuditLogsRow {
+export type AuditLogsRow = {
   id: number
   tournament_id: string
   actor_id: string | null
@@ -25,7 +25,7 @@ export interface AuditLogsRow {
   created_at: string
 }
 
-export interface CourtsRow {
+export type CourtsRow = {
   id: string
   tournament_id: string
   name: string
@@ -33,7 +33,7 @@ export interface CourtsRow {
   created_at: string
 }
 
-export interface GroupsRow {
+export type GroupsRow = {
   id: string
   tournament_id: string
   name: string
@@ -43,7 +43,7 @@ export interface GroupsRow {
   created_at: string
 }
 
-export interface JoinAttemptsRow {
+export type JoinAttemptsRow = {
   id: number
   user_id: string
   code: string
@@ -51,7 +51,7 @@ export interface JoinAttemptsRow {
   attempted_at: string
 }
 
-export interface MatchOverviewRow {
+export type MatchOverviewRow = {
   id: string | null
   tournament_id: string | null
   court_id: string | null
@@ -79,17 +79,17 @@ export interface MatchOverviewRow {
   referees: string[] | null
 }
 
-export interface MatchRefereesRow {
+export type MatchRefereesRow = {
   match_id: string
   member_id: string
 }
 
-export interface MatchTeamPlayersRow {
+export type MatchTeamPlayersRow = {
   match_team_id: string
   member_id: string
 }
 
-export interface MatchTeamsRow {
+export type MatchTeamsRow = {
   id: string
   match_id: string
   side: TeamSide
@@ -99,7 +99,7 @@ export interface MatchTeamsRow {
   is_joker: boolean
 }
 
-export interface MatchesRow {
+export type MatchesRow = {
   id: string
   tournament_id: string
   court_id: string | null
@@ -118,7 +118,7 @@ export interface MatchesRow {
   updated_at: string
 }
 
-export interface ProfilesRow {
+export type ProfilesRow = {
   id: string
   name: string
   email: string | null
@@ -127,7 +127,7 @@ export interface ProfilesRow {
   updated_at: string
 }
 
-export interface ScoreEventsRow {
+export type ScoreEventsRow = {
   id: number
   match_id: string
   side: TeamSide
@@ -138,7 +138,7 @@ export interface ScoreEventsRow {
   created_at: string
 }
 
-export interface TournamentMembersRow {
+export type TournamentMembersRow = {
   id: string
   tournament_id: string
   user_id: string
@@ -150,7 +150,7 @@ export interface TournamentMembersRow {
   updated_at: string
 }
 
-export interface TournamentsRow {
+export type TournamentsRow = {
   id: string
   name: string
   description: string | null
@@ -162,7 +162,7 @@ export interface TournamentsRow {
   updated_at: string
 }
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       audit_logs: { Row: AuditLogsRow; Insert: Partial<AuditLogsRow> & Pick<AuditLogsRow, 'tournament_id' | 'action' | 'target_type'>; Update: Partial<AuditLogsRow>; Relationships: [] }

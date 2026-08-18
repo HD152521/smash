@@ -4,6 +4,10 @@ import { useAuth } from '@/features/auth/useAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
 import { HomePage } from '@/pages/HomePage'
+import { CreateTournamentPage } from '@/pages/CreateTournamentPage'
+import { JoinTournamentPage } from '@/pages/JoinTournamentPage'
+import { MyTournamentsPage } from '@/pages/MyTournamentsPage'
+import { TournamentPage } from '@/pages/TournamentPage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
@@ -32,6 +36,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+
       <Route
         path="/"
         element={
@@ -40,6 +45,39 @@ export function AppRoutes() {
           </RequireAuth>
         }
       />
+      <Route
+        path="/new"
+        element={
+          <RequireAuth>
+            <CreateTournamentPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/join"
+        element={
+          <RequireAuth>
+            <JoinTournamentPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/my"
+        element={
+          <RequireAuth>
+            <MyTournamentsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/t/:id"
+        element={
+          <RequireAuth>
+            <TournamentPage />
+          </RequireAuth>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
