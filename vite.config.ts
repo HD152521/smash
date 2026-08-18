@@ -9,6 +9,31 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: { port: 5173 },
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * 벤더 코드를 앱 코드와 분리한다.
+         *
+         * 총 바이트가 줄지는 않지만 두 가지가 좋아진다:
+         *  · 앱을 배포해도 벤더 청크는 캐시가 살아 있다 (대회 중 재배포해도
+         *    참가자 폰이 React 를 다시 받지 않는다)
+         *  · 첫 방문에 병렬로 내려받는다
+         */
+        // Rolldown 은 객체가 아니라 함수를 받는다
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined
+          if (/[\/]node_modules[\/](react|react-dom|react-router|scheduler)[\/]/.test(id))
+            return 'react'
+          if (id.includes('@supabase')) return 'supabase'
+          if (id.includes('@tanstack')) return 'query'
+          return 'vendor'
+        },
+      },
+    },
+    // 벤더를 나눈 뒤 남는 청크 기준. 이보다 커지면 다시 들여다볼 신호다.
+    chunkSizeWarningLimit: 300,
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
