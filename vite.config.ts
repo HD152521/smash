@@ -19,14 +19,24 @@ export default defineConfig({
          *  · 앱을 배포해도 벤더 청크는 캐시가 살아 있다 (대회 중 재배포해도
          *    참가자 폰이 React 를 다시 받지 않는다)
          *  · 첫 방문에 병렬로 내려받는다
+         *
+         * ⚠ Rolldown 은 manualChunks 를 객체가 아니라 함수로 받는다.
+         *   객체로 쓰면 'manualChunks is not a function' 으로 빌드가 깨진다.
          */
-        // Rolldown 은 객체가 아니라 함수를 받는다
         manualChunks(id: string) {
           if (!id.includes('node_modules')) return undefined
-          if (/[\/]node_modules[\/](react|react-dom|react-router|scheduler)[\/]/.test(id))
+          // 윈도우는 경로 구분자가 역슬래시라 먼저 통일한다
+          const path = id.split('\\').join('/')
+          if (
+            path.includes('/node_modules/react/') ||
+            path.includes('/node_modules/react-dom/') ||
+            path.includes('/node_modules/react-router') ||
+            path.includes('/node_modules/scheduler/')
+          ) {
             return 'react'
-          if (id.includes('@supabase')) return 'supabase'
-          if (id.includes('@tanstack')) return 'query'
+          }
+          if (path.includes('@supabase')) return 'supabase'
+          if (path.includes('@tanstack')) return 'query'
           return 'vendor'
         },
       },
