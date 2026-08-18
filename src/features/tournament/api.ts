@@ -329,3 +329,9 @@ export async function fetchAuditLog(tournamentId: string, limit = 100): Promise<
     .limit(limit)
   return unwrap(res) as unknown as AuditEntry[]
 }
+
+/** 코트 순서를 한 칸 위(-1) 또는 아래(1)로 옮긴다 */
+export async function moveCourt(courtId: string, direction: -1 | 1): Promise<CourtRow[]> {
+  const res = await supabase.rpc('move_court', { p_court_id: courtId, p_direction: direction })
+  return unwrap(res) as unknown as CourtRow[]
+}

@@ -149,6 +149,10 @@ export type Database = {
         }
         Returns: MatchRow
       }
+      move_court: {
+        Args: { p_court_id: string; p_direction: number }
+        Returns: CourtRow[]
+      }
       void_match: {
         Args: { p_match_id: string; p_reason?: string | null }
         Returns: MatchRow

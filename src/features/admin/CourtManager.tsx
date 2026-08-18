@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { LiveBadge } from '@/components/ui/Badge'
 import { toUserMessage } from '@/lib/errors'
-import { useCreateCourt, useDeleteCourt } from '@/features/tournament/queries'
+import { cn } from '@/lib/utils'
+import { useCreateCourt, useDeleteCourt, useMoveCourt } from '@/features/tournament/queries'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
 interface CourtManagerProps {
@@ -22,7 +23,8 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
   const [name, setName] = useState('')
   const create = useCreateCourt(tournamentId)
   const remove = useDeleteCourt(tournamentId)
-  const error = create.error ?? remove.error
+  const move = useMoveCourt(tournamentId)
+  const error = create.error ?? remove.error ?? move.error
 
   function handleAdd(e: FormEvent) {
     e.preventDefault()
@@ -39,7 +41,9 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
   return (
     <section>
       <h2 className="text-lg font-bold text-ink-1">코트 {courts.length}개</h2>
-      <p className="mt-1 text-sm text-ink-2">경기를 편성할 때 코트를 고릅니다.</p>
+      <p className="mt-1 text-sm text-ink-2">
+        경기를 편성할 때 고릅니다. 화살표로 순서를 실제 배치에 맞추세요.
+      </p>
 
       {error && (
         <p role="alert" className="mt-3 text-sm font-medium text-team-b">
@@ -49,7 +53,7 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
 
       {courts.length > 0 && (
         <ul className="mt-4 flex flex-col gap-2">
-          {courts.map((c) => {
+          {courts.map((c, i) => {
             const live = liveMatchOn(c.id)
             return (
               <li
@@ -68,19 +72,35 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  // 경기가 도는 코트를 지우면 진행 중인 경기가 코트를 잃는다
-                  disabled={Boolean(live) || remove.isPending}
-                  onClick={() => remove.mutate(c.id)}
-                  aria-label={`${c.name} 삭제`}
-                  title={live ? '경기가 진행 중인 코트는 지울 수 없습니다' : undefined}
-                  className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-3
-                             transition-colors hover:bg-team-b/10 hover:text-team-b
-                             disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-                >
-                  <Trash2 className="size-4" aria-hidden />
-                </button>
+                <div className="flex shrink-0 items-center">
+                  {/* 코트 번호는 물리적 배치를 따른다. 나중에 추가한 코트를
+                      지우고 다시 만들면 그 코트의 경기 기록이 코트를 잃으므로,
+                      순서만 맞바꾼다. */}
+                  <IconButton
+                    label={`${c.name} 위로`}
+                    disabled={i === 0 || move.isPending}
+                    onClick={() => move.mutate({ courtId: c.id, direction: -1 })}
+                  >
+                    <ChevronUp className="size-4" aria-hidden />
+                  </IconButton>
+                  <IconButton
+                    label={`${c.name} 아래로`}
+                    disabled={i === courts.length - 1 || move.isPending}
+                    onClick={() => move.mutate({ courtId: c.id, direction: 1 })}
+                  >
+                    <ChevronDown className="size-4" aria-hidden />
+                  </IconButton>
+                  <IconButton
+                    label={`${c.name} 삭제`}
+                    // 경기가 도는 코트를 지우면 진행 중인 경기가 코트를 잃는다
+                    disabled={Boolean(live) || remove.isPending}
+                    title={live ? '경기가 진행 중인 코트는 지울 수 없습니다' : undefined}
+                    onClick={() => remove.mutate(c.id)}
+                    danger
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </IconButton>
+                </div>
               </li>
             )
           })}
@@ -109,5 +129,38 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
         </Button>
       </form>
     </section>
+  )
+}
+
+function IconButton({
+  label,
+  disabled,
+  onClick,
+  title,
+  danger = false,
+  children,
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+  title?: string
+  danger?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={title}
+      className={cn(
+        'grid size-9 place-items-center rounded-lg text-ink-3 transition-colors',
+        'disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent',
+        danger ? 'hover:bg-team-b/10 hover:text-team-b' : 'hover:bg-surface-2 hover:text-ink-1',
+      )}
+    >
+      {children}
+    </button>
   )
 }

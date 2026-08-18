@@ -1,5 +1,14 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Gavel, History, Settings, Sliders, Trophy } from 'lucide-react'
+import {
+  ArrowLeft,
+  ChevronRight,
+  Gavel,
+  History,
+  Settings,
+  Sliders,
+  Trophy,
+  Users,
+} from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
@@ -123,6 +132,15 @@ export function TournamentPage() {
 
       {/* ── 다른 화면으로 ─────────────────────────────────────────── */}
       <nav className="mt-8 flex flex-col gap-2.5" aria-label="대회 메뉴">
+        {/* 관리자는 이 화면에서 관리로 넘어가는 일이 가장 잦다. 맨 위에 둔다. */}
+        {isAdmin && (
+          <NavCard
+            to={`/t/${id}/admin`}
+            icon={<Sliders className="size-5" aria-hidden />}
+            title="대회 관리"
+            desc="멤버 · 코트 · 경기 편성 · 초대 코드"
+          />
+        )}
         <NavCard
           to={`/t/${id}/referee`}
           icon={<Gavel className="size-5" aria-hidden />}
@@ -130,6 +148,12 @@ export function TournamentPage() {
           desc="내가 맡은 경기를 채점합니다"
           badge={myRefereeCount > 0 ? `${myRefereeCount}경기` : undefined}
           accent={myRefereeCount > 0}
+        />
+        <NavCard
+          to={`/t/${id}/members`}
+          icon={<Users className="size-5" aria-hidden />}
+          title="참가자"
+          desc="조별로 누가 있는지"
         />
         <NavCard
           to={`/t/${id}/records`}
@@ -143,14 +167,6 @@ export function TournamentPage() {
           title="조별 순위"
           desc="승점 · 승패 · 득실차"
         />
-        {isAdmin && (
-          <NavCard
-            to={`/t/${id}/admin`}
-            icon={<Sliders className="size-5" aria-hidden />}
-            title="대회 관리"
-            desc="멤버 · 코트 · 경기 편성 · 초대 코드"
-          />
-        )}
       </nav>
     </Shell>
   )

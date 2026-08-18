@@ -85,7 +85,10 @@ try {
   const owner = await makeUser(db, 'owner', '주최자')
   const attacker = await makeUser(db, 'admin', '악의적관리자')
   const player = await makeUser(db, 'player', '일반참가자')
-  emails.push(owner.email, attacker.email, player.email)
+  // player 는 뒤에서 '정상 임명' 검증 때 admin 으로 승진한다.
+  // 그래서 끝까지 일반 참가자로 남을 계정을 따로 둔다.
+  const bystander = await makeUser(db, 'bystander', '순수참가자')
+  emails.push(owner.email, attacker.email, player.email, bystander.email)
 
   const created = await api(owner.token, 'rpc/create_tournament', {
     method: 'POST',
@@ -99,7 +102,7 @@ try {
   })
   const t = created.body as unknown as { id: string; invite_code: string }
 
-  for (const u of [attacker, player]) {
+  for (const u of [attacker, player, bystander]) {
     await api(u.token, 'rpc/join_tournament', {
       method: 'POST',
       body: JSON.stringify({ p_code: t.invite_code }),
@@ -230,6 +233,52 @@ try {
     [t.id],
   )
   check('무효 처리가 감사 로그에 남는다', Number(auditRows[0]!.n) === 1)
+
+  console.log('\n── 코트 관리 권한 ──')
+  const { rows: courtRows } = await db.query<{ id: string }>(
+    `insert into courts (tournament_id, name, sort_order) values ($1,'1번 코트',1),($1,'2번 코트',2)
+     returning id`,
+    [t.id],
+  )
+  // ⚠ PostgREST 는 RLS 로 0행이 걸러져도 삭제 성공 코드를 준다.
+  //   상태 코드가 아니라 실제로 지워졌는지를 봐야 한다.
+  const delCourt = await api(bystander.token, `courts?id=eq.${courtRows[0]!.id}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=representation' },
+  })
+  const { rowCount: courtsLeft } = await db.query(`select 1 from courts where tournament_id=$1`, [
+    t.id,
+  ])
+  check(
+    '일반 참가자는 코트를 지울 수 없다',
+    courtsLeft === 2,
+    `남은 코트 ${courtsLeft}개 (응답 ${delCourt.status})`,
+  )
+
+  const moveByPlayer = await api(bystander.token, 'rpc/move_court', {
+    method: 'POST',
+    body: JSON.stringify({ p_court_id: courtRows[1]!.id, p_direction: -1 }),
+  })
+  check(
+    '일반 참가자는 코트 순서를 바꿀 수 없다',
+    moveByPlayer.status >= 400,
+    `status=${moveByPlayer.status}`,
+  )
+
+  const moveByAdmin = await api(attacker.token, 'rpc/move_court', {
+    method: 'POST',
+    body: JSON.stringify({ p_court_id: courtRows[1]!.id, p_direction: -1 }),
+  })
+  const { rows: order } = await db.query<{ name: string }>(
+    `select name from courts where tournament_id=$1 order by sort_order`,
+    [t.id],
+  )
+  check(
+    '관리자는 코트 순서를 바꿀 수 있다 (과잉 차단 아님)',
+    moveByAdmin.status === 200 && order[0]!.name === '2번 코트',
+    `순서: ${order.map((o) => o.name).join(' → ')}`,
+  )
+
 
   console.log('\n── M-2. 경기 이력 소거 ──')
   await db.query(

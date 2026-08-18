@@ -14,6 +14,7 @@ import {
   deleteCourt,
   voidMatch,
   fetchCourts,
+  moveCourt,
   fetchMatches,
   fetchStandings,
   fetchAuditLog,
@@ -235,5 +236,14 @@ export function useAuditLog(tournamentId: string | undefined) {
     queryKey: ['tournaments', tournamentId, 'audit'],
     queryFn: () => fetchAuditLog(tournamentId!),
     enabled: Boolean(tournamentId),
+  })
+}
+
+export function useMoveCourt(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ courtId, direction }: { courtId: string; direction: -1 | 1 }) =>
+      moveCourt(courtId, direction),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
   })
 }
