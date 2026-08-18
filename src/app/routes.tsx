@@ -12,6 +12,7 @@ import { TournamentSetupPage } from '@/pages/TournamentSetupPage'
 import { TournamentSettingsPage } from '@/pages/TournamentSettingsPage'
 import { TournamentAdminPage } from '@/pages/TournamentAdminPage'
 import { MatchCreatePage } from '@/pages/MatchCreatePage'
+import { MatchScorePage } from '@/pages/MatchScorePage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
@@ -111,6 +112,15 @@ export function AppRoutes() {
         element={
           <RequireAuth>
             <MatchCreatePage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/t/:id/matches/:matchId"
+        element={
+          <RequireAuth>
+            <MatchScorePage />
           </RequireAuth>
         }
       />

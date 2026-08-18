@@ -20,7 +20,8 @@
     "db:verify": "tsx scripts/verify-schema.ts",
     "db:smoke": "tsx scripts/smoke-auth.ts",
     "db:confirm": "tsx scripts/confirm-emails.ts",
-    "db:smoke:security": "tsx scripts/smoke-security.ts"
+    "db:smoke:security": "tsx scripts/smoke-security.ts",
+    "db:smoke:match": "tsx scripts/smoke-match.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

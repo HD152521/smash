@@ -3,7 +3,8 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, Settings, Sliders, Users } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
-import { useGroups, useMembers, useTournament } from '@/features/tournament/queries'
+import { useGroups, useMatches, useMembers, useTournament } from '@/features/tournament/queries'
+import { MatchList } from '@/features/match/MatchList'
 import { toUserMessage } from '@/lib/errors'
 import type { TournamentStatus } from '@/types/database'
 
@@ -19,6 +20,7 @@ export function TournamentPage() {
   const tournament = useTournament(id)
   const groups = useGroups(id)
   const members = useMembers(id)
+  const matches = useMatches(id)
 
   const me = members.data?.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
@@ -102,8 +104,22 @@ export function TournamentPage() {
         </p>
       )}
 
-      <section className="mt-12 rounded-2xl border border-dashed border-border-subtle p-6 text-center">
-        <p className="text-sm text-ink-2">경기 현황 · 대진표 · 순위표는 다음 단계에서 붙습니다.</p>
+      <section className="mt-10">
+        <h2 className="mb-3 text-lg font-bold text-ink-1">경기</h2>
+        {matches.isPending ? (
+          <div className="h-24 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+        ) : (
+          <MatchList
+            tournamentId={id!}
+            matches={matches.data ?? []}
+            myDisplayName={me?.displayName}
+            canScore={isAdmin}
+          />
+        )}
+      </section>
+
+      <section className="mt-10 rounded-2xl border border-dashed border-border-subtle p-6 text-center">
+        <p className="text-sm text-ink-2">순위표는 다음 단계에서 붙습니다.</p>
       </section>
     </Shell>
   )
