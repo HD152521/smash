@@ -22,7 +22,9 @@
     "db:confirm": "tsx scripts/confirm-emails.ts",
     "db:smoke:security": "tsx scripts/smoke-security.ts",
     "db:smoke:match": "tsx scripts/smoke-match.ts",
-    "demo:live": "tsx scripts/demo-live.ts"
+    "demo:live": "tsx scripts/demo-live.ts",
+    "check:csp": "tsx scripts/check-csp.ts",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run check:csp && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

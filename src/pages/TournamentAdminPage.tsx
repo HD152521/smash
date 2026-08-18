@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Play, RefreshCw, ScrollText, Square } from 'lucide-react'
+import { ArrowLeft, Monitor, Play, RefreshCw, ScrollText, Square } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { MemberManager } from '@/features/admin/MemberManager'
@@ -151,6 +151,20 @@ export function TournamentAdminPage() {
           <span aria-hidden className="text-2xl">
             →
           </span>
+        </Link>
+      </section>
+
+      <section className="mt-4">
+        <Link
+          to={`/t/${id}/live`}
+          className="flex items-center justify-between rounded-2xl border border-border-subtle
+                     bg-surface-1 p-4 transition-colors hover:bg-surface-2"
+        >
+          <span className="flex items-center gap-2 font-semibold text-ink-1">
+            <Monitor className="size-4 text-ink-2" aria-hidden />
+            관전 화면
+          </span>
+          <span className="text-sm text-ink-3">코트 옆 태블릿·TV 용</span>
         </Link>
       </section>
 

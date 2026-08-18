@@ -1,20 +1,56 @@
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import type { ReactNode } from 'react'
 import { useAuth } from '@/features/auth/useAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
 import { HomePage } from '@/pages/HomePage'
-import { CreateTournamentPage } from '@/pages/CreateTournamentPage'
-import { JoinTournamentPage } from '@/pages/JoinTournamentPage'
-import { MyTournamentsPage } from '@/pages/MyTournamentsPage'
-import { TournamentPage } from '@/pages/TournamentPage'
-import { TournamentSetupPage } from '@/pages/TournamentSetupPage'
-import { TournamentSettingsPage } from '@/pages/TournamentSettingsPage'
-import { TournamentAdminPage } from '@/pages/TournamentAdminPage'
-import { MatchCreatePage } from '@/pages/MatchCreatePage'
-import { MatchScorePage } from '@/pages/MatchScorePage'
-import { LiveBoardPage } from '@/pages/LiveBoardPage'
-import { AuditLogPage } from '@/pages/AuditLogPage'
+
+/**
+ * 관리자·심판 화면은 라우트 단위로 나눠 받는다.
+ *
+ * 참가자 대부분은 대회에 들어와 점수만 보고 나간다. 그 사람들이 경기 편성
+ * 화면이나 감사 로그 코드까지 내려받을 이유가 없다.
+ * 체육관 회선이 느릴수록 첫 화면이 빨리 뜨는 게 중요하다.
+ */
+const CreateTournamentPage = lazy(() =>
+  import('@/pages/CreateTournamentPage').then((m) => ({ default: m.CreateTournamentPage })),
+)
+const JoinTournamentPage = lazy(() =>
+  import('@/pages/JoinTournamentPage').then((m) => ({ default: m.JoinTournamentPage })),
+)
+const MyTournamentsPage = lazy(() =>
+  import('@/pages/MyTournamentsPage').then((m) => ({ default: m.MyTournamentsPage })),
+)
+const TournamentPage = lazy(() =>
+  import('@/pages/TournamentPage').then((m) => ({ default: m.TournamentPage })),
+)
+const TournamentSetupPage = lazy(() =>
+  import('@/pages/TournamentSetupPage').then((m) => ({ default: m.TournamentSetupPage })),
+)
+const TournamentSettingsPage = lazy(() =>
+  import('@/pages/TournamentSettingsPage').then((m) => ({ default: m.TournamentSettingsPage })),
+)
+const TournamentAdminPage = lazy(() =>
+  import('@/pages/TournamentAdminPage').then((m) => ({ default: m.TournamentAdminPage })),
+)
+const MatchCreatePage = lazy(() =>
+  import('@/pages/MatchCreatePage').then((m) => ({ default: m.MatchCreatePage })),
+)
+const MatchScorePage = lazy(() =>
+  import('@/pages/MatchScorePage').then((m) => ({ default: m.MatchScorePage })),
+)
+const LiveBoardPage = lazy(() =>
+  import('@/pages/LiveBoardPage').then((m) => ({ default: m.LiveBoardPage })),
+)
+const RefereePage = lazy(() =>
+  import('@/pages/RefereePage').then((m) => ({ default: m.RefereePage })),
+)
+const StandingsPage = lazy(() =>
+  import('@/pages/StandingsPage').then((m) => ({ default: m.StandingsPage })),
+)
+const AuditLogPage = lazy(() =>
+  import('@/pages/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
+)
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
@@ -38,6 +74,15 @@ function FullPageSpinner() {
   )
 }
 
+/** 로그인 확인 + 청크 로딩을 한 번에 감싼다 */
+function Protected({ children }: { children: ReactNode }) {
+  return (
+    <Protected>
+      <Suspense fallback={<FullPageSpinner />}>{children}</Suspense>
+    </Protected>
+  )
+}
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -55,93 +100,110 @@ export function AppRoutes() {
       <Route
         path="/new"
         element={
-          <RequireAuth>
+          <Protected>
             <CreateTournamentPage />
-          </RequireAuth>
+          </Protected>
         }
       />
       <Route
         path="/join"
         element={
-          <RequireAuth>
+          <Protected>
             <JoinTournamentPage />
-          </RequireAuth>
+          </Protected>
         }
       />
       <Route
         path="/my"
         element={
-          <RequireAuth>
+          <Protected>
             <MyTournamentsPage />
-          </RequireAuth>
+          </Protected>
         }
       />
       <Route
         path="/t/:id"
         element={
-          <RequireAuth>
+          <Protected>
             <TournamentPage />
-          </RequireAuth>
+          </Protected>
         }
       />
       <Route
         path="/t/:id/setup"
         element={
-          <RequireAuth>
+          <Protected>
             <TournamentSetupPage />
-          </RequireAuth>
+          </Protected>
         }
       />
       <Route
         path="/t/:id/settings"
         element={
-          <RequireAuth>
+          <Protected>
             <TournamentSettingsPage />
-          </RequireAuth>
+          </Protected>
         }
       />
 
       <Route
         path="/t/:id/admin"
         element={
-          <RequireAuth>
+          <Protected>
             <TournamentAdminPage />
-          </RequireAuth>
+          </Protected>
         }
       />
       <Route
         path="/t/:id/matches/new"
         element={
-          <RequireAuth>
+          <Protected>
             <MatchCreatePage />
-          </RequireAuth>
+          </Protected>
         }
       />
 
       <Route
         path="/t/:id/matches/:matchId"
         element={
-          <RequireAuth>
+          <Protected>
             <MatchScorePage />
-          </RequireAuth>
+          </Protected>
         }
       />
 
       <Route
         path="/t/:id/live"
         element={
-          <RequireAuth>
+          <Protected>
             <LiveBoardPage />
-          </RequireAuth>
+          </Protected>
         }
       />
 
       <Route
         path="/t/:id/audit"
         element={
-          <RequireAuth>
+          <Protected>
             <AuditLogPage />
-          </RequireAuth>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/t/:id/referee"
+        element={
+          <Protected>
+            <RefereePage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/standings"
+        element={
+          <Protected>
+            <StandingsPage />
+          </Protected>
         }
       />
 
