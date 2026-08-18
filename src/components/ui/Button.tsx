@@ -16,7 +16,8 @@ const variants: Record<Variant, string> = {
   secondary:
     'bg-surface-1 text-ink-1 border border-border-subtle hover:bg-surface-2 active:bg-surface-2 focus-visible:outline-brand-600',
   ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-brand-600',
-  danger: 'bg-team-b text-white hover:brightness-95 active:brightness-90 focus-visible:outline-team-b',
+  danger:
+    'bg-team-b text-white hover:brightness-95 active:brightness-90 focus-visible:outline-team-b',
 }
 
 // 체육관에서 폰으로 누른다. 최소 44px 는 접근성 권고이자 실전 요구사항이다.

@@ -2,7 +2,9 @@ import { describe, expect, test } from 'vitest'
 import { extractHeadToHead, formatPoints, sortStandings, type HeadToHead } from './standings'
 import type { StandingRow } from '@/types/database'
 
-function row(over: Partial<StandingRow> & Pick<StandingRow, 'group_id' | 'sort_order'>): StandingRow {
+function row(
+  over: Partial<StandingRow> & Pick<StandingRow, 'group_id' | 'sort_order'>,
+): StandingRow {
   return {
     group_name: `${over.sort_order}조`,
     is_joker: false,

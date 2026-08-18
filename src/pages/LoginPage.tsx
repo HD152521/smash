@@ -50,16 +50,14 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <header className="mb-8">
           <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">
-            Badminton Cup
+            SMASH
           </p>
           <h1 className="mt-1 text-4xl leading-tight font-black tracking-tight text-ink-1">
             코트에서
             <br />
             바로 쓰는 대회 운영
           </h1>
-          <p className="mt-3 text-sm text-ink-2">
-            대진표, 실시간 점수, 조별 순위를 한곳에서.
-          </p>
+          <p className="mt-3 text-sm text-ink-2">대진표, 실시간 점수, 조별 순위를 한곳에서.</p>
         </header>
 
         <div className="flex flex-col gap-2.5">

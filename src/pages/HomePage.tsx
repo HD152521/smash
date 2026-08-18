@@ -11,15 +11,13 @@ import { useAuth } from '@/features/auth/useAuth'
 export function HomePage() {
   const { user, signOut } = useAuth()
   const displayName =
-    (user?.user_metadata?.['name'] as string | undefined) ??
-    user?.email?.split('@')[0] ??
-    '참가자'
+    (user?.user_metadata?.['name'] as string | undefined) ?? user?.email?.split('@')[0] ?? '참가자'
 
   return (
     <div className="min-h-dvh">
       <header className="flex items-center justify-between px-5 pt-6 pb-2">
         <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">
-          Badminton Cup
+          SMASH
         </p>
         <Button size="sm" variant="ghost" onClick={() => void signOut()}>
           로그아웃

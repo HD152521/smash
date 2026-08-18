@@ -49,9 +49,7 @@ export function JokerBadge({
     <Badge tone="joker" className={className}>
       <span aria-hidden>🃏</span>
       조커
-      {targetScore !== undefined && (
-        <span className="tabular font-bold">· {targetScore}점</span>
-      )}
+      {targetScore !== undefined && <span className="tabular font-bold">· {targetScore}점</span>}
     </Badge>
   )
 }
@@ -59,10 +57,7 @@ export function JokerBadge({
 export function LiveBadge({ className }: { className?: string }) {
   return (
     <Badge tone="live" className={className}>
-      <span
-        aria-hidden
-        className="size-1.5 animate-pulse rounded-full bg-live"
-      />
+      <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-live" />
       진행중
     </Badge>
   )

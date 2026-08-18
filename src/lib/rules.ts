@@ -53,11 +53,7 @@ export function projectScore(events: readonly ScoreEvent[]): MatchScore {
  * 양쪽이 동시에 목표에 닿는 일은 +1 씩 오르는 한 생기지 않지만,
  * 관리자가 점수를 수기로 넣는 경로가 있으므로 A 를 우선으로 결정한다.
  */
-export function decideWinner(
-  score: MatchScore,
-  targetA: number,
-  targetB: number,
-): TeamSide | null {
+export function decideWinner(score: MatchScore, targetA: number, targetB: number): TeamSide | null {
   if (score.a >= targetA) return 'A'
   if (score.b >= targetB) return 'B'
   return null
