@@ -47,9 +47,7 @@ export function StandingsPage() {
         )}
       </div>
 
-      <p className="mt-4 text-xs text-ink-3">
-        승점 → 승자승 → 득실차 → 총득점 순으로 정렬합니다.
-      </p>
+      <p className="mt-4 text-xs text-ink-3">승점 → 승자승 → 득실차 → 총득점 순으로 정렬합니다.</p>
     </main>
   )
 }

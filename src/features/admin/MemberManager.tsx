@@ -14,12 +14,7 @@ interface MemberManagerProps {
   myMemberId: string | undefined
 }
 
-export function MemberManager({
-  tournamentId,
-  members,
-  groups,
-  myMemberId,
-}: MemberManagerProps) {
+export function MemberManager({ tournamentId, members, groups, myMemberId }: MemberManagerProps) {
   const setRole = useSetMemberRole(tournamentId)
   const setGroup = useSetMemberGroup(tournamentId)
   const error = setRole.error ?? setGroup.error
@@ -120,9 +115,7 @@ export function MemberManager({
                 </button>
               )}
 
-              {group?.is_joker && (
-                <span className="sr-only">{group.name}는 조커조입니다</span>
-              )}
+              {group?.is_joker && <span className="sr-only">{group.name}는 조커조입니다</span>}
             </li>
           )
         })}

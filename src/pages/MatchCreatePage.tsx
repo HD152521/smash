@@ -82,8 +82,13 @@ export function MatchCreatePage() {
   const nA = Number(scoreA)
   const nB = Number(scoreB)
   const scoresValid =
-    scoreA !== '' && scoreB !== '' && Number.isInteger(nA) && Number.isInteger(nB) &&
-    nA >= 0 && nB >= 0 && nA !== nB
+    scoreA !== '' &&
+    scoreB !== '' &&
+    Number.isInteger(nA) &&
+    Number.isInteger(nB) &&
+    nA >= 0 &&
+    nB >= 0 &&
+    nA !== nB
   const ready = mode === 'schedule' ? teamsReady : teamsReady && scoresValid
 
   function togglePlayer(side: 'A' | 'B', memberId: string) {
@@ -138,7 +143,11 @@ export function MatchCreatePage() {
         {mode === 'schedule' ? '경기 편성' : '지난 결과 입력'}
       </h1>
 
-      <div role="group" aria-label="편성 방식" className="mt-4 flex rounded-xl border border-border-subtle p-1">
+      <div
+        role="group"
+        aria-label="편성 방식"
+        className="mt-4 flex rounded-xl border border-border-subtle p-1"
+      >
         {(['schedule', 'manual'] as const).map((v) => (
           <button
             key={v}
@@ -168,7 +177,11 @@ export function MatchCreatePage() {
         {courts.data && courts.data.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {courts.data.map((c) => (
-              <Chip key={c.id} active={courtId === c.id} onClick={() => setCourtId(c.id === courtId ? '' : c.id)}>
+              <Chip
+                key={c.id}
+                active={courtId === c.id}
+                onClick={() => setCourtId(c.id === courtId ? '' : c.id)}
+              >
                 {c.name}
               </Chip>
             ))}
@@ -285,8 +298,7 @@ export function MatchCreatePage() {
           <div className="mx-auto flex w-full max-w-2xl items-center gap-3">
             <p className="tabular min-w-0 flex-1 truncate text-sm text-ink-2">
               <b className="text-ink-1">{gA?.name}</b>
-              {gA?.is_joker && ' 🃏'} {targetA}점
-              <span className="mx-1.5 text-ink-3">vs</span>
+              {gA?.is_joker && ' 🃏'} {targetA}점<span className="mx-1.5 text-ink-3">vs</span>
               <b className="text-ink-1">{gB?.name}</b>
               {gB?.is_joker && ' 🃏'} {targetB}점
             </p>

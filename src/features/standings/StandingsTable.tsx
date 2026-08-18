@@ -34,9 +34,7 @@ export function StandingsTable({ standings, matches, myGroupId }: StandingsTable
   return (
     <div className="overflow-x-auto rounded-2xl border border-border-subtle">
       <table className="w-full min-w-[26rem] border-collapse text-sm">
-        <caption className="sr-only">
-          조별 순위 — 승점, 승자승, 득실차, 총득점 순으로 정렬
-        </caption>
+        <caption className="sr-only">조별 순위 — 승점, 승자승, 득실차, 총득점 순으로 정렬</caption>
         <thead>
           <tr className="bg-surface-2 text-xs font-bold text-ink-2">
             <th scope="col" className="px-3 py-2.5 text-left">
@@ -79,7 +77,9 @@ export function StandingsTable({ standings, matches, myGroupId }: StandingsTable
                     {r.is_joker && <span aria-hidden>🃏 </span>}
                     {r.group_name}
                   </span>
-                  {mine && <span className="ml-1.5 text-xs font-semibold text-brand-600">내 조</span>}
+                  {mine && (
+                    <span className="ml-1.5 text-xs font-semibold text-brand-600">내 조</span>
+                  )}
                 </td>
                 <td className="tabular px-2 py-3 text-right text-ink-2">{r.played}</td>
                 <td className="tabular px-2 py-3 text-right font-semibold text-ink-1">{r.wins}</td>

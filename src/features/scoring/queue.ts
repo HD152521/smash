@@ -78,10 +78,7 @@ export function saveQueue(matchId: string, items: PendingScore[], storage: Queue
   }
 }
 
-export function enqueue(
-  queue: readonly PendingScore[],
-  item: PendingScore,
-): PendingScore[] {
+export function enqueue(queue: readonly PendingScore[], item: PendingScore): PendingScore[] {
   // 같은 멱등키가 이미 있으면 중복으로 넣지 않는다
   if (queue.some((q) => q.clientEventId === item.clientEventId)) return [...queue]
   return [...queue, item].slice(-MAX_QUEUE)

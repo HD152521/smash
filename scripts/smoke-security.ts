@@ -162,26 +162,37 @@ try {
     method: 'POST',
     body: JSON.stringify({ p_member_id: playerMember.id, p_role: 'admin' }),
   })
-  check('정상적인 관리자 임명은 여전히 된다 (과잉 차단 아님)', rpcLegit.status === 200,
-    `status=${rpcLegit.status}`)
+  check(
+    '정상적인 관리자 임명은 여전히 된다 (과잉 차단 아님)',
+    rpcLegit.status === 200,
+    `status=${rpcLegit.status}`,
+  )
 
   console.log('\n── H-3. 경기 결과 조작 ──')
   const { rows: groups } = await db.query<{ id: string }>(
-    `select id from groups where tournament_id=$1 order by sort_order`, [t.id])
-  await db.query(`update tournament_members set group_id=$1 where id = any($2)`,
-    [groups[0]!.id, [ownerMember.id, playerMember.id]])
-  await db.query(`update tournament_members set group_id=$1 where id=$2`,
-    [groups[1]!.id, attackerMember.id])
+    `select id from groups where tournament_id=$1 order by sort_order`,
+    [t.id],
+  )
+  await db.query(`update tournament_members set group_id=$1 where id = any($2)`, [
+    groups[0]!.id,
+    [ownerMember.id, playerMember.id],
+  ])
+  await db.query(`update tournament_members set group_id=$1 where id=$2`, [
+    groups[1]!.id,
+    attackerMember.id,
+  ])
 
   // 2조에 사람이 1명뿐이라 복식 편성이 안 되므로, 검증용 경기는 DB 로 직접 만든다
   const { rows: mrow } = await db.query<{ id: string }>(
     `insert into matches (tournament_id, status, created_by) values ($1,'live',$2) returning id`,
-    [t.id, owner.uid])
+    [t.id, owner.uid],
+  )
   const matchId = mrow[0]!.id
   await db.query(
     `insert into match_teams (match_id, side, group_id, target_score, win_points, is_joker)
      values ($1,'A',$2,11,0.5,true), ($1,'B',$3,21,1.0,false)`,
-    [matchId, groups[0]!.id, groups[1]!.id])
+    [matchId, groups[0]!.id, groups[1]!.id],
+  )
 
   const scoreAttacks: [string, Record<string, unknown>][] = [
     ['점수를 직접 조작할 수 없다 (원장 우회 차단)', { score_a: 21, score_b: 0 }],
@@ -198,10 +209,15 @@ try {
 
   await db.query(
     `insert into score_events (match_id, side, delta, client_event_id, created_by)
-     values ($1,'A',1,'sec-test-event-0001',$2)`, [matchId, owner.uid])
+     values ($1,'A',1,'sec-test-event-0001',$2)`,
+    [matchId, owner.uid],
+  )
   const del = await api(attacker.token, `matches?id=eq.${matchId}`, { method: 'DELETE' })
-  check('점수 기록이 있는 경기를 삭제해 원장을 지울 수 없다', del.status >= 400,
-    `status=${del.status}`)
+  check(
+    '점수 기록이 있는 경기를 삭제해 원장을 지울 수 없다',
+    del.status >= 400,
+    `status=${del.status}`,
+  )
 
   const voided = await api(attacker.token, 'rpc/void_match', {
     method: 'POST',
@@ -210,35 +226,48 @@ try {
   check('대신 무효 처리는 된다 (기록 보존)', voided.status === 200, `status=${voided.status}`)
 
   const { rows: auditRows } = await db.query<{ n: string }>(
-    `select count(*)::text n from audit_logs where tournament_id=$1 and action='match.void'`, [t.id])
+    `select count(*)::text n from audit_logs where tournament_id=$1 and action='match.void'`,
+    [t.id],
+  )
   check('무효 처리가 감사 로그에 남는다', Number(auditRows[0]!.n) === 1)
 
   console.log('\n── M-2. 경기 이력 소거 ──')
   await db.query(
     `insert into match_team_players (match_team_id, member_id)
      select id, $2 from match_teams where match_id=$1 and side='A'`,
-    [matchId, playerMember.id])
+    [matchId, playerMember.id],
+  )
   const leave = await api(player.token, `tournament_members?id=eq.${playerMember.id}`, {
     method: 'DELETE',
   })
-  const { rowCount: stillThere } = await db.query(
-    `select 1 from tournament_members where id=$1`, [playerMember.id])
-  check('출전 기록이 있으면 탈퇴로 이력을 지울 수 없다',
-    leave.status >= 400 && stillThere === 1, `status=${leave.status}`)
+  const { rowCount: stillThere } = await db.query(`select 1 from tournament_members where id=$1`, [
+    playerMember.id,
+  ])
+  check(
+    '출전 기록이 있으면 탈퇴로 이력을 지울 수 없다',
+    leave.status >= 400 && stillThere === 1,
+    `status=${leave.status}`,
+  )
 
   console.log('\n── H-2. 브루트포스 차단 ──')
   const countFails = async () => {
     const { rows } = await db.query<{ n: string }>(
-      `select count(*)::text n from join_attempts where user_id=$1 and not succeeded`, [player.uid])
+      `select count(*)::text n from join_attempts where user_id=$1 and not succeeded`,
+      [player.uid],
+    )
     return Number(rows[0]!.n)
   }
   const before = await countFails()
   await api(player.token, 'rpc/join_tournament', {
-    method: 'POST', body: JSON.stringify({ p_code: 'ZZZZZZ' }),
+    method: 'POST',
+    body: JSON.stringify({ p_code: 'ZZZZZZ' }),
   })
   const after = await countFails()
-  check('실패한 코드 입력이 기록으로 남는다 (예전엔 롤백되어 사라졌다)',
-    after > before, `실패 기록 ${before} → ${after}`)
+  check(
+    '실패한 코드 입력이 기록으로 남는다 (예전엔 롤백되어 사라졌다)',
+    after > before,
+    `실패 기록 ${before} → ${after}`,
+  )
 
   for (let i = 0; i < 10; i++) {
     await api(player.token, 'rpc/join_tournament', {
@@ -247,15 +276,19 @@ try {
     })
   }
   const limited = await api(player.token, 'rpc/join_tournament', {
-    method: 'POST', body: JSON.stringify({ p_code: t.invite_code }),
+    method: 'POST',
+    body: JSON.stringify({ p_code: t.invite_code }),
   })
-  check('10회 실패하면 정상 코드로도 차단된다',
+  check(
+    '10회 실패하면 정상 코드로도 차단된다',
     limited.body?.['ok'] === false && limited.body?.['error'] === 'rate_limited',
-    `error=${String(limited.body?.['error'] ?? '(없음)')}`)
+    `error=${String(limited.body?.['error'] ?? '(없음)')}`,
+  )
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,
-    [emails])
+    [emails],
+  )
   await db.query(`delete from auth.users where email = any($1)`, [emails])
   console.log(`\n🧹 테스트 계정 ${emails.length}개 정리 완료`)
   await db.end()

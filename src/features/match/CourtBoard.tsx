@@ -170,9 +170,7 @@ function MatchRow({
         {(iAmReferee || (m.referees?.length ?? 0) > 0) && (
           <p className="mt-1.5 text-xs text-ink-3">
             심판 {m.referees?.join(', ') || '미지정'}
-            {iAmReferee && (
-              <span className="ml-1.5 font-bold text-brand-600">내가 심판</span>
-            )}
+            {iAmReferee && <span className="ml-1.5 font-bold text-brand-600">내가 심판</span>}
           </p>
         )}
       </div>

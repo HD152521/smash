@@ -80,7 +80,9 @@ export function TournamentPage() {
           {t.status === 'live' ? (
             <LiveBadge />
           ) : (
-            <Badge tone={t.status === 'finished' ? 'neutral' : 'ok'}>{STATUS_LABEL[t.status]}</Badge>
+            <Badge tone={t.status === 'finished' ? 'neutral' : 'ok'}>
+              {STATUS_LABEL[t.status]}
+            </Badge>
           )}
           {me && me.role !== 'member' && <Badge>{me.role === 'owner' ? '주최자' : '관리자'}</Badge>}
           {myGroup && (

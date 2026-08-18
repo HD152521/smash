@@ -73,18 +73,25 @@ if (mode === 'score') {
   console.log(`${side}팀 득점 → ${m.score_a} : ${m.score_b} (${m.status})`)
 } else {
   const { rows: existing } = await db.query<{ id: string }>(
-    `select id from matches where tournament_id=$1 and status='live' limit 1`, [tournament.id])
+    `select id from matches where tournament_id=$1 and status='live' limit 1`,
+    [tournament.id],
+  )
   if (existing.length > 0) {
     console.log('이미 진행 중인 경기가 있습니다:', existing[0]!.id)
   } else {
     const { rows: groups } = await db.query<{ id: string; name: string }>(
-      `select id, name from groups where tournament_id=$1 order by sort_order`, [tournament.id])
+      `select id, name from groups where tournament_id=$1 order by sort_order`,
+      [tournament.id],
+    )
     const { rows: courts } = await db.query<{ id: string }>(
-      `select id from courts where tournament_id=$1 order by sort_order limit 1`, [tournament.id])
+      `select id from courts where tournament_id=$1 order by sort_order limit 1`,
+      [tournament.id],
+    )
     const pick = async (groupId: string) => {
       const { rows } = await db.query<{ id: string }>(
         `select id from tournament_members where tournament_id=$1 and group_id=$2 limit 2`,
-        [tournament.id, groupId])
+        [tournament.id, groupId],
+      )
       return rows.map((r) => r.id)
     }
     const created = await rpc(tk, 'create_match', {

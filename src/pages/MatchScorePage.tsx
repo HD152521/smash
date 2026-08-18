@@ -127,7 +127,10 @@ export function MatchScorePage() {
       )}
 
       {actionError && (
-        <p role="alert" className="mx-4 rounded-xl bg-team-b/10 p-3 text-sm font-medium text-team-b">
+        <p
+          role="alert"
+          className="mx-4 rounded-xl bg-team-b/10 p-3 text-sm font-medium text-team-b"
+        >
           {actionError}
         </p>
       )}
@@ -161,7 +164,12 @@ export function MatchScorePage() {
       {/* 하단 조작 */}
       <footer className="flex items-center gap-2 border-t border-border-subtle px-4 py-3">
         {m.status === 'scheduled' && (
-          <Button size="xl" className="w-full" loading={start.isPending} onClick={() => start.mutate()}>
+          <Button
+            size="xl"
+            className="w-full"
+            loading={start.isPending}
+            onClick={() => start.mutate()}
+          >
             <Play className="size-5" aria-hidden />
             경기 시작
           </Button>
@@ -210,18 +218,15 @@ export function MatchScorePage() {
         )}
 
         {m.status === 'void' && (
-          <p className="w-full text-center text-sm font-semibold text-ink-3">무효 처리된 경기입니다</p>
+          <p className="w-full text-center text-sm font-semibold text-ink-3">
+            무효 처리된 경기입니다
+          </p>
         )}
       </footer>
 
       {m.status === 'finished' && (
         <div className="px-4 pb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            onClick={() => navigate(`/t/${id}`)}
-          >
+          <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate(`/t/${id}`)}>
             대회로 돌아가기
           </Button>
         </div>

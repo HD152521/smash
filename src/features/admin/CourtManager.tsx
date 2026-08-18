@@ -29,10 +29,7 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
     const trimmed = name.trim()
     if (!trimmed) return
     const nextOrder = Math.max(0, ...courts.map((c) => c.sort_order)) + 1
-    create.mutate(
-      { name: trimmed, sortOrder: nextOrder },
-      { onSuccess: () => setName('') },
-    )
+    create.mutate({ name: trimmed, sortOrder: nextOrder }, { onSuccess: () => setName('') })
   }
 
   function liveMatchOn(courtId: string) {
@@ -101,7 +98,12 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
                      text-ink-1 outline-none placeholder:text-ink-3
                      focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
         />
-        <Button type="submit" variant="secondary" loading={create.isPending} disabled={!name.trim()}>
+        <Button
+          type="submit"
+          variant="secondary"
+          loading={create.isPending}
+          disabled={!name.trim()}
+        >
           <Plus className="size-4" aria-hidden />
           추가
         </Button>

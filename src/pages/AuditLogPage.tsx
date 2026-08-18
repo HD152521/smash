@@ -58,7 +58,9 @@ export function AuditLogPage() {
         </p>
       )}
 
-      {log.isPending && <div className="mt-6 h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />}
+      {log.isPending && (
+        <div className="mt-6 h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+      )}
 
       {log.data && log.data.length === 0 && (
         <p className="mt-6 rounded-2xl border border-dashed border-border-subtle p-6 text-center text-sm text-ink-2">
@@ -69,14 +71,9 @@ export function AuditLogPage() {
       {log.data && log.data.length > 0 && (
         <ol className="mt-6 flex flex-col gap-2">
           {log.data.map((e) => (
-            <li
-              key={e.id}
-              className="rounded-2xl border border-border-subtle bg-surface-1 p-4"
-            >
+            <li key={e.id} className="rounded-2xl border border-border-subtle bg-surface-1 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="font-bold text-ink-1">
-                  {ACTION_LABEL[e.action] ?? e.action}
-                </span>
+                <span className="font-bold text-ink-1">{ACTION_LABEL[e.action] ?? e.action}</span>
                 <time className="tabular text-xs text-ink-3" dateTime={e.created_at}>
                   {new Date(e.created_at).toLocaleString('ko-KR', {
                     month: 'numeric',

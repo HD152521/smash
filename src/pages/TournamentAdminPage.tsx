@@ -72,8 +72,7 @@ export function TournamentAdminPage() {
               )}
             </div>
             <p className="mt-1 text-sm text-ink-2">
-              {t.status === 'draft' &&
-                '시작하면 참가자가 스스로 조를 바꿀 수 없게 됩니다.'}
+              {t.status === 'draft' && '시작하면 참가자가 스스로 조를 바꿀 수 없게 됩니다.'}
               {t.status === 'live' && '경기를 편성하고 점수를 기록할 수 있습니다.'}
               {t.status === 'finished' && '종료된 대회입니다. 새 참가자를 받지 않습니다.'}
             </p>
@@ -144,9 +143,7 @@ export function TournamentAdminPage() {
         >
           <div>
             <p className="text-lg font-black">경기 편성</p>
-            <p className="mt-0.5 text-sm text-brand-100">
-              조 vs 조 · 각 조에서 2명씩 · 심판 지정
-            </p>
+            <p className="mt-0.5 text-sm text-brand-100">조 vs 조 · 각 조에서 2명씩 · 심판 지정</p>
           </div>
           <span aria-hidden className="text-2xl">
             →
@@ -183,11 +180,7 @@ export function TournamentAdminPage() {
       </section>
 
       <div className="mt-10">
-        <CourtManager
-          tournamentId={id!}
-          courts={courts.data ?? []}
-          matches={matches.data ?? []}
-        />
+        <CourtManager tournamentId={id!} courts={courts.data ?? []} matches={matches.data ?? []} />
       </div>
 
       <div className="mt-10">
