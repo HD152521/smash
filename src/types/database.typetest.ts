@@ -30,9 +30,7 @@ export type _RpcNamesAreLiterals = Expect<Extends<'record_score', RpcNames>>
 // ── 2. Row 들이 Record<string, unknown> 을 만족하는가 ────────────────
 // (interface 로 뽑히면 여기서 걸린다)
 type Tables = Database['public']['Tables']
-export type _RowsAreIndexable = Expect<
-  Extends<Tables['matches']['Row'], Record<string, unknown>>
->
+export type _RowsAreIndexable = Expect<Extends<Tables['matches']['Row'], Record<string, unknown>>>
 export type _TournamentRowIndexable = Expect<Extends<TournamentRow, Record<string, unknown>>>
 export type _StandingRowIndexable = Expect<Extends<StandingRow, Record<string, unknown>>>
 

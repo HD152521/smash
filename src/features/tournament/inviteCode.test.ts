@@ -1,10 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import {
-  CODE_ALPHABET,
-  hasConfusableChar,
-  isCompleteCode,
-  normalizeCode,
-} from './inviteCode'
+import { CODE_ALPHABET, hasConfusableChar, isCompleteCode, normalizeCode } from './inviteCode'
 
 describe('초대 코드 정규화', () => {
   test('소문자를 대문자로 올린다', () => {

@@ -109,7 +109,9 @@ export function MyTournamentsPage() {
                   )}
 
                   {t.role === 'member' && !t.groupId && t.status === 'draft' && (
-                    <p className="mt-2 text-xs font-semibold text-warn">조를 아직 고르지 않았습니다</p>
+                    <p className="mt-2 text-xs font-semibold text-warn">
+                      조를 아직 고르지 않았습니다
+                    </p>
                   )}
                 </div>
 

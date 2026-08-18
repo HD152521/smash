@@ -1,11 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { unwrap } from '@/lib/errors'
-import type {
-  GroupRow,
-  MemberRole,
-  TournamentRow,
-  TournamentStatus,
-} from '@/types/database'
+import type { GroupRow, MemberRole, TournamentRow, TournamentStatus } from '@/types/database'
 
 export interface CreateTournamentInput {
   name: string

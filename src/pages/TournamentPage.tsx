@@ -3,12 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, Users } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
-import {
-  useGroups,
-  useMembers,
-  useSetMyGroup,
-  useTournament,
-} from '@/features/tournament/queries'
+import { useGroups, useMembers, useSetMyGroup, useTournament } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import type { TournamentConfig, TournamentStatus } from '@/types/database'
@@ -63,9 +58,7 @@ export function TournamentPage() {
               {STATUS_LABEL[t.status]}
             </Badge>
           )}
-          {me && me.role !== 'member' && (
-            <Badge>{me.role === 'owner' ? '주최자' : '관리자'}</Badge>
-          )}
+          {me && me.role !== 'member' && <Badge>{me.role === 'owner' ? '주최자' : '관리자'}</Badge>}
         </div>
         <h1 className="mt-2 text-3xl leading-tight font-black tracking-tight text-ink-1">
           {t.name}
@@ -121,13 +114,13 @@ export function TournamentPage() {
                     <span className="text-lg font-black text-ink-1">{g.name}</span>
                     {g.is_joker && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-joker/40 bg-joker-soft px-2 py-0.5 text-xs font-bold text-joker-ink">
-                        🃏 조커{target !== undefined && <span className="tabular">· {target}점</span>}
+                        🃏 조커
+                        {target !== undefined && <span className="tabular">· {target}점</span>}
                       </span>
                     )}
                   </div>
                   <p className={cn('tabular mt-1 text-xs', over ? 'text-warn' : 'text-ink-3')}>
-                    {count} / {g.capacity}명
-                    {over && ' · 정원 초과'}
+                    {count} / {g.capacity}명{over && ' · 정원 초과'}
                   </p>
                 </div>
                 {mine && <Check className="size-5 shrink-0 text-brand-600" aria-hidden />}
@@ -144,9 +137,7 @@ export function TournamentPage() {
       </section>
 
       <section className="mt-12 rounded-2xl border border-dashed border-border-subtle p-6 text-center">
-        <p className="text-sm text-ink-2">
-          경기 현황 · 대진표 · 순위표는 다음 단계에서 붙습니다.
-        </p>
+        <p className="text-sm text-ink-2">경기 현황 · 대진표 · 순위표는 다음 단계에서 붙습니다.</p>
       </section>
     </Shell>
   )
@@ -159,8 +150,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         to="/my"
         className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
       >
-        <ArrowLeft className="size-4" aria-hidden />
-        내 대회
+        <ArrowLeft className="size-4" aria-hidden />내 대회
       </Link>
       {children}
     </main>
@@ -196,7 +186,11 @@ function InviteCodeCard({ code }: { code: string }) {
         aria-label="초대 코드 복사"
         className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/15 transition-colors hover:bg-white/25"
       >
-        {copied ? <Check className="size-5" aria-hidden /> : <Copy className="size-5" aria-hidden />}
+        {copied ? (
+          <Check className="size-5" aria-hidden />
+        ) : (
+          <Copy className="size-5" aria-hidden />
+        )}
       </button>
     </div>
   )

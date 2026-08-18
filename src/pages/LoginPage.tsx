@@ -49,7 +49,8 @@ export function LoginPage() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다')
+      const fallback = mode === 'signin' ? '로그인에 실패했습니다' : '가입하지 못했습니다'
+      setError(err instanceof Error ? err.message : fallback)
     } finally {
       setBusy(null)
     }
