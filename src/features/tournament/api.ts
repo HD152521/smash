@@ -7,6 +7,7 @@ import type {
   MatchOverviewRow,
   MatchRow,
   MemberRole,
+  StandingRow,
   TournamentRow,
   TournamentStatus,
 } from '@/types/database'
@@ -271,4 +272,9 @@ export async function voidMatch(matchId: string, reason?: string): Promise<Match
     p_reason: reason ?? null,
   })
   return unwrap(res) as MatchRow
+}
+
+export async function fetchStandings(tournamentId: string): Promise<StandingRow[]> {
+  const res = await supabase.rpc('get_standings', { p_tournament_id: tournamentId })
+  return unwrap(res) as unknown as StandingRow[]
 }

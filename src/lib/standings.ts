@@ -60,8 +60,9 @@ export function sortStandings(
 
 /** 순위표 행에서 맞대결 결과만 추려낸다 (종료된 경기만) */
 export function extractHeadToHead(
+  // 뷰에서 오는 값이라 전부 nullable 이다 (Postgres 는 뷰 컬럼의 NOT NULL 을 보존하지 않는다)
   matches: readonly {
-    status: string
+    status: string | null
     winner_side: TeamSide | null
     group_a_id: string | null
     group_b_id: string | null

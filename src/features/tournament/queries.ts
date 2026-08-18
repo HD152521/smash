@@ -15,6 +15,7 @@ import {
   voidMatch,
   fetchCourts,
   fetchMatches,
+  fetchStandings,
   regenerateInviteCode,
   setMemberGroup,
   setMemberRole,
@@ -203,5 +204,13 @@ export function useVoidMatch(tournamentId: string) {
     mutationFn: ({ matchId, reason }: { matchId: string; reason?: string }) => voidMatch(matchId, reason),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
+  })
+}
+
+export function useStandings(tournamentId: string | undefined) {
+  return useQuery({
+    queryKey: ['tournaments', tournamentId, 'standings'],
+    queryFn: () => fetchStandings(tournamentId!),
+    enabled: Boolean(tournamentId),
   })
 }

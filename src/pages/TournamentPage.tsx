@@ -3,10 +3,20 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, Copy, Settings, Sliders, Users } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
-import { useGroups, useMatches, useMembers, useTournament } from '@/features/tournament/queries'
+import {
+  useCourts,
+  useGroups,
+  useMatches,
+  useMembers,
+  useStandings,
+  useTournament,
+} from '@/features/tournament/queries'
 import { MatchList } from '@/features/match/MatchList'
+import { CourtBoard } from '@/features/match/CourtBoard'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
+import { StandingsTable } from '@/features/standings/StandingsTable'
 import { toUserMessage } from '@/lib/errors'
+import { cn } from '@/lib/utils'
 import type { TournamentStatus } from '@/types/database'
 
 const STATUS_LABEL: Record<TournamentStatus, string> = {
@@ -23,6 +33,9 @@ export function TournamentPage() {
   const members = useMembers(id)
   const matches = useMatches(id)
   const realtime = useRealtimeMatches(id)
+  const standings = useStandings(id)
+  const courts = useCourts(id)
+  const [matchView, setMatchView] = useState<'court' | 'all'>('court')
 
   const me = members.data?.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
@@ -107,36 +120,78 @@ export function TournamentPage() {
       )}
 
       <section className="mt-10">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-ink-1">
             경기
             {realtime === 'live' && (
               <span className="ml-2 text-xs font-semibold text-ok">실시간</span>
             )}
           </h2>
-          {(matches.data ?? []).some((m) => m.status === 'live') && (
-            <Link
-              to={`/t/${id}/live`}
-              className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-brand-600 hover:bg-surface-2"
+          <div className="flex items-center gap-2">
+            {/* 경기는 코트 단위로 돌아간다. 코트별 보기가 기본이다. */}
+            <div
+              role="group"
+              aria-label="보기 방식"
+              className="flex rounded-lg border border-border-subtle p-0.5"
             >
-              관전 화면
-            </Link>
-          )}
+              {(['court', 'all'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setMatchView(v)}
+                  aria-pressed={matchView === v}
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-xs font-bold transition-colors',
+                    matchView === v ? 'bg-brand-600 text-white' : 'text-ink-2 hover:text-ink-1',
+                  )}
+                >
+                  {v === 'court' ? '코트별' : '전체'}
+                </button>
+              ))}
+            </div>
+            {(matches.data ?? []).some((m) => m.status === 'live') && (
+              <Link
+                to={`/t/${id}/live`}
+                className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-brand-600 hover:bg-surface-2"
+              >
+                관전 화면
+              </Link>
+            )}
+          </div>
         </div>
         {matches.isPending ? (
           <div className="h-24 animate-pulse rounded-2xl bg-surface-2" aria-busy />
         ) : (
-          <MatchList
-            tournamentId={id!}
-            matches={matches.data ?? []}
-            myDisplayName={me?.displayName}
-            canScore={isAdmin}
-          />
+          matchView === 'court' ? (
+            <CourtBoard
+              tournamentId={id!}
+              courts={courts.data ?? []}
+              matches={matches.data ?? []}
+              myDisplayName={me?.displayName}
+              canScore={isAdmin}
+            />
+          ) : (
+            <MatchList
+              tournamentId={id!}
+              matches={matches.data ?? []}
+              myDisplayName={me?.displayName}
+              canScore={isAdmin}
+            />
+          )
         )}
       </section>
 
-      <section className="mt-10 rounded-2xl border border-dashed border-border-subtle p-6 text-center">
-        <p className="text-sm text-ink-2">순위표는 다음 단계에서 붙습니다.</p>
+      <section className="mt-10">
+        <h2 className="mb-3 text-lg font-bold text-ink-1">조별 순위</h2>
+        {standings.isPending ? (
+          <div className="h-32 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+        ) : (
+          <StandingsTable
+            standings={standings.data ?? []}
+            matches={matches.data ?? []}
+            myGroupId={me?.groupId}
+          />
+        )}
       </section>
     </Shell>
   )
