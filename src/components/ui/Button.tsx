@@ -22,7 +22,8 @@ const variants: Record<Variant, string> = {
 
 // 체육관에서 폰으로 누른다. 최소 44px 는 접근성 권고이자 실전 요구사항이다.
 const sizes: Record<Size, string> = {
-  sm: 'h-9 px-3 text-sm rounded-lg gap-1.5',
+  // 40px. 부차적 동작에만 쓰지만 폰에서 36px 는 너무 작다.
+  sm: 'h-10 px-3 text-sm rounded-lg gap-1.5',
   md: 'h-11 px-4 text-[0.95rem] rounded-xl gap-2',
   lg: 'h-13 px-5 text-base rounded-xl gap-2',
   xl: 'h-16 px-6 text-lg rounded-2xl gap-2.5',

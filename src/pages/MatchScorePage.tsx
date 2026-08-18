@@ -96,7 +96,12 @@ export function MatchScorePage() {
       <header className="flex items-center justify-between gap-3 px-4 py-3">
         <Link
           to={`/t/${id}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
+          // 실측 56x20 이었다. 심판이 급하게 누르는 자리라 세로 여백을 준다.
+          className={cn(
+            '-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium',
+            'text-ink-2 hover:text-ink-1',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+          )}
         >
           <ArrowLeft className="size-4" aria-hidden />
           나가기

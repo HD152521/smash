@@ -155,7 +155,9 @@ function IconButton({
       aria-label={label}
       title={title}
       className={cn(
-        'grid size-9 place-items-center rounded-lg text-ink-3 transition-colors',
+        // 44px. 위/아래/삭제가 나란히 붙어 있어 작으면 오탭이 잦다.
+        'grid size-11 place-items-center rounded-lg text-ink-3 transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
         'disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent',
         danger ? 'hover:bg-team-b/10 hover:text-team-b' : 'hover:bg-surface-2 hover:text-ink-1',
       )}

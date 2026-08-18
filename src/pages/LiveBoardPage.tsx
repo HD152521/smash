@@ -1,5 +1,6 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Radio } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
+import { Radio } from 'lucide-react'
 import { useMatches, useTournament } from '@/features/tournament/queries'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
 import { cn } from '@/lib/utils'
@@ -23,13 +24,7 @@ export function LiveBoardPage() {
   return (
     <div data-theme="dark" className="min-h-dvh bg-surface-0 p-4">
       <header className="flex items-center justify-between gap-3">
-        <Link
-          to={`/t/${id}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          나가기
-        </Link>
+        <BackLink to={`/t/${id}`}>나가기</BackLink>
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-bold text-ink-2">{tournament.data?.name}</span>
           <span

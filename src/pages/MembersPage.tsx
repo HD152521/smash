@@ -1,5 +1,6 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Users } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
+import { Users } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { useGroups, useMembers, useTournament } from '@/features/tournament/queries'
@@ -29,13 +30,7 @@ export function MembersPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to={`/t/${id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        대회로
-      </Link>
+      <BackLink to={`/t/${id}`}>대회로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">참가자</h1>
       <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-2">
@@ -107,9 +102,7 @@ function GroupCard({
             </Badge>
           )}
         </div>
-        <span
-          className={cn('tabular text-xs font-semibold', over ? 'text-warn' : 'text-ink-3')}
-        >
+        <span className={cn('tabular text-xs font-semibold', over ? 'text-warn' : 'text-ink-3')}>
           {members.length} / {group.capacity}명{over && ' · 정원 초과'}
         </span>
       </header>

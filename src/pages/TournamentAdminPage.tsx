@@ -1,5 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Monitor, Play, RefreshCw, ScrollText, Square } from 'lucide-react'
+import { BackLink } from '@/components/ui/BackLink'
+import { Monitor, Play, RefreshCw, ScrollText, Square } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { MemberManager } from '@/features/admin/MemberManager'
@@ -46,13 +47,7 @@ export function TournamentAdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to={`/t/${id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        대회로
-      </Link>
+      <BackLink to={`/t/${id}`}>대회로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">관리</h1>
       <p className="mt-1 text-sm text-ink-2">{t.name}</p>

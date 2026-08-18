@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { BackLink } from '@/components/ui/BackLink'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useJoinTournament, useProfileName } from '@/features/tournament/queries'
 import {
@@ -37,13 +37,7 @@ export function JoinTournamentPage() {
 
   return (
     <main className="mx-auto w-full max-w-md px-5 pt-6 pb-16">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        메인으로
-      </Link>
+      <BackLink to="/">메인으로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">대회 참가</h1>
       <p className="mt-2 text-sm text-ink-2">

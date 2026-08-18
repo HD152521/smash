@@ -1,5 +1,5 @@
-import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { Navigate, useParams } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
 import { useAuth } from '@/features/auth/useAuth'
 import { useAuditLog, useMembers } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -39,13 +39,7 @@ export function AuditLogPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to={`/t/${id}/admin`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        관리로
-      </Link>
+      <BackLink to={`/t/${id}/admin`}>관리로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">변경 기록</h1>
       <p className="mt-2 text-sm text-ink-2">

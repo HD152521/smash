@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check } from 'lucide-react'
+import { BackLink } from '@/components/ui/BackLink'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/features/auth/useAuth'
 import {
@@ -131,13 +132,7 @@ export function MatchCreatePage() {
 
   return (
     <main className={cn('mx-auto w-full max-w-2xl px-5 pt-6', ready ? 'pb-40' : 'pb-16')}>
-      <Link
-        to={`/t/${id}/admin`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        관리로
-      </Link>
+      <BackLink to={`/t/${id}/admin`}>관리로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">
         {mode === 'schedule' ? '경기 편성' : '지난 결과 입력'}

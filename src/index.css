@@ -15,14 +15,14 @@
   --color-brand-100: oklch(93% 0.09 145);
   --color-brand-300: oklch(80% 0.17 145);
   --color-brand-500: oklch(66% 0.19 148);
-  --color-brand-600: oklch(56% 0.17 149);
+  --color-brand-600: oklch(52% 0.17 149);
   --color-brand-700: oklch(45% 0.14 150);
   --color-brand-900: oklch(28% 0.08 152);
 
   /* 팀 */
   --color-team-a: oklch(58% 0.19 258);
   --color-team-a-soft: oklch(94% 0.04 258);
-  --color-team-b: oklch(60% 0.20 27);
+  --color-team-b: oklch(52% 0.20 27);
   --color-team-b-soft: oklch(94% 0.04 27);
 
   /* 조커 */
@@ -30,10 +30,17 @@
   --color-joker-ink: oklch(38% 0.10 72);
   --color-joker-soft: oklch(96% 0.06 85);
 
-  /* 상태 */
-  --color-live: oklch(62% 0.21 25);
-  --color-ok: oklch(64% 0.16 152);
-  --color-warn: oklch(72% 0.16 70);
+  /*
+   * 상태 색.
+   *
+   * 명도는 감이 아니라 계산으로 정했다. WCAG AA 본문 기준 4.5:1 을
+   * 흰 배경과 회색면(surface-2) 양쪽에서 만족하는 최대 명도다.
+   * 이전 값(warn 72%)은 흰 배경에서 2.56:1 이라 체육관 조명 아래
+   * 폰에서 경고 문구가 거의 안 보였다.
+   */
+  --color-live: oklch(52% 0.21 25);
+  --color-ok: oklch(52% 0.16 152);
+  --color-warn: oklch(55% 0.16 70);
 
   /* 타이포 */
   --font-sans: 'Pretendard Variable', Pretendard, system-ui, sans-serif;
@@ -51,7 +58,7 @@
   --border-subtle: oklch(90% 0.006 250);
   --ink-1: oklch(21% 0.012 255);
   --ink-2: oklch(46% 0.012 255);
-  --ink-3: oklch(62% 0.012 255);
+  --ink-3: oklch(54% 0.012 255);
   --shadow-card: 0 1px 2px oklch(20% 0.02 255 / 0.06), 0 8px 24px oklch(20% 0.02 255 / 0.06);
 }
 
@@ -63,7 +70,7 @@
     --border-subtle: oklch(32% 0.016 255);
     --ink-1: oklch(96% 0.004 255);
     --ink-2: oklch(76% 0.008 255);
-    --ink-3: oklch(58% 0.010 255);
+    --ink-3: oklch(62% 0.010 255);
     --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
   }
 }
@@ -81,7 +88,7 @@
   --border-subtle: oklch(32% 0.016 255);
   --ink-1: oklch(96% 0.004 255);
   --ink-2: oklch(76% 0.008 255);
-  --ink-3: oklch(58% 0.010 255);
+  --ink-3: oklch(62% 0.010 255);
   --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
 }
 

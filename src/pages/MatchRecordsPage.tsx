@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Search } from 'lucide-react'
+import { BackLink } from '@/components/ui/BackLink'
+import { useParams } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { useGroups, useMatches, useTournament } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -36,13 +37,7 @@ export function MatchRecordsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to={`/t/${id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        대회로
-      </Link>
+      <BackLink to={`/t/${id}`}>대회로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">경기 기록</h1>
       <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>

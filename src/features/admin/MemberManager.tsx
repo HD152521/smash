@@ -69,7 +69,8 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                   }
                   disabled={setGroup.isPending}
                   className={cn(
-                    'h-9 rounded-lg border bg-surface-1 px-2 text-sm font-semibold text-ink-1',
+                    // 조 재배정은 관리자가 40명 대회에서 수십 번 누른다. 44px 로.
+                    'h-11 rounded-lg border bg-surface-1 px-2 text-sm font-semibold text-ink-1',
                     'focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 focus:outline-none',
                     m.groupId ? 'border-border-subtle' : 'border-warn/50',
                   )}
@@ -101,7 +102,8 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                       : `${m.displayName} 관리자 임명`
                   }
                   className={cn(
-                    'grid size-9 shrink-0 place-items-center rounded-lg border transition-colors',
+                    'grid size-11 shrink-0 place-items-center rounded-lg border transition-colors',
+                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
                     m.role === 'admin'
                       ? 'border-ok/40 bg-ok/10 text-ok hover:bg-ok/20'
                       : 'border-border-subtle text-ink-3 hover:bg-surface-2 hover:text-ink-1',

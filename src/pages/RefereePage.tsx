@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Gavel, Play } from 'lucide-react'
+import { BackLink } from '@/components/ui/BackLink'
+import { ChevronRight, Gavel, Play } from 'lucide-react'
 import { LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { useMatches, useMembers, useTournament } from '@/features/tournament/queries'
@@ -34,13 +35,7 @@ export function RefereePage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to={`/t/${id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        대회로
-      </Link>
+      <BackLink to={`/t/${id}`}>대회로</BackLink>
 
       <header className="mt-6">
         <h1 className="flex items-center gap-2 text-3xl font-black tracking-tight text-ink-1">

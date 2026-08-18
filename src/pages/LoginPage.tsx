@@ -161,7 +161,7 @@ export function LoginPage() {
               setError(null)
               setNotice(null)
             }}
-            className="font-semibold text-brand-600 underline-offset-4 hover:underline"
+            className="rounded px-1 py-2 font-semibold text-brand-600 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
           >
             {mode === 'signin' ? '가입하기' : '로그인'}
           </button>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Minus, Plus } from 'lucide-react'
+import { BackLink } from '@/components/ui/BackLink'
+import { useNavigate } from 'react-router-dom'
+import { Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useCreateTournament, useProfileName } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -48,13 +49,7 @@ export function CreateTournamentPage() {
 
   return (
     <main className="mx-auto w-full max-w-lg px-5 pt-6 pb-16">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        메인으로
-      </Link>
+      <BackLink to="/">메인으로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">대회 만들기</h1>
       <p className="mt-2 text-sm text-ink-2">
@@ -201,8 +196,9 @@ function Stepper({ label, hint, value, min, max, onChange }: StepperProps) {
             onClick={() => onChange(value - 1)}
             disabled={value <= min}
             aria-label={`${label} 줄이기`}
-            className="grid size-9 place-items-center rounded-lg text-ink-2 transition-colors
-                       hover:bg-surface-2 hover:text-ink-1 disabled:opacity-30 disabled:hover:bg-transparent"
+            className="grid size-11 place-items-center rounded-lg text-ink-2 transition-colors
+                       hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
+                       disabled:opacity-30 disabled:hover:bg-transparent"
           >
             <Minus className="size-4" aria-hidden />
           </button>
@@ -212,8 +208,9 @@ function Stepper({ label, hint, value, min, max, onChange }: StepperProps) {
             onClick={() => onChange(value + 1)}
             disabled={value >= max}
             aria-label={`${label} 늘리기`}
-            className="grid size-9 place-items-center rounded-lg text-ink-2 transition-colors
-                       hover:bg-surface-2 hover:text-ink-1 disabled:opacity-30 disabled:hover:bg-transparent"
+            className="grid size-11 place-items-center rounded-lg text-ink-2 transition-colors
+                       hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
+                       disabled:opacity-30 disabled:hover:bg-transparent"
           >
             <Plus className="size-4" aria-hidden />
           </button>

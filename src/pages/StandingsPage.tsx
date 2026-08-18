@@ -1,5 +1,5 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
 import { useAuth } from '@/features/auth/useAuth'
 import { StandingsTable } from '@/features/standings/StandingsTable'
 import { useMatches, useMembers, useStandings, useTournament } from '@/features/tournament/queries'
@@ -18,13 +18,7 @@ export function StandingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to={`/t/${id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        대회로
-      </Link>
+      <BackLink to={`/t/${id}`}>대회로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">조별 순위</h1>
       <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>

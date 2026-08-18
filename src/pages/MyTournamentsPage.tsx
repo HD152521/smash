@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { BackLink } from '@/components/ui/BackLink'
+import { ChevronRight } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useMyTournaments } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -22,13 +23,7 @@ export function MyTournamentsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        메인으로
-      </Link>
+      <BackLink to="/">메인으로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 대회 모음</h1>
 

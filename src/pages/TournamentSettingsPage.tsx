@@ -1,5 +1,6 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Lock } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
+import { Lock } from 'lucide-react'
 import { useAuth } from '@/features/auth/useAuth'
 import { GroupPicker } from '@/features/tournament/GroupPicker'
 import { useGroups, useMembers, useSetMyGroup, useTournament } from '@/features/tournament/queries'
@@ -28,13 +29,7 @@ export function TournamentSettingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <Link
-        to={`/t/${id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-      >
-        <ArrowLeft className="size-4" aria-hidden />
-        대회로
-      </Link>
+      <BackLink to={`/t/${id}`}>대회로</BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">설정</h1>
 

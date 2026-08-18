@@ -1,6 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
 import {
-  ArrowLeft,
   ChevronRight,
   Gavel,
   History,
@@ -228,17 +228,12 @@ function Shell({ id, children }: { id: string | undefined; children: React.React
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
       <div className="flex items-center justify-between">
-        <Link
-          to="/my"
-          className="inline-flex items-center gap-1 text-sm font-medium text-ink-2 hover:text-ink-1"
-        >
-          <ArrowLeft className="size-4" aria-hidden />내 대회
-        </Link>
+        <BackLink to="/my">내 대회</BackLink>
         {id && (
           <Link
             to={`/t/${id}/settings`}
             aria-label="설정"
-            className="grid size-9 place-items-center rounded-lg text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink-1"
+            className="grid size-11 place-items-center rounded-lg text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
           >
             <Settings className="size-5" aria-hidden />
           </Link>
