@@ -288,7 +288,9 @@ language sql stable security invoker set search_path = public, pg_temp as $fn$
     g.name,
     g.is_joker,
     g.sort_order,
-    count(tr.*)                                                        as played,
+    -- count(tr.*) 는 LEFT JOIN 의 NULL 확장 행까지 세는 함정이 있다.
+    -- 실제 컬럼을 세야 경기를 한 번도 안 치른 조가 0 으로 나온다.
+    count(tr.group_id)                                                 as played,
     count(*) filter (where tr.won)                                     as wins,
     count(*) filter (where tr.won is false)                            as losses,
     coalesce(sum(tr.win_points) filter (where tr.won), 0)::numeric     as points,
