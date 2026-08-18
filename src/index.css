@@ -1,0 +1,125 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+@import 'tailwindcss';
+
+/* ── Pretendard: 한글 UI 기본. 굵기 대비(400↔900)로 전광판 위계를 만든다 ── */
+
+/*
+ * 디자인 방향: 스포츠 브로드캐스트 / 경기장 전광판
+ * - 체육관 조명이 밝으므로 라이트가 기본. 심판·관전 화면만 다크 서피스로 집중도를 올린다.
+ * - 팀 색은 A=코발트 / B=버밀리언 (중계 관습). 색맹 대비를 위해 색 단독으로 팀을 구분하지 않는다.
+ * - 조커는 앰버. 규칙이 다른 팀이므로 색 + 배지 + 목표점수 텍스트 3중으로 표시한다.
+ */
+@theme {
+  /* 브랜드 */
+  --color-brand-50: oklch(97% 0.04 145);
+  --color-brand-100: oklch(93% 0.09 145);
+  --color-brand-300: oklch(80% 0.17 145);
+  --color-brand-500: oklch(66% 0.19 148);
+  --color-brand-600: oklch(56% 0.17 149);
+  --color-brand-700: oklch(45% 0.14 150);
+  --color-brand-900: oklch(28% 0.08 152);
+
+  /* 팀 */
+  --color-team-a: oklch(58% 0.19 258);
+  --color-team-a-soft: oklch(94% 0.04 258);
+  --color-team-b: oklch(60% 0.20 27);
+  --color-team-b-soft: oklch(94% 0.04 27);
+
+  /* 조커 */
+  --color-joker: oklch(74% 0.16 78);
+  --color-joker-ink: oklch(38% 0.10 72);
+  --color-joker-soft: oklch(96% 0.06 85);
+
+  /* 상태 */
+  --color-live: oklch(62% 0.21 25);
+  --color-ok: oklch(64% 0.16 152);
+  --color-warn: oklch(72% 0.16 70);
+
+  /* 타이포 */
+  --font-sans: 'Pretendard Variable', Pretendard, system-ui, sans-serif;
+  --text-score: clamp(3.5rem, 2rem + 12vw, 9rem);
+  --text-score-sm: clamp(1.75rem, 1rem + 4vw, 3rem);
+
+  /* 모션 */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root {
+  --surface-0: oklch(98.5% 0.003 250);
+  --surface-1: oklch(100% 0 0);
+  --surface-2: oklch(96% 0.005 250);
+  --border-subtle: oklch(90% 0.006 250);
+  --ink-1: oklch(21% 0.012 255);
+  --ink-2: oklch(46% 0.012 255);
+  --ink-3: oklch(62% 0.012 255);
+  --shadow-card: 0 1px 2px oklch(20% 0.02 255 / 0.06), 0 8px 24px oklch(20% 0.02 255 / 0.06);
+}
+
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) {
+    --surface-0: oklch(17% 0.012 255);
+    --surface-1: oklch(21% 0.014 255);
+    --surface-2: oklch(26% 0.016 255);
+    --border-subtle: oklch(32% 0.016 255);
+    --ink-1: oklch(96% 0.004 255);
+    --ink-2: oklch(76% 0.008 255);
+    --ink-3: oklch(58% 0.010 255);
+    --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
+  }
+}
+
+:root[data-theme='dark'] {
+  --surface-0: oklch(17% 0.012 255);
+  --surface-1: oklch(21% 0.014 255);
+  --surface-2: oklch(26% 0.016 255);
+  --border-subtle: oklch(32% 0.016 255);
+  --ink-1: oklch(96% 0.004 255);
+  --ink-2: oklch(76% 0.008 255);
+  --ink-3: oklch(58% 0.010 255);
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
+}
+
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-border-subtle: var(--border-subtle);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--surface-0);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'tnum';
+  -webkit-font-smoothing: antialiased;
+  /* 체육관에서 폰을 세워두고 쓴다. 실수로 당겨서 새로고침되는 걸 막는다. */
+  overscroll-behavior-y: none;
+}
+
+/* 점수는 자릿수가 흔들리면 안 된다 */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* 심판 화면 등 오조작이 치명적인 곳에서 텍스트 선택/롱프레스 메뉴를 막는다 */
+.no-touch-callout {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
