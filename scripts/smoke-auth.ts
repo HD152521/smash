@@ -214,7 +214,11 @@ async function main() {
       `select count(*)::int as n from tournament_members where tournament_id = $1`,
       [tournament.id],
     )
-    check('같은 코드를 다시 넣어도 중복 참가되지 않는다', memberCount[0].n === 2, `멤버 ${memberCount[0].n}명`)
+    check(
+      '같은 코드를 다시 넣어도 중복 참가되지 않는다',
+      memberCount[0].n === 2,
+      `멤버 ${memberCount[0].n}명`,
+    )
 
     // ── 권한: 일반 회원은 관리자 기능을 쓸 수 없다 ────────────────────
     const bobTriesAdmin = await rpc(bob.token, 'regenerate_invite_code', {
@@ -235,7 +239,11 @@ async function main() {
       },
       body: JSON.stringify({ tournament_id: tournament.id, name: '1번 코트', sort_order: 1 }),
     })
-    check('일반 회원은 코트를 만들 수 없다 (RLS)', bobTriesCourt.status >= 400, `status=${bobTriesCourt.status}`)
+    check(
+      '일반 회원은 코트를 만들 수 없다 (RLS)',
+      bobTriesCourt.status >= 400,
+      `status=${bobTriesCourt.status}`,
+    )
 
     // ── score_events 직접 삽입 차단 ───────────────────────────────────
     const forge = await fetch(`${URL_BASE}/rest/v1/score_events`, {
@@ -289,7 +297,11 @@ async function main() {
       p_tournament_id: tournament.id,
       p_group_id: '00000000-0000-0000-0000-000000000000',
     })
-    check('이 대회의 조가 아니면 선택할 수 없다', otherGroup.status >= 400, `status=${otherGroup.status}`)
+    check(
+      '이 대회의 조가 아니면 선택할 수 없다',
+      otherGroup.status >= 400,
+      `status=${otherGroup.status}`,
+    )
   } finally {
     if (emails.length) {
       // tournaments.owner_id 는 on delete restrict 라 대회를 먼저 지워야 한다.
