@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "db:push": "supabase db push",
+    "db:push": "supabase db push --db-url \"$SUPABASE_DB_URL\"",
     "db:types": "supabase gen types typescript --linked > src/types/database.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:link": "supabase link --project-ref $SUPABASE_PROJECT_REF"
