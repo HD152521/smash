@@ -1,5 +1,5 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Gavel, Settings, Sliders, Trophy } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Gavel, History, Settings, Sliders, Trophy } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
@@ -128,6 +128,12 @@ export function TournamentPage() {
           desc="내가 맡은 경기를 채점합니다"
           badge={myRefereeCount > 0 ? `${myRefereeCount}경기` : undefined}
           accent={myRefereeCount > 0}
+        />
+        <NavCard
+          to={`/t/${id}/records`}
+          icon={<History className="size-5" aria-hidden />}
+          title="경기 기록"
+          desc="누가 몇 대 몇으로 이겼는지"
         />
         <NavCard
           to={`/t/${id}/standings`}

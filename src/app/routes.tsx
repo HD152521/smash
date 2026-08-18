@@ -48,6 +48,9 @@ const RefereePage = lazy(() =>
 const StandingsPage = lazy(() =>
   import('@/pages/StandingsPage').then((m) => ({ default: m.StandingsPage })),
 )
+const MatchRecordsPage = lazy(() =>
+  import('@/pages/MatchRecordsPage').then((m) => ({ default: m.MatchRecordsPage })),
+)
 const AuditLogPage = lazy(() =>
   import('@/pages/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
 )
@@ -203,6 +206,15 @@ export function AppRoutes() {
         element={
           <Protected>
             <StandingsPage />
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/t/:id/records"
+        element={
+          <Protected>
+            <MatchRecordsPage />
           </Protected>
         }
       />

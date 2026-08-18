@@ -65,6 +65,7 @@ const ROUTES = [
   `/t/${TOURNAMENT_ID}/audit`,
   `/t/${TOURNAMENT_ID}/referee`,
   `/t/${TOURNAMENT_ID}/standings`,
+  `/t/${TOURNAMENT_ID}/records`,
   `/t/${TOURNAMENT_ID}/live`,
   `/t/${TOURNAMENT_ID}/matches/new`,
   `/t/${TOURNAMENT_ID}/matches/${MATCH_ID}`,
