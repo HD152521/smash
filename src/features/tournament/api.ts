@@ -278,3 +278,54 @@ export async function fetchStandings(tournamentId: string): Promise<StandingRow[
   const res = await supabase.rpc('get_standings', { p_tournament_id: tournamentId })
   return unwrap(res) as unknown as StandingRow[]
 }
+
+export interface ManualMatchInput {
+  tournamentId: string
+  groupA: string
+  playersA: string[]
+  scoreA: number
+  groupB: string
+  playersB: string[]
+  scoreB: number
+  label?: string | null
+}
+
+/**
+ * 누락된 경기 결과를 소급 입력한다.
+ * 원장(score_events)은 만들지 않는다 — 한 점씩 들어온 게 아니라 결과만 아는
+ * 것이므로, 원장을 지어내면 감사 추적이 거짓말이 된다. source='manual' 로 남는다.
+ */
+export async function recordManualMatch(input: ManualMatchInput): Promise<MatchRow> {
+  const res = await supabase.rpc('record_manual_match', {
+    p_tournament_id: input.tournamentId,
+    p_group_a: input.groupA,
+    p_players_a: input.playersA,
+    p_score_a: input.scoreA,
+    p_group_b: input.groupB,
+    p_players_b: input.playersB,
+    p_score_b: input.scoreB,
+    p_label: input.label ?? null,
+  })
+  return unwrap(res) as MatchRow
+}
+
+export interface AuditEntry {
+  id: number
+  action: string
+  target_type: string
+  target_id: string | null
+  before: unknown
+  after: unknown
+  created_at: string
+  actor_id: string | null
+}
+
+export async function fetchAuditLog(tournamentId: string, limit = 100): Promise<AuditEntry[]> {
+  const res = await supabase
+    .from('audit_logs')
+    .select('id, action, target_type, target_id, before, after, created_at, actor_id')
+    .eq('tournament_id', tournamentId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return unwrap(res) as unknown as AuditEntry[]
+}

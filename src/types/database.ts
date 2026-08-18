@@ -136,6 +136,19 @@ export type Database = {
         Args: { p_member_id: string; p_role: 'admin' | 'member' }
         Returns: TournamentMemberRow
       }
+      record_manual_match: {
+        Args: {
+          p_tournament_id: string
+          p_group_a: string
+          p_players_a: string[]
+          p_score_a: number
+          p_group_b: string
+          p_players_b: string[]
+          p_score_b: number
+          p_label?: string | null
+        }
+        Returns: MatchRow
+      }
       void_match: {
         Args: { p_match_id: string; p_reason?: string | null }
         Returns: MatchRow

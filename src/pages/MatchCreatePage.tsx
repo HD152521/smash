@@ -8,6 +8,7 @@ import {
   useCreateMatch,
   useGroups,
   useMembers,
+  useRecordManualMatch,
   useTournament,
 } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -31,6 +32,17 @@ export function MatchCreatePage() {
   const members = useMembers(id)
   const courts = useCourts(id)
   const create = useCreateMatch(id ?? '')
+  const manual = useRecordManualMatch(id ?? '')
+
+  /**
+   * 두 가지 일을 한 화면에서 한다:
+   *   schedule — 앞으로 할 경기를 코트에 올린다
+   *   manual   — 앱 없이 이미 치른 경기의 결과만 넣는다
+   * 선수 고르는 절차가 똑같아서 화면을 나누면 같은 코드가 두 벌이 된다.
+   */
+  const [mode, setMode] = useState<'schedule' | 'manual'>('schedule')
+  const [scoreA, setScoreA] = useState('')
+  const [scoreB, setScoreB] = useState('')
 
   const me = members.data?.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
@@ -61,12 +73,18 @@ export function MatchCreatePage() {
   const targetB = gB?.is_joker ? config.jokerPoints : config.normalPoints
 
   const playing = new Set([...playersA, ...playersB])
-  const ready =
+  const teamsReady =
     Boolean(groupA) &&
     Boolean(groupB) &&
     groupA !== groupB &&
     playersA.length === squadSize &&
     playersB.length === squadSize
+  const nA = Number(scoreA)
+  const nB = Number(scoreB)
+  const scoresValid =
+    scoreA !== '' && scoreB !== '' && Number.isInteger(nA) && Number.isInteger(nB) &&
+    nA >= 0 && nB >= 0 && nA !== nB
+  const ready = mode === 'schedule' ? teamsReady : teamsReady && scoresValid
 
   function togglePlayer(side: 'A' | 'B', memberId: string) {
     const [list, setList] = side === 'A' ? [playersA, setPlayersA] : [playersB, setPlayersB]
@@ -81,17 +99,28 @@ export function MatchCreatePage() {
 
   async function handleSubmit() {
     try {
-      await create.mutateAsync({
-        courtId: courtId || null,
-        groupA,
-        playersA,
-        groupB,
-        playersB,
-        referees,
-      })
-      navigate(`/t/${id}/admin`, { replace: true })
+      if (mode === 'schedule') {
+        await create.mutateAsync({
+          courtId: courtId || null,
+          groupA,
+          playersA,
+          groupB,
+          playersB,
+          referees,
+        })
+      } else {
+        await manual.mutateAsync({
+          groupA,
+          playersA,
+          scoreA: nA,
+          groupB,
+          playersB,
+          scoreB: nB,
+        })
+      }
+      navigate(`/t/${id}`, { replace: true })
     } catch {
-      // create.error 로 화면에 뿌린다
+      // mutation.error 로 화면에 뿌린다
     }
   }
 
@@ -105,10 +134,36 @@ export function MatchCreatePage() {
         관리로
       </Link>
 
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">경기 편성</h1>
+      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">
+        {mode === 'schedule' ? '경기 편성' : '지난 결과 입력'}
+      </h1>
+
+      <div role="group" aria-label="편성 방식" className="mt-4 flex rounded-xl border border-border-subtle p-1">
+        {(['schedule', 'manual'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setMode(v)}
+            aria-pressed={mode === v}
+            className={cn(
+              'flex-1 rounded-lg py-2 text-sm font-bold transition-colors',
+              mode === v ? 'bg-brand-600 text-white' : 'text-ink-2 hover:text-ink-1',
+            )}
+          >
+            {v === 'schedule' ? '앞으로 할 경기' : '이미 끝난 경기'}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'manual' && (
+        <p className="mt-3 rounded-xl bg-surface-2 p-3 text-xs text-ink-2">
+          앱 없이 치른 경기의 결과만 넣습니다. 점수가 한 점씩 들어온 기록은 남지 않으므로
+          <b className="text-ink-1"> 직접 입력</b>으로 표시됩니다.
+        </p>
+      )}
 
       {/* 코트 */}
-      <section className="mt-8">
+      <section className={cn('mt-8', mode === 'manual' && 'hidden')}>
         <h2 className="text-sm font-semibold text-ink-2">코트</h2>
         {courts.data && courts.data.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
@@ -162,8 +217,23 @@ export function MatchCreatePage() {
         isJoker={Boolean(gB?.is_joker)}
       />
 
+      {/* 점수 (지난 결과 입력) */}
+      {mode === 'manual' && teamsReady && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-ink-2">최종 점수</h2>
+          <div className="mt-2 flex items-center gap-3">
+            <ScoreInput label={`${gA?.name ?? 'A팀'} 점수`} value={scoreA} onChange={setScoreA} />
+            <span className="text-2xl font-black text-ink-3">:</span>
+            <ScoreInput label={`${gB?.name ?? 'B팀'} 점수`} value={scoreB} onChange={setScoreB} />
+          </div>
+          {scoreA !== '' && scoreB !== '' && nA === nB && (
+            <p className="mt-2 text-sm font-medium text-warn">동점으로는 기록할 수 없습니다.</p>
+          )}
+        </section>
+      )}
+
       {/* 심판 */}
-      <section className="mt-8">
+      <section className={cn('mt-8', mode === 'manual' && 'hidden')}>
         <h2 className="text-sm font-semibold text-ink-2">
           심판 <span className="font-normal text-ink-3">(선택 · 점수를 기록할 사람)</span>
         </h2>
@@ -191,9 +261,9 @@ export function MatchCreatePage() {
         )}
       </section>
 
-      {create.error && (
+      {(create.error || manual.error) && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b">
-          {toUserMessage(create.error, '경기를 만들지 못했습니다')}
+          {toUserMessage(create.error ?? manual.error, '경기를 저장하지 못했습니다')}
         </p>
       )}
 
@@ -205,7 +275,8 @@ export function MatchCreatePage() {
       */}
       {!ready && (
         <p className="mt-10 rounded-2xl border border-dashed border-border-subtle p-4 text-center text-sm text-ink-3">
-          양 팀의 조와 선수 {squadSize}명씩을 고르면 편성할 수 있습니다
+          양 팀의 조와 선수 {squadSize}명씩
+          {mode === 'manual' ? ', 그리고 최종 점수를' : '을'} 입력하면 저장할 수 있습니다
         </p>
       )}
 
@@ -219,8 +290,12 @@ export function MatchCreatePage() {
               <b className="text-ink-1">{gB?.name}</b>
               {gB?.is_joker && ' 🃏'} {targetB}점
             </p>
-            <Button size="lg" loading={create.isPending} onClick={() => void handleSubmit()}>
-              경기 만들기
+            <Button
+              size="lg"
+              loading={create.isPending || manual.isPending}
+              onClick={() => void handleSubmit()}
+            >
+              {mode === 'schedule' ? '경기 만들기' : '결과 저장'}
             </Button>
           </div>
         </div>
@@ -357,5 +432,33 @@ function Chip({
     >
       {children}
     </button>
+  )
+}
+
+function ScoreInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="flex-1">
+      <span className="sr-only">{label}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={99}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        className="tabular h-16 w-full rounded-2xl border-2 border-border-subtle bg-surface-1
+                   text-center text-3xl font-black text-ink-1 outline-none
+                   focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15"
+      />
+    </label>
   )
 }

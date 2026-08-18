@@ -14,6 +14,7 @@ import { TournamentAdminPage } from '@/pages/TournamentAdminPage'
 import { MatchCreatePage } from '@/pages/MatchCreatePage'
 import { MatchScorePage } from '@/pages/MatchScorePage'
 import { LiveBoardPage } from '@/pages/LiveBoardPage'
+import { AuditLogPage } from '@/pages/AuditLogPage'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
@@ -131,6 +132,15 @@ export function AppRoutes() {
         element={
           <RequireAuth>
             <LiveBoardPage />
+          </RequireAuth>
+        }
+      />
+
+      <Route
+        path="/t/:id/audit"
+        element={
+          <RequireAuth>
+            <AuditLogPage />
           </RequireAuth>
         }
       />

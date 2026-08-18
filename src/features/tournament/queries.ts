@@ -16,11 +16,14 @@ import {
   fetchCourts,
   fetchMatches,
   fetchStandings,
+  fetchAuditLog,
+  recordManualMatch,
   regenerateInviteCode,
   setMemberGroup,
   setMemberRole,
   setTournamentStatus,
   type CreateMatchInput,
+  type ManualMatchInput,
   type CreateTournamentInput,
 } from './api'
 import type { TournamentStatus } from '@/types/database'
@@ -211,6 +214,26 @@ export function useStandings(tournamentId: string | undefined) {
   return useQuery({
     queryKey: ['tournaments', tournamentId, 'standings'],
     queryFn: () => fetchStandings(tournamentId!),
+    enabled: Boolean(tournamentId),
+  })
+}
+
+export function useRecordManualMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: Omit<ManualMatchInput, 'tournamentId'>) =>
+      recordManualMatch({ ...input, tournamentId }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'standings'] })
+    },
+  })
+}
+
+export function useAuditLog(tournamentId: string | undefined) {
+  return useQuery({
+    queryKey: ['tournaments', tournamentId, 'audit'],
+    queryFn: () => fetchAuditLog(tournamentId!),
     enabled: Boolean(tournamentId),
   })
 }
