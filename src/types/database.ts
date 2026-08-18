@@ -1,120 +1,70 @@
 /**
- * ⚠ 이 파일은 임시 수기 정의입니다.
+ * 앱에서 쓰는 DB 타입.
  *
- * Supabase 프로젝트가 준비되면 실제 스키마에서 생성한 것으로 교체됩니다:
- *   npm run db:types
+ * 테이블·뷰·enum 은 `database.gen.ts` 에서 실제 스키마를 읽어 생성됩니다.
+ * 이 파일은 생성기가 만들 수 없는 것만 얹습니다:
+ *   1. jsonb 컬럼의 실제 모양 (config → TournamentConfig)
+ *   2. RPC(Functions) 시그니처 — supabase.rpc() 의 타입 안전을 위해
+ *   3. 짧은 별칭 (TournamentsRow → TournamentRow)
  *
- * 그 전까지 프론트엔드가 타입 안전하게 개발될 수 있도록,
- * supabase/migrations/*.sql 과 손으로 맞춰 둔 정의입니다.
- * 마이그레이션을 수정하면 여기도 함께 고쳐야 합니다 (생성 전까지만).
+ * 스키마를 바꿨으면: npm run db:push && npm run db:types
  */
+import type {
+  CourtsRow,
+  Database as GeneratedDatabase,
+  GroupsRow,
+  MatchOverviewRow,
+  MatchTeamsRow,
+  MatchesRow,
+  ProfilesRow,
+  ScoreEventsRow,
+  TournamentMembersRow,
+  TournamentsRow,
+} from './database.gen'
 
-export type TournamentStatus = 'draft' | 'live' | 'finished'
-export type MemberRole = 'owner' | 'admin' | 'member'
-export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'void'
-export type MatchSource = 'live' | 'manual'
-export type TeamSide = 'A' | 'B'
+export type {
+  AuditLogsRow,
+  Json,
+  MatchRefereesRow,
+  MatchSource,
+  MatchStatus,
+  MatchTeamPlayersRow,
+  MemberRole,
+  TeamSide,
+  TournamentStatus,
+} from './database.gen'
 
+import type { MatchOverviewRow as _MO, TeamSide } from './database.gen'
+
+// ── 1. jsonb 컬럼의 실제 모양 ────────────────────────────────────────
 export interface TournamentConfig {
   format: 'doubles' | 'singles'
+  /** 일반조 목표 점수 */
   normalPoints: number
+  /** 조커조 목표 점수 */
   jokerPoints: number
   deuce: boolean
+  /** 일반조 승리 시 승점 */
   winPoints: number
+  /** 조커조 승리 시 승점 — 적은 점수로 이기는 대신 절반만 받는다 */
   jokerWinPoints: number
   lossPoints: number
+  /** 1조부터 몇 개 조가 조커조인지 */
   jokerGroupCount: number
 }
 
-export interface TournamentRow {
-  id: string
-  name: string
-  description: string | null
-  invite_code: string
-  owner_id: string
-  status: TournamentStatus
-  config: TournamentConfig
-  created_at: string
-  updated_at: string
-}
+// ── 2. 짧은 별칭 ─────────────────────────────────────────────────────
+export type TournamentRow = Omit<TournamentsRow, 'config'> & { config: TournamentConfig }
+export type GroupRow = GroupsRow
+export type TournamentMemberRow = TournamentMembersRow
+export type CourtRow = CourtsRow
+export type MatchRow = MatchesRow
+export type MatchTeamRow = MatchTeamsRow
+export type ScoreEventRow = ScoreEventsRow
+export type ProfileRow = ProfilesRow
+export type { MatchOverviewRow }
 
-export interface GroupRow {
-  id: string
-  tournament_id: string
-  name: string
-  sort_order: number
-  is_joker: boolean
-  capacity: number
-  created_at: string
-}
-
-export interface TournamentMemberRow {
-  id: string
-  tournament_id: string
-  user_id: string
-  group_id: string | null
-  role: MemberRole
-  display_name: string
-  avatar_url: string | null
-  joined_at: string
-  updated_at: string
-}
-
-export interface CourtRow {
-  id: string
-  tournament_id: string
-  name: string
-  sort_order: number
-  created_at: string
-}
-
-export interface MatchRow {
-  id: string
-  tournament_id: string
-  court_id: string | null
-  label: string | null
-  status: MatchStatus
-  source: MatchSource
-  score_a: number
-  score_b: number
-  winner_side: TeamSide | null
-  started_at: string | null
-  finished_at: string | null
-  created_by: string | null
-  updated_by: string | null
-  edited_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface MatchOverviewRow {
-  id: string
-  tournament_id: string
-  court_id: string | null
-  court_name: string | null
-  label: string | null
-  status: MatchStatus
-  source: MatchSource
-  score_a: number
-  score_b: number
-  winner_side: TeamSide | null
-  started_at: string | null
-  finished_at: string | null
-  edited_at: string | null
-  created_at: string
-  group_a_id: string | null
-  group_a_name: string | null
-  group_a_joker: boolean | null
-  target_a: number | null
-  group_b_id: string | null
-  group_b_name: string | null
-  group_b_joker: boolean | null
-  target_b: number | null
-  players_a: string[]
-  players_b: string[]
-  referees: string[]
-}
-
+// ── 3. RPC 반환 타입 (테이블이 아니라 함수 결과) ─────────────────────
 export interface StandingRow {
   group_id: string
   group_name: string
@@ -123,41 +73,16 @@ export interface StandingRow {
   played: number
   wins: number
   losses: number
+  /** 일반 승리 1.0 / 조커 승리 0.5 의 합 */
   points: number
   scored: number
   conceded: number
   diff: number
 }
 
-export interface ProfileRow {
-  id: string
-  name: string
-  email: string | null
-  avatar_url: string | null
-  created_at: string
-  updated_at: string
-}
-
-type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
-  Row: Row
-  Insert: Insert
-  Update: Update
-  Relationships: []
-}
-
+// ── 4. Functions 를 얹은 최종 Database 타입 ──────────────────────────
 export interface Database {
-  public: {
-    Tables: {
-      profiles: Table<ProfileRow>
-      tournaments: Table<TournamentRow>
-      groups: Table<GroupRow>
-      tournament_members: Table<TournamentMemberRow>
-      courts: Table<CourtRow>
-      matches: Table<MatchRow>
-    }
-    Views: {
-      match_overview: { Row: MatchOverviewRow; Relationships: [] }
-    }
+  public: GeneratedDatabase['public'] & {
     Functions: {
       create_tournament: {
         Args: {
@@ -180,7 +105,7 @@ export interface Database {
         Returns: TournamentMemberRow
       }
       set_tournament_status: {
-        Args: { p_tournament_id: string; p_status: TournamentStatus }
+        Args: { p_tournament_id: string; p_status: TournamentRow['status'] }
         Returns: TournamentRow
       }
       regenerate_invite_code: {
@@ -218,13 +143,9 @@ export interface Database {
       reopen_match: { Args: { p_match_id: string }; Returns: MatchRow }
       get_standings: { Args: { p_tournament_id: string }; Returns: StandingRow[] }
     }
-    Enums: {
-      tournament_status: TournamentStatus
-      member_role: MemberRole
-      match_status: MatchStatus
-      match_source: MatchSource
-      team_side: TeamSide
-    }
     CompositeTypes: Record<string, never>
   }
 }
+
+/** match_overview 는 대진표·기록 화면이 그대로 쓰는 평탄화된 행이다 */
+export type MatchOverview = _MO

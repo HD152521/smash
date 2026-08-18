@@ -1,0 +1,167 @@
+/**
+ * 마이그레이션이 의도대로 적용됐는지 구조적으로 검증한다.
+ *
+ * "push 가 성공했다" 와 "설계한 보안 경계가 실제로 서 있다" 는 다른 이야기다.
+ * 특히 RLS 는 조용히 비어 있어도 에러가 안 나기 때문에 반드시 확인해야 한다.
+ *
+ *   npm run db:verify
+ */
+import { Client } from 'pg'
+import { readFileSync } from 'node:fs'
+
+function loadEnv(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+    const m = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(line.trim())
+    if (m?.[1] && m[2] !== undefined) out[m[1]] = m[2].trim()
+  }
+  return out
+}
+
+interface Check {
+  name: string
+  sql: string
+  /** 통과 조건. rows 를 받아 boolean 을 돌려준다. */
+  pass: (rows: Record<string, unknown>[]) => boolean
+  detail?: (rows: Record<string, unknown>[]) => string
+}
+
+const checks: Check[] = [
+  {
+    name: 'auth.users 트리거 (profiles 자동 생성)',
+    sql: `select tgname from pg_trigger
+          where tgrelid = 'auth.users'::regclass and tgname = 'on_auth_user_created'`,
+    pass: (r) => r.length === 1,
+    detail: (r) => (r.length ? '생성됨' : '없음 — 가입해도 profiles 가 안 생긴다'),
+  },
+  {
+    name: 'RLS 헬퍼가 SECURITY DEFINER 인가 (무한재귀 방지)',
+    sql: `select proname, prosecdef from pg_proc
+          where pronamespace = 'public'::regnamespace
+            and proname in ('is_tournament_member','is_tournament_admin','is_tournament_owner',
+                            'is_match_referee','match_tournament_id','match_team_tournament_id')
+          order by proname`,
+    pass: (r) => r.length === 6 && r.every((x) => x['prosecdef'] === true),
+    detail: (r) => `${r.filter((x) => x['prosecdef']).length}/6 개가 SECURITY DEFINER`,
+  },
+  {
+    name: '모든 테이블에 RLS 활성화',
+    sql: `select relname, relrowsecurity, relforcerowsecurity from pg_class
+          where relnamespace = 'public'::regnamespace and relkind = 'r'
+          order by relname`,
+    pass: (r) => r.length > 0 && r.every((x) => x['relrowsecurity'] === true),
+    detail: (r) => {
+      const off = r.filter((x) => !x['relrowsecurity']).map((x) => x['relname'])
+      return off.length ? `RLS 꺼진 테이블: ${off.join(', ')}` : `${r.length}개 테이블 전부 ON`
+    },
+  },
+  {
+    name: 'tournament_members 에 FORCE RLS 가 꺼져 있는가 (재귀 방지 조건)',
+    sql: `select relforcerowsecurity from pg_class
+          where relnamespace = 'public'::regnamespace and relname = 'tournament_members'`,
+    pass: (r) => r[0]?.['relforcerowsecurity'] === false,
+    detail: (r) =>
+      r[0]?.['relforcerowsecurity'] === false
+        ? 'OFF — 헬퍼가 RLS 를 우회할 수 있다 (의도대로)'
+        : 'ON — 무한재귀가 난다',
+  },
+  {
+    name: 'score_events 에 쓰기 정책이 없는가 (RPC 우회 차단)',
+    sql: `select cmd, policyname from pg_policies
+          where schemaname = 'public' and tablename = 'score_events'`,
+    pass: (r) => r.length > 0 && r.every((x) => x['cmd'] === 'SELECT'),
+    detail: (r) => `정책 ${r.length}개, 종류: ${[...new Set(r.map((x) => x['cmd']))].join(', ')}`,
+  },
+  {
+    name: 'profiles 가 본인만 조회 가능한가',
+    sql: `select cmd, qual from pg_policies
+          where schemaname = 'public' and tablename = 'profiles' and cmd = 'SELECT'`,
+    pass: (r) => r.length === 1 && String(r[0]?.['qual'] ?? '').includes('auth.uid()'),
+    detail: (r) => (r.length ? `조건: ${String(r[0]?.['qual']).slice(0, 60)}` : '정책 없음'),
+  },
+  {
+    name: 'Realtime 발행에 matches 가 등록됐는가',
+    sql: `select tablename from pg_publication_tables
+          where pubname = 'supabase_realtime' and schemaname = 'public'`,
+    pass: (r) => r.some((x) => x['tablename'] === 'matches'),
+    detail: (r) => `발행 테이블: ${r.map((x) => x['tablename']).join(', ') || '(없음)'}`,
+  },
+  {
+    name: 'match_overview 뷰가 security_invoker 인가 (RLS 우회 통로 차단)',
+    sql: `select reloptions from pg_class
+          where relnamespace='public'::regnamespace and relname='match_overview'`,
+    pass: (r) => JSON.stringify(r[0]?.['reloptions'] ?? []).includes('security_invoker=true'),
+    detail: (r) => JSON.stringify(r[0]?.['reloptions'] ?? []),
+  },
+  {
+    name: 'RPC 가 authenticated 에게만 노출됐는가',
+    sql: `select p.proname,
+                 has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth_ok,
+                 has_function_privilege('anon',          p.oid, 'EXECUTE') as anon_ok
+          from pg_proc p
+          where p.pronamespace='public'::regnamespace
+            and p.proname in ('create_tournament','join_tournament','record_score','undo_score',
+                              'finish_match','reopen_match','create_match','set_my_group')
+          order by p.proname`,
+    pass: (r) => r.length === 8 && r.every((x) => x['auth_ok'] === true && x['anon_ok'] === false),
+    detail: (r) => {
+      const leaked = r.filter((x) => x['anon_ok']).map((x) => x['proname'])
+      return leaked.length ? `⚠ anon 에게 노출됨: ${leaked.join(', ')}` : `${r.length}/8 정상`
+    },
+  },
+  {
+    name: '내부 전용 함수가 앱 사용자에게 막혀 있는가 (감사로그 위조 방지)',
+    sql: `select p.proname,
+                 has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth_ok,
+                 has_function_privilege('anon',          p.oid, 'EXECUTE') as anon_ok
+          from pg_proc p
+          where p.pronamespace='public'::regnamespace
+            and p.proname in ('log_audit','gen_invite_code')`,
+    pass: (r) => r.length === 2 && r.every((x) => !x['auth_ok'] && !x['anon_ok']),
+    detail: (r) => {
+      const open = r.filter((x) => x['auth_ok'] || x['anon_ok']).map((x) => x['proname'])
+      return open.length ? `⚠ 호출 가능: ${open.join(', ')}` : '둘 다 차단됨'
+    },
+  },
+  {
+    name: 'get_standings 가 실제로 실행되는가',
+    sql: `select count(*) as n from get_standings('00000000-0000-0000-0000-000000000000')`,
+    pass: (r) => r.length === 1,
+    detail: (r) => `빈 대회로 호출 → ${r[0]?.['n']}행 (에러 없음)`,
+  },
+]
+
+async function main() {
+  const env = loadEnv()
+  const url = env['SUPABASE_DB_URL']
+  if (!url) throw new Error('.env.local 에 SUPABASE_DB_URL 이 없습니다')
+
+  const client = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
+  await client.connect()
+
+  let failed = 0
+  for (const check of checks) {
+    try {
+      const { rows } = await client.query(check.sql)
+      const ok = check.pass(rows as Record<string, unknown>[])
+      if (!ok) failed++
+      const mark = ok ? '✅' : '❌'
+      const detail = check.detail?.(rows as Record<string, unknown>[]) ?? ''
+      console.log(`${mark} ${check.name}`)
+      if (detail) console.log(`     ${detail}`)
+    } catch (err) {
+      failed++
+      console.log(`❌ ${check.name}`)
+      console.log(`     실행 실패: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  await client.end()
+  console.log(`\n${checks.length - failed}/${checks.length} 통과`)
+  if (failed > 0) process.exit(1)
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err)
+  process.exit(1)
+})

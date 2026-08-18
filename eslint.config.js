@@ -34,7 +34,9 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
   {
+    // CLI 스크립트는 콘솔 출력이 곧 UI 다
     files: ['scripts/**/*.ts', '*.config.{ts,js}'],
     languageOptions: { globals: globals.node },
+    rules: { 'no-console': 'off' },
   },
 )
