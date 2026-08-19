@@ -218,9 +218,11 @@ function MatchRow({
   const inner = (
     <>
       <div className="min-w-0 flex-1">
+        {/* 누를 수 없는 사람에게 '이 코트에서 시작' 이라고 하면 안 된다.
+            할 수 없는 일을 안내하는 문구가 된다. */}
         {shared && (
           <span className="mb-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-ink-2">
-            공용 대기 · 이 코트에서 시작
+            {clickable ? '공용 대기 · 이 코트에서 시작' : '공용 대기'}
           </span>
         )}
         <div className="flex items-center gap-2">

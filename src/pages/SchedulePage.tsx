@@ -28,8 +28,8 @@ export function SchedulePage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <TournamentNav id={id!} active="schedule" {...nav} />
-      <h1 className="sr-only">대진표</h1>
+      <TournamentNav id={id!} active="schedule" />
+      <h2 className="sr-only">대진표</h2>
 
       {error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">

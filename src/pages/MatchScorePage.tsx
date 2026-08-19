@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { ArrowLeft, CloudOff, Loader2, Play, RotateCcw, Zap } from 'lucide-react'
+import { CloudOff, Loader2, Play, RotateCcw, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useMatchScoring } from '@/features/scoring/useMatchScoring'
 import { finishMatch, startMatch, undoScore } from '@/features/scoring/api'
@@ -9,6 +9,7 @@ import { useWakeLock } from '@/hooks/useWakeLock'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
 import { decideWinner, isMatchPoint, pointsToWin } from '@/lib/rules'
 import { toUserMessage } from '@/lib/errors'
+import { BackLink } from '@/components/ui/BackLink'
 import { cn } from '@/lib/utils'
 import type { TeamSide } from '@/types/database'
 
@@ -94,18 +95,8 @@ export function MatchScorePage() {
     <Wrap>
       {/* 상단 바 */}
       <header className="flex items-center justify-between gap-3 px-4 py-3">
-        <Link
-          to={`/t/${id}`}
-          // 실측 56x20 이었다. 심판이 급하게 누르는 자리라 세로 여백을 준다.
-          className={cn(
-            '-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium',
-            'text-ink-2 hover:text-ink-1',
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-          )}
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          나가기
-        </Link>
+        {/* 대진표에서 들어왔으면 대진표로, 코트에서 들어왔으면 코트로 */}
+        <BackLink to={`/t/${id}`}>나가기</BackLink>
 
         <div className="flex items-center gap-2 text-xs font-semibold">
           {m.court_name && <span className="text-ink-2">{m.court_name}</span>}

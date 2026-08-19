@@ -1,6 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
-import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { ChevronRight, Gavel, Play } from 'lucide-react'
 import { LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
@@ -19,7 +18,6 @@ import type { MatchOverviewRow } from '@/types/database'
 export function RefereePage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const nav = useTournamentNav(id)
   const members = useMembers(id)
   const matches = useMatches(id)
   useRealtimeMatches(id)
@@ -36,12 +34,12 @@ export function RefereePage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <TournamentNav id={id!} active="referee" {...nav} />
+      <TournamentNav id={id!} active="referee" />
 
       <header className="mt-4">
-        <h1 className="flex items-center gap-2 text-xl font-black tracking-tight text-ink-1">
+        <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-ink-1">
           <Gavel className="size-5 text-brand-fg" aria-hidden />내 심판 경기
-        </h1>
+        </h2>
       </header>
 
       {matches.isPending || members.isPending ? (

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
-import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { useParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { useGroups, useMatches } from '@/features/tournament/queries'
@@ -17,7 +16,6 @@ import type { MatchOverviewRow } from '@/types/database'
  */
 export function MatchRecordsPage() {
   const { id } = useParams<{ id: string }>()
-  const nav = useTournamentNav(id)
   const matches = useMatches(id)
   const groups = useGroups(id)
 
@@ -38,8 +36,8 @@ export function MatchRecordsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <TournamentNav id={id!} active="records" {...nav} />
-      <h1 className="sr-only">경기 기록</h1>
+      <TournamentNav id={id!} active="records" />
+      <h2 className="sr-only">경기 기록</h2>
 
       {/* 필터 */}
       <div className="mt-6 flex flex-col gap-3">

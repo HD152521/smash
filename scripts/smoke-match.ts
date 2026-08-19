@@ -382,11 +382,7 @@ try {
     q2.status === 200,
     `status=${q2.status} ${JSON.stringify(q2.body)}`,
   )
-  check(
-    '지금 뛰는 선수로도 다음 경기를 미리 짤 수 있다',
-    q2.status === 200,
-    `status=${q2.status}`,
-  )
+  check('지금 뛰는 선수로도 다음 경기를 미리 짤 수 있다', q2.status === 200, `status=${q2.status}`)
   const q2Id = (q2.body as unknown as { id: string }).id
 
   const startSameCourt = await rpc(admin.token, 'start_match', { p_match_id: q2Id })
@@ -404,12 +400,17 @@ try {
   check(
     '선수가 다른 코트에서 뛰는 중이면 시작할 수 없다',
     startSamePlayers.status === 400 &&
-      /다른 코트에서 경기 중/.test(String((startSamePlayers.body as { message?: string })?.message)),
+      /다른 코트에서 경기 중/.test(
+        String((startSamePlayers.body as { message?: string })?.message),
+      ),
     `status=${startSamePlayers.status} ${JSON.stringify(startSamePlayers.body)}`,
   )
 
   await rpc(admin.token, 'record_score', {
-    p_match_id: q1Id, p_side: 'A', p_delta: 1, p_client_event_id: `${q1Id}-queue-a1`,
+    p_match_id: q1Id,
+    p_side: 'A',
+    p_delta: 1,
+    p_client_event_id: `${q1Id}-queue-a1`,
   })
   await rpc(admin.token, 'finish_match', { p_match_id: q1Id, p_winner_side: 'A' })
   const startAfter = await rpc(admin.token, 'start_match', { p_match_id: q2Id })

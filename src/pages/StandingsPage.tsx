@@ -1,6 +1,5 @@
 import { useParams } from 'react-router-dom'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
-import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { useAuth } from '@/features/auth/useAuth'
 import { StandingsTable } from '@/features/standings/StandingsTable'
 import { useMatches, useMembers, useStandings } from '@/features/tournament/queries'
@@ -10,7 +9,6 @@ import { toUserMessage } from '@/lib/errors'
 export function StandingsPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const nav = useTournamentNav(id)
   const standings = useStandings(id)
   const matches = useMatches(id)
   const members = useMembers(id)
@@ -19,8 +17,8 @@ export function StandingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <TournamentNav id={id!} active="standings" {...nav} />
-      <h1 className="sr-only">조별 순위</h1>
+      <TournamentNav id={id!} active="standings" />
+      <h2 className="sr-only">조별 순위</h2>
 
       {standings.error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">

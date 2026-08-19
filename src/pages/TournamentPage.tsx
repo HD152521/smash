@@ -1,24 +1,11 @@
 import { Navigate, useParams } from 'react-router-dom'
-import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
-import {
-  useCourts,
-  useGroups,
-  useMatches,
-  useMembers,
-  useTournament,
-} from '@/features/tournament/queries'
+import { useCourts, useMatches, useMembers, useTournament } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
-import type { TournamentStatus } from '@/types/database'
 
-const STATUS_LABEL: Record<TournamentStatus, string> = {
-  draft: '준비중',
-  live: '진행중',
-  finished: '종료',
-}
 
 /**
  * 대회 메인 — 코트별 현황.
@@ -31,7 +18,6 @@ export function TournamentPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const tournament = useTournament(id)
-  const groups = useGroups(id)
   const members = useMembers(id)
   const matches = useMatches(id)
   const courts = useCourts(id)
@@ -39,13 +25,6 @@ export function TournamentPage() {
 
   const me = members.data?.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
-  const myGroup = groups.data?.find((g) => g.id === me?.groupId)
-  const myRefereeCount = me
-    ? (matches.data ?? []).filter(
-        (m) =>
-          m.referees?.includes(me.displayName) && m.status !== 'finished' && m.status !== 'void',
-      ).length
-    : 0
 
   if (tournament.error) {
     return (
@@ -74,27 +53,7 @@ export function TournamentPage() {
   const t = tournament.data
 
   return (
-    <Shell id={id} isAdmin={isAdmin} refereeCount={myRefereeCount}>
-      <header className="mt-5">
-        <div className="flex flex-wrap items-center gap-2">
-          {t.status === 'live' ? (
-            <LiveBadge />
-          ) : (
-            <Badge tone={t.status === 'finished' ? 'neutral' : 'ok'}>
-              {STATUS_LABEL[t.status]}
-            </Badge>
-          )}
-          {me && me.role !== 'member' && <Badge>{me.role === 'owner' ? '주최자' : '관리자'}</Badge>}
-          {myGroup && (
-            <Badge tone={myGroup.is_joker ? 'joker' : 'neutral'}>
-              {myGroup.is_joker && <span aria-hidden>🃏</span>}내 조 · {myGroup.name}
-            </Badge>
-          )}
-        </div>
-        <h1 className="mt-2 text-3xl leading-tight font-black tracking-tight text-ink-1">
-          {t.name}
-        </h1>
-      </header>
+    <Shell id={id}>
 
       {me && !me.groupId && t.status !== 'draft' && (
         <p className="mt-5 rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm font-semibold text-ink-1">
@@ -125,22 +84,10 @@ export function TournamentPage() {
   )
 }
 
-function Shell({
-  id,
-  isAdmin = false,
-  refereeCount = 0,
-  children,
-}: {
-  id: string | undefined
-  isAdmin?: boolean
-  refereeCount?: number
-  children: React.ReactNode
-}) {
+function Shell({ id, children }: { id: string | undefined; children: React.ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      {id && (
-        <TournamentNav id={id} active="court" isAdmin={isAdmin} refereeCount={refereeCount} />
-      )}
+      {id && <TournamentNav id={id} active="court" />}
       {children}
     </main>
   )

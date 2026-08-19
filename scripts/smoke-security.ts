@@ -358,6 +358,60 @@ try {
     limited.body?.['ok'] === false && limited.body?.['error'] === 'rate_limited',
     `error=${String(limited.body?.['error'] ?? '(없음)')}`,
   )
+
+  // ── 대진표에서 코트 배정 (관리자 전용) ──────────────────────────
+  // 코트 배정은 RPC 가 아니라 matches 직접 UPDATE 다. 화면에서 버튼을
+  // 안 그리는 건 보안이 아니다 — RLS 가 실제로 막는지 확인한다.
+  console.log('\n── 코트 배정 권한 ──')
+  const beforeCourt = await db.query<{ court_id: string | null }>(
+    `select court_id from matches where id=$1`, [matchId])
+
+  const assignByPlayer = await api(bystander.token, `matches?id=eq.${matchId}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ court_id: courtRows[0]!.id }),
+  })
+  const afterCourt = await db.query<{ court_id: string | null }>(
+    `select court_id from matches where id=$1`, [matchId])
+  check(
+    '일반 참가자는 경기에 코트를 배정할 수 없다',
+    afterCourt.rows[0]!.court_id === beforeCourt.rows[0]!.court_id,
+    `이전 ${String(beforeCourt.rows[0]!.court_id)} → 이후 ${String(afterCourt.rows[0]!.court_id)} (응답 ${assignByPlayer.status})`,
+  )
+
+  const startByPlayer = await api(bystander.token, 'rpc/start_match', {
+    method: 'POST',
+    body: JSON.stringify({ p_match_id: matchId }),
+  })
+  check(
+    '일반 참가자는 경기를 시작할 수 없다',
+    startByPlayer.status >= 400,
+    `status=${startByPlayer.status}`,
+  )
+
+  const claimByPlayer = await api(bystander.token, 'rpc/claim_court', {
+    method: 'POST',
+    body: JSON.stringify({ p_match_id: matchId, p_court_id: courtRows[0]!.id }),
+  })
+  check(
+    '일반 참가자는 코트를 잡을 수 없다',
+    claimByPlayer.status >= 400,
+    `status=${claimByPlayer.status}`,
+  )
+
+  // 관리자는 되어야 한다 — 막히는 것만 확인하면 권한 오류로 죽어도 통과한다
+  const assignByAdmin = await api(attacker.token, `matches?id=eq.${matchId}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ court_id: courtRows[0]!.id }),
+  })
+  const adminCourt = await db.query<{ court_id: string | null }>(
+    `select court_id from matches where id=$1`, [matchId])
+  check(
+    '관리자는 경기에 코트를 배정할 수 있다',
+    adminCourt.rows[0]!.court_id === courtRows[0]!.id,
+    `court_id=${String(adminCourt.rows[0]!.court_id)} (응답 ${assignByAdmin.status})`,
+  )
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,
