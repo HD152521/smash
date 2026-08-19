@@ -412,6 +412,36 @@ export async function renameCourt(courtId: string, name: string): Promise<CourtR
   return unwrap(res) as unknown as CourtRow
 }
 
+export interface UpdateMatchInput {
+  matchId: string
+  courtId: string | null
+  groupA: string
+  playersA: string[]
+  groupB: string
+  playersB: string[]
+  referees: string[]
+}
+
+/**
+ * 아직 시작하지 않은 경기 고치기.
+ *
+ * 세 테이블(match_teams / players / referees)을 직접 손대지 않는다.
+ * 조를 바꾸면 목표 점수 스냅샷까지 다시 계산해야 하고, 선수 소속·정원·
+ * 심판 규칙도 편성과 똑같이 지켜야 한다. 그 규칙은 전부 서버에 있다.
+ */
+export async function updateMatch(input: UpdateMatchInput): Promise<MatchRow> {
+  const res = await supabase.rpc('update_match', {
+    p_match_id: input.matchId,
+    p_court_id: input.courtId,
+    p_group_a: input.groupA,
+    p_players_a: input.playersA,
+    p_group_b: input.groupB,
+    p_players_b: input.playersB,
+    p_referees: input.referees,
+  })
+  return unwrap(res) as unknown as MatchRow
+}
+
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {
   const res = await supabase
     .from('matches')

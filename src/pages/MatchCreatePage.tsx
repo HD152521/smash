@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { BackLink } from '@/components/ui/BackLink'
-import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/features/auth/useAuth'
 import {
   useCourts,
   useCreateMatch,
+  useMatches,
+  useUpdateMatch,
   useGroups,
   useMembers,
   useRecordManualMatch,
@@ -23,13 +25,58 @@ import type { GroupRow, TournamentConfig } from '@/types/database'
  * 목표 점수와 승점은 여기서 보내지 않는다. 서버가 조의 is_joker 와
  * 대회 설정에서 계산해 스냅샷으로 굳힌다. 화면은 그 결과를 미리 보여줄 뿐이다.
  */
+/**
+ * 경기 편성 — 조 vs 조.
+ *
+ * 목표 점수와 승점은 여기서 보내지 않는다. 서버가 조의 is_joker 와
+ * 대회 설정에서 계산해 스냅샷으로 굳힌다. 화면은 그 결과를 미리 보여줄 뿐이다.
+ *
+ * 수정 모드(?edit=경기id)에서는 기존 편성을 그대로 불러온다.
+ * 폼의 초기값은 useState 로 한 번만 잡으므로, 데이터가 도착한 뒤에야
+ * 폼을 띄워야 한다. 그래서 불러오기와 폼을 나눴다 — 데이터가 준비되면
+ * key 로 폼을 새로 마운트해서 초기값이 확실히 채워지게 한다.
+ */
 export function MatchCreatePage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  const editId = searchParams.get('edit')
 
   const tournament = useTournament(id)
   const groups = useGroups(id)
   const members = useMembers(id)
+  const matches = useMatches(id)
+
+  const me = members.data?.find((m) => m.userId === user?.id)
+  const isAdmin = me?.role === 'owner' || me?.role === 'admin'
+  if (members.data && !isAdmin) return <Navigate to={`/t/${id}`} replace />
+
+  const ready =
+    tournament.data && groups.data && members.data && (!editId || matches.data !== undefined)
+
+  if (!ready) {
+    return (
+      <main className="mx-auto w-full max-w-2xl px-5 pt-10">
+        <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+      </main>
+    )
+  }
+
+  return <MatchForm key={editId ?? 'new'} editId={editId} />
+}
+
+
+function MatchForm({ editId }: { editId: string | null }) {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+
+  /*
+   * 래퍼가 데이터를 다 받은 뒤에만 이 컴포넌트를 마운트한다.
+   * 쿼리는 캐시 적중이라 값이 반드시 있다.
+   */
+  const tournament = { data: useTournament(id).data! }
+  const groups = { data: useGroups(id).data! }
+  const members = { data: useMembers(id).data! }
   const courts = useCourts(id)
   const create = useCreateMatch(id ?? '')
   const manual = useRecordManualMatch(id ?? '')
@@ -46,31 +93,37 @@ export function MatchCreatePage() {
   const [scoreA, setScoreA] = useState('')
   const [scoreB, setScoreB] = useState('')
 
-  const me = members.data?.find((m) => m.userId === user?.id)
-  const isAdmin = me?.role === 'owner' || me?.role === 'admin'
-
   /**
    * 대진표의 빈 칸에서 넘어오면 두 조가 이미 정해져 있다 (?a=&b=).
    * 첫 렌더에서 한 번만 읽는다 — 이후 사용자가 바꾼 선택을 주소가 되돌리면 안 된다.
    * 없는 조 id 가 들어와도 그 조의 선수 목록이 비어 편성 자체가 막히므로 따로 막지 않는다.
    */
   const [searchParams] = useSearchParams()
-  const [courtId, setCourtId] = useState<string>('')
-  const [groupA, setGroupA] = useState<string>(() => searchParams.get('a') ?? '')
-  const [groupB, setGroupB] = useState<string>(() => searchParams.get('b') ?? '')
-  const [playersA, setPlayersA] = useState<string[]>([])
-  const [playersB, setPlayersB] = useState<string[]>([])
-  const [referees, setReferees] = useState<string[]>([])
+  const matches = useMatches(id)
+  const update = useUpdateMatch(id ?? '')
 
-  if (members.data && !isAdmin) return <Navigate to={`/t/${id}`} replace />
+  /**
+   * 수정 모드면 기존 편성을 초기값으로 쓴다.
+   * 이 컴포넌트는 데이터가 준비된 뒤에만 마운트되므로 여기서 한 번만 읽으면 된다.
+   * 화면에는 이름이 나오지만 서버는 멤버 id 를 받으므로 이름으로 되짚는다.
+   */
+  const editing = editId ? (matches.data ?? []).find((m) => m.id === editId) : undefined
+  const memberIdsByName = (names: string[] | null) =>
+    (names ?? [])
+      .map((n) => members.data?.find((m) => m.displayName === n)?.id)
+      .filter((x): x is string => Boolean(x))
 
-  if (!tournament.data || !groups.data || !members.data) {
-    return (
-      <main className="mx-auto w-full max-w-2xl px-5 pt-10">
-        <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
-      </main>
-    )
-  }
+  const [courtId, setCourtId] = useState<string>(() => editing?.court_id ?? '')
+  const [groupA, setGroupA] = useState<string>(
+    () => editing?.group_a_id ?? searchParams.get('a') ?? '',
+  )
+  const [groupB, setGroupB] = useState<string>(
+    () => editing?.group_b_id ?? searchParams.get('b') ?? '',
+  )
+  const [playersA, setPlayersA] = useState<string[]>(() => memberIdsByName(editing?.players_a ?? null))
+  const [playersB, setPlayersB] = useState<string[]>(() => memberIdsByName(editing?.players_b ?? null))
+  const [referees, setReferees] = useState<string[]>(() => memberIdsByName(editing?.referees ?? null))
+
 
   const config = tournament.data.config as TournamentConfig
   const squadSize = config.format === 'singles' ? 1 : 2
@@ -112,7 +165,17 @@ export function MatchCreatePage() {
 
   async function handleSubmit() {
     try {
-      if (mode === 'schedule') {
+      if (editId) {
+        await update.mutateAsync({
+          matchId: editId,
+          courtId: courtId || null,
+          groupA,
+          playersA,
+          groupB,
+          playersB,
+          referees,
+        })
+      } else if (mode === 'schedule') {
         await create.mutateAsync({
           courtId: courtId || null,
           groupA,
@@ -140,6 +203,11 @@ export function MatchCreatePage() {
        *
        * 코트는 남긴다 — 같은 코트에 여러 경기를 줄 세우는 일이 잦다.
        */
+      if (editId) {
+        // 수정은 한 건짜리 일이다. 고치고 나면 목록으로 돌려보낸다.
+        navigate(`/t/${id}/schedule`, { replace: true })
+        return
+      }
       setGroupA('')
       setGroupB('')
       setPlayersA([])
@@ -161,13 +229,23 @@ export function MatchCreatePage() {
       </BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">
-        {mode === 'schedule' ? '경기 편성' : '지난 결과 입력'}
+        {editId ? '경기 고치기' : mode === 'schedule' ? '경기 편성' : '지난 결과 입력'}
       </h1>
+
+      {editId && (
+        <p className="mt-2 text-sm text-ink-2">
+          아직 시작하지 않은 경기만 고칠 수 있습니다. 코트와 심판 지정은 그대로 남습니다.
+        </p>
+      )}
 
       <div
         role="group"
         aria-label="편성 방식"
-        className="mt-4 flex rounded-xl border border-border-subtle p-1"
+        className={cn(
+          'mt-4 flex rounded-xl border border-border-subtle p-1',
+          // 수정 대상은 예정 경기뿐이라 '지난 결과 입력' 으로 바꿀 일이 없다
+          editId && 'hidden',
+        )}
       >
         {(['schedule', 'manual'] as const).map((v) => (
           <button
@@ -311,9 +389,12 @@ export function MatchCreatePage() {
         </p>
       )}
 
-      {(create.error || manual.error) && (
+      {(create.error || manual.error || update.error) && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
-          {toUserMessage(create.error ?? manual.error, '경기를 저장하지 못했습니다')}
+          {toUserMessage(
+            create.error ?? manual.error ?? update.error,
+            '경기를 저장하지 못했습니다',
+          )}
         </p>
       )}
 
@@ -341,10 +422,10 @@ export function MatchCreatePage() {
             </p>
             <Button
               size="lg"
-              loading={create.isPending || manual.isPending}
+              loading={create.isPending || manual.isPending || update.isPending}
               onClick={() => void handleSubmit()}
             >
-              {mode === 'schedule' ? '경기 만들기' : '결과 저장'}
+              {editId ? '고치기' : mode === 'schedule' ? '경기 만들기' : '결과 저장'}
             </Button>
           </div>
         </div>

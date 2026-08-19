@@ -22,6 +22,7 @@ import {
   addRosterMember,
   removeMember,
   renameCourt,
+  updateMatch,
   moveCourt,
   fetchMatches,
   fetchStandings,
@@ -32,6 +33,7 @@ import {
   setMemberRole,
   setTournamentStatus,
   type CreateMatchInput,
+  type UpdateMatchInput,
   type ManualMatchInput,
   type CreateTournamentInput,
 } from './api'
@@ -311,6 +313,17 @@ export function useRenameCourt(tournamentId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] })
       // 코트 이름은 경기 목록(match_overview)에도 박혀 나온다
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+    },
+  })
+}
+
+export function useUpdateMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateMatchInput) => updateMatch(input),
+    onSuccess: () => {
+      void kickPushSender()
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
     },
   })

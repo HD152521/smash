@@ -419,6 +419,110 @@ try {
     startAfter.status === 200,
     `status=${startAfter.status} ${JSON.stringify(startAfter.body)}`,
   )
+
+  // ── 시작 전 경기 고치기 ─────────────────────────────────────────
+  console.log('\n── 시작 전 경기 고치기 ──')
+  const editable = await rpc(admin.token, 'create_match', {
+    p_tournament_id: t.id,
+    p_court_id: null,
+    p_label: null,
+    p_group_a: jokerGroup.id,
+    p_players_a: [memberOf('선수1'), memberOf('선수2')],
+    p_group_b: normalGroup.id,
+    p_players_b: [memberOf('선수3'), memberOf('선수4')],
+    p_referees: [memberOf('심판')],
+  })
+  const editId = (editable.body as unknown as { id: string }).id
+
+  // A/B 를 맞바꾼다 — 조커가 A 에서 B 로 간다
+  const edited = await rpc(admin.token, 'update_match', {
+    p_match_id: editId,
+    p_court_id: null,
+    p_group_a: normalGroup.id,
+    p_players_a: [memberOf('선수3'), memberOf('선수4')],
+    p_group_b: jokerGroup.id,
+    p_players_b: [memberOf('선수1'), memberOf('선수2')],
+    p_referees: [],
+  })
+  check('시작 전 경기를 고친다', edited.status === 200, `status=${edited.status}`)
+
+  const { rows: editedTeams } = await db.query<{
+    side: string
+    target_score: number
+    win_points: string
+    is_joker: boolean
+  }>(
+    `select side, target_score, win_points, is_joker from match_teams
+      where match_id=$1 order by side`,
+    [editId],
+  )
+  check(
+    '조를 바꾸면 목표 점수 스냅샷도 따라 바뀐다',
+    editedTeams[0]!.target_score === 21 &&
+      !editedTeams[0]!.is_joker &&
+      editedTeams[1]!.target_score === 11 &&
+      editedTeams[1]!.is_joker &&
+      Number(editedTeams[1]!.win_points) === 0.5,
+    `A: ${editedTeams[0]!.target_score}점 / B: ${editedTeams[1]!.target_score}점 ` +
+      `— 여기가 안 바뀌면 조커조가 21점을 내야 이기는 경기가 된다`,
+  )
+
+  const { rows: editedPlayers } = await db.query<{ n: string }>(
+    `select count(*)::text n from match_team_players mtp
+       join match_teams mt on mt.id = mtp.match_team_id
+      where mt.match_id=$1`,
+    [editId],
+  )
+  check('선수가 4명 그대로다 (중복 생성 없음)', editedPlayers[0]!.n === '4', `${editedPlayers[0]!.n}명`)
+
+  const { rows: editedRefs } = await db.query<{ n: string }>(
+    `select count(*)::text n from match_referees where match_id=$1`,
+    [editId],
+  )
+  check('심판을 비우면 실제로 비워진다', editedRefs[0]!.n === '0', `${editedRefs[0]!.n}명`)
+
+  const wrongGroup = await rpc(admin.token, 'update_match', {
+    p_match_id: editId,
+    p_court_id: null,
+    p_group_a: normalGroup.id,
+    p_players_a: [memberOf('선수1'), memberOf('선수2')],
+    p_group_b: jokerGroup.id,
+    p_players_b: [memberOf('선수3'), memberOf('선수4')],
+    p_referees: [],
+  })
+  check(
+    '조에 속하지 않은 선수는 넣을 수 없다 (편성과 같은 규칙)',
+    wrongGroup.status >= 400,
+    `status=${wrongGroup.status}`,
+  )
+
+  const byPlayer = await rpc(players[0]!.token, 'update_match', {
+    p_match_id: editId,
+    p_court_id: null,
+    p_group_a: normalGroup.id,
+    p_players_a: [memberOf('선수3'), memberOf('선수4')],
+    p_group_b: jokerGroup.id,
+    p_players_b: [memberOf('선수1'), memberOf('선수2')],
+    p_referees: [],
+  })
+  check('일반 참가자는 경기를 고칠 수 없다', byPlayer.status >= 400, `status=${byPlayer.status}`)
+
+  // 이미 끝난 경기(matchId)는 못 고친다 — 점수가 누구 것인지 알 수 없어진다
+  const editFinished = await rpc(admin.token, 'update_match', {
+    p_match_id: matchId,
+    p_court_id: null,
+    p_group_a: normalGroup.id,
+    p_players_a: [memberOf('선수3'), memberOf('선수4')],
+    p_group_b: jokerGroup.id,
+    p_players_b: [memberOf('선수1'), memberOf('선수2')],
+    p_referees: [],
+  })
+  check(
+    '끝난 경기는 고칠 수 없다',
+    editFinished.status >= 400,
+    `status=${editFinished.status} — 점수가 붙어 있는데 선수를 바꾸면 그 점수가 누구 것인지 알 수 없다`,
+  )
+
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,

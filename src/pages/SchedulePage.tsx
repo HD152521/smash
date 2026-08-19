@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { CircleDot } from 'lucide-react'
+import { CircleDot, Pencil } from 'lucide-react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { useAssignCourt, useCourts, useMatches } from '@/features/tournament/queries'
 import { useTournamentNav } from '@/features/tournament/useTournamentNav'
@@ -79,6 +79,7 @@ export function SchedulePage() {
                         m={m}
                         tournamentId={id!}
                         canOpen={isAdmin}
+                        canEdit={isAdmin}
                         order={i + 1}
                         courts={isAdmin ? (courts.data ?? []) : []}
                         currentCourtId={q.court.id}
@@ -107,6 +108,7 @@ export function SchedulePage() {
                       m={m}
                       tournamentId={id!}
                       canOpen={false}
+                      canEdit={isAdmin}
                       courts={isAdmin ? (courts.data ?? []) : []}
                       onAssign={(courtId) => m.id && assign.mutate({ matchId: m.id, courtId })}
                       pending={assign.isPending}
@@ -127,6 +129,7 @@ function MatchCard({
   m,
   tournamentId,
   canOpen,
+  canEdit,
   order,
   courts,
   currentCourtId,
@@ -145,6 +148,8 @@ function MatchCard({
   order?: number
   /** 비어 있으면 배정 버튼을 아예 안 그린다 (관리자가 아님) */
   courts: CourtRow[]
+  /** 관리자만 편성을 고칠 수 있다 */
+  canEdit: boolean
   currentCourtId?: string
   onAssign: (courtId: string | null) => void
   pending: boolean
@@ -176,18 +181,34 @@ function MatchCard({
 
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-1 px-4 py-3">
-      {canOpen && m.id ? (
-        <Link
-          to={`/t/${tournamentId}/matches/${m.id}`}
-          className="flex min-h-11 items-center gap-2 rounded-lg
-                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-        >
-          {body}
-          <span className="shrink-0 text-sm font-bold text-brand-fg">시작</span>
-        </Link>
-      ) : (
-        <div className="flex min-h-11 items-center">{body}</div>
-      )}
+      <div className="flex min-h-11 items-center gap-1">
+        {canOpen && m.id ? (
+          <Link
+            to={`/t/${tournamentId}/matches/${m.id}`}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            {body}
+            <span className="shrink-0 text-sm font-bold text-brand-fg">시작</span>
+          </Link>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center">{body}</div>
+        )}
+
+        {/* 아직 시작 안 한 경기만 고친다. 사람이 안 왔거나 조를 잘못 골랐을 때
+            지우고 다시 만들면 코트 배정과 심판 지정이 함께 날아간다. */}
+        {canEdit && m.id && (
+          <Link
+            to={`/t/${tournamentId}/matches/new?edit=${m.id}`}
+            aria-label={`${matchTitle(m)} 수정`}
+            className="grid size-10 shrink-0 place-items-center rounded-lg text-ink-3
+                       transition-colors hover:bg-surface-2 hover:text-ink-1
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <Pencil className="size-4" aria-hidden />
+          </Link>
+        )}
+      </div>
 
       {courts.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border-subtle pt-2">
