@@ -363,6 +363,20 @@ export async function fetchScoreEvents(matchId: string): Promise<ScoreEventRow[]
   return unwrap(res) as ScoreEventRow[]
 }
 
+/**
+ * 표시 이름 바꾸기 (본인 또는 관리자).
+ *
+ * RLS 를 넓히지 않고 RPC 로 여는 이유는 마이그레이션 주석에 적어 뒀다 —
+ * 본인 행을 열면 group_id 까지 함께 열려 조 변경 규칙이 뚫린다.
+ */
+export async function setDisplayName(memberId: string, name: string): Promise<void> {
+  const res = await supabase.rpc('set_display_name', {
+    p_member_id: memberId,
+    p_name: name,
+  })
+  unwrap(res)
+}
+
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {
   const res = await supabase
     .from('matches')

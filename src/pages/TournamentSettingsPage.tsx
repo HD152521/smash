@@ -3,6 +3,7 @@ import { BackLink } from '@/components/ui/BackLink'
 import { Lock } from 'lucide-react'
 import { useAuth } from '@/features/auth/useAuth'
 import { GroupPicker } from '@/features/tournament/GroupPicker'
+import { NameEditor } from '@/features/tournament/NameEditor'
 import { PushToggle } from '@/features/notifications/PushToggle'
 import { useGroups, useMembers, useSetMyGroup, useTournament } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -84,12 +85,17 @@ export function TournamentSettingsPage() {
       </section>
 
       <section className="mt-10">
-        <h2 className="text-lg font-bold text-ink-1">내 표시 이름</h2>
-        <p className="mt-1 text-sm text-ink-2">
-          대진표와 순위표에 보이는 이름입니다.{' '}
-          <span className="text-ink-3">({me?.displayName ?? '—'})</span>
+        <h2 className="text-lg font-bold text-ink-1">내 이름</h2>
+        <p className="mt-1 mb-3 text-sm text-ink-2">
+          대진표 · 순위표 · 심판 배정에 이 이름으로 보입니다. 이 대회에서만 바뀝니다.
         </p>
-        <p className="mt-3 text-sm text-ink-3">이름 변경은 다음 단계에서 붙습니다.</p>
+        {me && id ? (
+          <div className="flex items-center rounded-2xl border border-border-subtle bg-surface-1 px-4 py-2">
+            <NameEditor tournamentId={id} memberId={me.id} name={me.displayName} />
+          </div>
+        ) : (
+          <div className="h-14 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+        )}
       </section>
     </main>
   )

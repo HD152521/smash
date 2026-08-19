@@ -165,6 +165,10 @@ export type Database = {
         Args: { p_tournament_id: string; p_group_id: string | null }
         Returns: TournamentMemberRow
       }
+      set_display_name: {
+        Args: { p_member_id: string; p_name: string }
+        Returns: TournamentMemberRow
+      }
       set_tournament_status: {
         Args: { p_tournament_id: string; p_status: TournamentRow['status'] }
         Returns: TournamentRow

@@ -18,6 +18,7 @@ import {
   assignCourt,
   claimCourt,
   fetchScoreEvents,
+  setDisplayName,
   moveCourt,
   fetchMatches,
   fetchStandings,
@@ -262,6 +263,20 @@ export function useScoreEvents(matchId: string | undefined) {
     queryFn: () => fetchScoreEvents(matchId!),
     enabled: Boolean(matchId),
     staleTime: 60_000,
+  })
+}
+
+export function useSetDisplayName(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ memberId, name }: { memberId: string; name: string }) =>
+      setDisplayName(memberId, name),
+    onSuccess: () => {
+      // 이름은 이 대회의 여러 화면에 흩어져 있다 (참가자 · 대진표 · 순위 · 심판).
+      // 계정 프로필은 건드리지 않으므로 여기서 지울 것도 없다.
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'members'] })
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+    },
   })
 }
 

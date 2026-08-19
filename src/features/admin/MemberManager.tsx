@@ -1,5 +1,6 @@
 import { Shield, ShieldOff } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { NameEditor } from '@/features/tournament/NameEditor'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import { useSetMemberGroup, useSetMemberRole } from '@/features/tournament/queries'
@@ -49,7 +50,14 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-ink-1">{m.displayName}</span>
+                  {/* 오타로 들어온 이름을 관리자가 고쳐 준다. 본인이 못 고치는
+                      상황(폰이 없거나 이미 대회 중)이 흔하다. */}
+                  <NameEditor
+                    tournamentId={tournamentId}
+                    memberId={m.id}
+                    name={m.displayName}
+                    label={m.displayName}
+                  />
                   {isOwner && <Badge>주최자</Badge>}
                   {m.role === 'admin' && <Badge tone="ok">관리자</Badge>}
                   {isSelf && <span className="text-xs text-ink-3">(나)</span>}

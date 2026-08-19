@@ -10,6 +10,8 @@ import { useAuth } from '@/features/auth/useAuth'
  */
 export function HomePage() {
   const { user, signOut } = useAuth()
+  // 계정 이름. 대회 안에서 바꾸는 이름(display_name)은 그 대회에만 남으므로
+  // 여기는 따라 바뀌지 않는다.
   const displayName =
     (user?.user_metadata?.['name'] as string | undefined) ?? user?.email?.split('@')[0] ?? '참가자'
 

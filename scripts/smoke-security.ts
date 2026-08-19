@@ -417,6 +417,87 @@ try {
     adminCourt.rows[0]!.court_id === courtRows[0]!.id,
     `court_id=${String(adminCourt.rows[0]!.court_id)} (응답 ${assignByAdmin.status})`,
   )
+
+  // ── 표시 이름 변경 ──────────────────────────────────────────────
+  // 남의 이름을 바꿀 수 있으면 대진표에서 신분을 위장할 수 있다.
+  // 심판 지정도 이름으로 확인하므로 채점 권한까지 흔들린다.
+  console.log('\n── 표시 이름 변경 ──')
+
+  const renameOther = await api(bystander.token, 'rpc/set_display_name', {
+    method: 'POST',
+    body: JSON.stringify({ p_member_id: ownerMember.id, p_name: '가짜주최자' }),
+  })
+  check(
+    '일반 참가자는 남의 이름을 바꿀 수 없다',
+    renameOther.status >= 400,
+    `status=${renameOther.status}`,
+  )
+
+  const { rows: bystanderRow } = await db.query<{ id: string }>(
+    `select id from tournament_members where tournament_id=$1 and display_name='순수참가자'`,
+    [t.id],
+  )
+  const renameSelf = await api(bystander.token, 'rpc/set_display_name', {
+    method: 'POST',
+    body: JSON.stringify({ p_member_id: bystanderRow[0]!.id, p_name: '바꾼이름' }),
+  })
+  check('본인 이름은 바꿀 수 있다', renameSelf.status === 200, `status=${renameSelf.status}`)
+
+  const dup = await api(bystander.token, 'rpc/set_display_name', {
+    method: 'POST',
+    body: JSON.stringify({ p_member_id: bystanderRow[0]!.id, p_name: '주최자' }),
+  })
+  check(
+    '같은 대회에 중복 이름은 막는다',
+    dup.status >= 400,
+    `status=${dup.status} — 중복되면 대진표에서 누가 누군지 알 수 없다`,
+  )
+
+  const blank = await api(bystander.token, 'rpc/set_display_name', {
+    method: 'POST',
+    body: JSON.stringify({ p_member_id: bystanderRow[0]!.id, p_name: '   ' }),
+  })
+  check('공백만 있는 이름은 막는다', blank.status >= 400, `status=${blank.status}`)
+
+  const renameByAdmin = await api(attacker.token, 'rpc/set_display_name', {
+    method: 'POST',
+    body: JSON.stringify({ p_member_id: bystanderRow[0]!.id, p_name: '관리자가바꾼이름' }),
+  })
+  check(
+    '관리자는 참가자 이름을 바꿀 수 있다',
+    renameByAdmin.status === 200,
+    `status=${renameByAdmin.status}`,
+  )
+
+  const { rows: renameLog } = await db.query(
+    `select 1 from audit_logs where tournament_id=$1 and action='member.rename'`,
+    [t.id],
+  )
+  check(
+    '남의 이름을 바꾼 것은 기록에 남는다',
+    renameLog.length > 0,
+    `${renameLog.length}건 — 흔적 없이 바뀌면 나중에 추적할 수 없다`,
+  )
+
+  // group_id 를 함께 넘겨도 조가 바뀌면 안 된다 (RPC 는 이름만 건드린다)
+  const { rows: groupBefore } = await db.query<{ group_id: string | null }>(
+    `select group_id from tournament_members where id=$1`,
+    [bystanderRow[0]!.id],
+  )
+  await api(bystander.token, 'rpc/set_display_name', {
+    method: 'POST',
+    body: JSON.stringify({ p_member_id: bystanderRow[0]!.id, p_name: '다시바꿈' }),
+  })
+  const { rows: groupAfter } = await db.query<{ group_id: string | null }>(
+    `select group_id from tournament_members where id=$1`,
+    [bystanderRow[0]!.id],
+  )
+  check(
+    '이름을 바꿔도 조는 그대로다',
+    groupBefore[0]!.group_id === groupAfter[0]!.group_id,
+    '이름 변경으로 조 배정 규칙을 우회할 수 없어야 한다',
+  )
+
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,
