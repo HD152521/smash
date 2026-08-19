@@ -279,7 +279,6 @@ try {
     `순서: ${order.map((o) => o.name).join(' → ')}`,
   )
 
-
   console.log('\n── 관리자의 정상 동작 (과잉 차단 회귀 방지) ──')
   // 이 검사가 없어서 가드 트리거가 권한 오류로 죽는 걸 놓쳤다.
   // '차단됐다' 만 보면 정상 동작이 막힌 것도 통과해 버린다.
@@ -364,7 +363,9 @@ try {
   // 안 그리는 건 보안이 아니다 — RLS 가 실제로 막는지 확인한다.
   console.log('\n── 코트 배정 권한 ──')
   const beforeCourt = await db.query<{ court_id: string | null }>(
-    `select court_id from matches where id=$1`, [matchId])
+    `select court_id from matches where id=$1`,
+    [matchId],
+  )
 
   const assignByPlayer = await api(bystander.token, `matches?id=eq.${matchId}`, {
     method: 'PATCH',
@@ -372,7 +373,9 @@ try {
     body: JSON.stringify({ court_id: courtRows[0]!.id }),
   })
   const afterCourt = await db.query<{ court_id: string | null }>(
-    `select court_id from matches where id=$1`, [matchId])
+    `select court_id from matches where id=$1`,
+    [matchId],
+  )
   check(
     '일반 참가자는 경기에 코트를 배정할 수 없다',
     afterCourt.rows[0]!.court_id === beforeCourt.rows[0]!.court_id,
@@ -406,7 +409,9 @@ try {
     body: JSON.stringify({ court_id: courtRows[0]!.id }),
   })
   const adminCourt = await db.query<{ court_id: string | null }>(
-    `select court_id from matches where id=$1`, [matchId])
+    `select court_id from matches where id=$1`,
+    [matchId],
+  )
   check(
     '관리자는 경기에 코트를 배정할 수 있다',
     adminCourt.rows[0]!.court_id === courtRows[0]!.id,
