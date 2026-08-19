@@ -112,9 +112,18 @@ try {
 
   console.log('\n── 미가입 참가자는 심판을 맡을 수 없다 ──')
   // 열 수 있는 사람이 아무도 없는 경기가 만들어지면 코트에서야 발견한다
-  const others = await rpc(admin.token, 'add_roster_member', { p_tournament_id: t.id, p_name: '박영희' })
-  const other2 = await rpc(admin.token, 'add_roster_member', { p_tournament_id: t.id, p_name: '이민수' })
-  const other3 = await rpc(admin.token, 'add_roster_member', { p_tournament_id: t.id, p_name: '최지훈' })
+  const others = await rpc(admin.token, 'add_roster_member', {
+    p_tournament_id: t.id,
+    p_name: '박영희',
+  })
+  const other2 = await rpc(admin.token, 'add_roster_member', {
+    p_tournament_id: t.id,
+    p_name: '이민수',
+  })
+  const other3 = await rpc(admin.token, 'add_roster_member', {
+    p_tournament_id: t.id,
+    p_name: '최지훈',
+  })
   const ids = [roster, others.body, other2.body, other3.body].map(
     (r) => (r as unknown as { id: string }).id,
   )
@@ -210,13 +219,16 @@ try {
   const removeByOther = await rpc(outsider.token, 'remove_member', {
     p_member_id: outsiderRow[0]!.id,
   })
-  check('일반 참가자는 아무도 뺄 수 없다', removeByOther.status >= 400, `status=${removeByOther.status}`)
+  check(
+    '일반 참가자는 아무도 뺄 수 없다',
+    removeByOther.status >= 400,
+    `status=${removeByOther.status}`,
+  )
 
   // 명단·계정 짝짓기는 걷어냈다. 명단 행을 남기고 계정 행을 지우는 방식이라
   // 계정 쪽에 있던 조 배정이 함께 사라졌다 — 본인이 고른 조가 조용히 날아간다.
   // 어느 쪽 정보를 남길지 칸 단위로 정한 뒤에 다시 만든다.
   // (자세한 내용은 20260819000009_drop_link_member.sql)
-
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,
