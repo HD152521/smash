@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { useGroups, useMatches } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -97,7 +97,7 @@ export function MatchRecordsPage() {
           <ul className="mt-2 flex flex-col gap-2.5">
             {filtered.map((m) => (
               <li key={m.id}>
-                <RecordCard m={m} />
+                <RecordCard m={m} tournamentId={id!} />
               </li>
             ))}
           </ul>
@@ -107,14 +107,19 @@ export function MatchRecordsPage() {
   )
 }
 
-function RecordCard({ m }: { m: MatchOverviewRow }) {
+function RecordCard({ m, tournamentId }: { m: MatchOverviewRow; tournamentId: string }) {
   const voided = m.status === 'void'
   const when = m.finished_at ?? m.created_at
 
   return (
-    <article
+    // 눌러서 점수가 어떻게 흘러갔는지 본다. 최종 점수만으로는
+    // 21:19 도 21:5 도 그냥 '이겼다' 라서 남는 게 없다.
+    <Link
+      to={`/t/${tournamentId}/records/${m.id}`}
       className={cn(
-        'rounded-2xl border border-border-subtle bg-surface-1 p-4',
+        'block rounded-2xl border border-border-subtle bg-surface-1 p-4',
+        'transition-colors hover:bg-surface-2',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
         voided && 'opacity-60',
       )}
     >
@@ -169,7 +174,7 @@ function RecordCard({ m }: { m: MatchOverviewRow }) {
       {(m.referees?.length ?? 0) > 0 && (
         <p className="mt-2 text-xs text-ink-3">심판 {m.referees?.join(', ')}</p>
       )}
-    </article>
+    </Link>
   )
 }
 

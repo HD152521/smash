@@ -17,6 +17,7 @@ import {
   fetchCourts,
   assignCourt,
   claimCourt,
+  fetchScoreEvents,
   moveCourt,
   fetchMatches,
   fetchStandings,
@@ -251,6 +252,16 @@ export function useMoveCourt(tournamentId: string) {
     mutationFn: ({ courtId, direction }: { courtId: string; direction: -1 | 1 }) =>
       moveCourt(courtId, direction),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
+  })
+}
+
+/** 한 경기의 득점 순서. 끝난 경기는 더 안 바뀌므로 오래 캐시해도 된다. */
+export function useScoreEvents(matchId: string | undefined) {
+  return useQuery({
+    queryKey: ['matches', matchId, 'events'],
+    queryFn: () => fetchScoreEvents(matchId!),
+    enabled: Boolean(matchId),
+    staleTime: 60_000,
   })
 }
 

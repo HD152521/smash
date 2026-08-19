@@ -51,6 +51,9 @@ const StandingsPage = lazy(() =>
 const SchedulePage = lazy(() =>
   import('@/pages/SchedulePage').then((m) => ({ default: m.SchedulePage })),
 )
+const MatchDetailPage = lazy(() =>
+  import('@/pages/MatchDetailPage').then((m) => ({ default: m.MatchDetailPage })),
+)
 const MembersPage = lazy(() =>
   import('@/pages/MembersPage').then((m) => ({ default: m.MembersPage })),
 )
@@ -224,6 +227,14 @@ export function AppRoutes() {
         }
       />
 
+      <Route
+        path="/t/:id/records/:matchId"
+        element={
+          <Protected>
+            <MatchDetailPage />
+          </Protected>
+        }
+      />
       <Route
         path="/t/:id/records"
         element={

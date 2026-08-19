@@ -7,6 +7,7 @@ import type {
   MatchOverviewRow,
   MatchRow,
   MemberRole,
+  ScoreEventRow,
   StandingRow,
   TournamentRow,
   TournamentStatus,
@@ -347,6 +348,21 @@ export async function moveCourt(courtId: string, direction: -1 | 1): Promise<Cou
  *
  * 점수·상태·승자는 가드 트리거가 직접 수정을 막으므로 코트만 바뀐다.
  */
+/**
+ * 한 경기의 득점 원장.
+ *
+ * 참가자면 누구나 읽을 수 있다(RLS). 취소된 득점(voided)까지 가져와서
+ * 화면에서 거른다 — 서버에서 걸러 버리면 '몇 개가 취소됐는지' 를 알 수 없다.
+ */
+export async function fetchScoreEvents(matchId: string): Promise<ScoreEventRow[]> {
+  const res = await supabase
+    .from('score_events')
+    .select('id, side, delta, voided, created_at')
+    .eq('match_id', matchId)
+    .order('id')
+  return unwrap(res) as ScoreEventRow[]
+}
+
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {
   const res = await supabase
     .from('matches')
