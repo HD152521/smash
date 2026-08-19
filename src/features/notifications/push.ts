@@ -18,7 +18,7 @@ function isIos(): boolean {
 }
 
 /** 홈 화면에 추가된 상태로 실행 중인가 */
-export function isStandalone(): boolean {
+function isStandalone(): boolean {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     // iOS 사파리만 쓰는 비표준 속성

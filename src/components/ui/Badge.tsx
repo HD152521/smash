@@ -31,29 +31,6 @@ export function Badge({
   )
 }
 
-/**
- * 조커조 표시.
- *
- * 색만으로 구분하지 않는다 — 색약인 사람도, 흑백 출력물에서도 읽혀야 한다.
- * 그래서 아이콘 + "조커" 텍스트 + 목표 점수를 함께 노출한다.
- * 심판이 목표를 착각하면 경기가 통째로 잘못 끝나기 때문에 과할 정도로 반복한다.
- */
-export function JokerBadge({
-  targetScore,
-  className,
-}: {
-  targetScore?: number
-  className?: string
-}) {
-  return (
-    <Badge tone="joker" className={className}>
-      <span aria-hidden>🃏</span>
-      조커
-      {targetScore !== undefined && <span className="tabular font-bold">· {targetScore}점</span>}
-    </Badge>
-  )
-}
-
 export function LiveBadge({ className }: { className?: string }) {
   return (
     <Badge tone="live" className={className}>

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+
+  // npm run 으로만 불리는 스크립트들은 knip 이 진입점으로 못 찾는다
+  "entry": ["scripts/*.ts"],
+
+  // 검사 범위를 앱 소스로 한정한다.
+  // 아래 셋은 '아무도 import 하지 않는다' 가 맞지만 죽은 코드가 아니므로
+  // 애초에 범위 밖에 둔다 — 지우면 조용히 기능이 사라진다:
+  //   public/sw.js                     브라우저가 serviceWorker.register 로 부른다 (알림)
+  //   supabase/functions/**            Deno 에서 도는 Edge Function, 따로 배포된다
+  //   src/types/database.typetest.ts   컴파일 타임 타입 단언 전용.
+  //     예전에 타입 계층이 통째로 any 로 죽었는데 tsc 는 통과한 적이 있어서 만든 파일이다.
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
+  "ignore": ["src/types/database.typetest.ts"]
+}

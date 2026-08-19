@@ -9,14 +9,14 @@
  * 그래서 흑백이 정확히 21.00 이 나오는지 테스트에서 못 박는다.
  */
 
-export interface Oklch {
+interface Oklch {
   l: number // 0..1
   c: number
   h: number // degrees
 }
 
 /** "oklch(52% 0.17 149)" 를 읽는다 */
-export function parseOklch(css: string): Oklch {
+function parseOklch(css: string): Oklch {
   const m = /oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+([\d.]+)\s*\)/i.exec(css)
   if (!m) throw new Error(`oklch 로 읽을 수 없습니다: ${css}`)
   const raw = Number(m[1])
@@ -24,7 +24,7 @@ export function parseOklch(css: string): Oklch {
 }
 
 /** OKLCH → 선형 sRGB (0..1, 색역 밖은 잘라낸다) */
-export function oklchToLinearRgb({ l, c, h }: Oklch): [number, number, number] {
+function oklchToLinearRgb({ l, c, h }: Oklch): [number, number, number] {
   const rad = (h * Math.PI) / 180
   const a = c * Math.cos(rad)
   const b = c * Math.sin(rad)
@@ -45,7 +45,7 @@ export function oklchToLinearRgb({ l, c, h }: Oklch): [number, number, number] {
   ]
 }
 
-export function relativeLuminance(css: string): number {
+function relativeLuminance(css: string): number {
   const [r, g, b] = oklchToLinearRgb(parseOklch(css))
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }

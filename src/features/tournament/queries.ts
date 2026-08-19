@@ -32,7 +32,7 @@ import {
 } from './api'
 import type { TournamentStatus } from '@/types/database'
 
-export const tournamentKeys = {
+const tournamentKeys = {
   mine: ['tournaments', 'mine'] as const,
   groups: (id: string) => ['tournaments', id, 'groups'] as const,
   profileName: (uid: string) => ['profile', uid, 'name'] as const,
