@@ -138,7 +138,11 @@ try {
   )
   check('심판에게도 쌓인다', notified.has(ref.uid))
   check('상관없는 참가자에게는 안 쌓인다', !notified.has(bystander.uid))
-  check('편성한 본인에게는 안 쌓인다', !notified.has(admin.uid), '자기가 만든 걸 자기 폰이 알릴 이유가 없다')
+  check(
+    '편성한 본인에게는 안 쌓인다',
+    !notified.has(admin.uid),
+    '자기가 만든 걸 자기 폰이 알릴 이유가 없다',
+  )
   check('사람 수만큼만 쌓인다 (중복 없음)', box.length === 5, `${box.length}건`)
 
   console.log('\n── 수동 기록은 알리지 않는다 ──')
@@ -219,10 +223,9 @@ try {
     `status=${stealSub.status} — 되면 남의 알림을 가로챈다`,
   )
 
-  const readOthers = await fetch(
-    `${URL_BASE}/rest/v1/push_subscriptions?select=endpoint`,
-    { headers: { apikey: ANON, Authorization: `Bearer ${bystander.token}` } },
-  )
+  const readOthers = await fetch(`${URL_BASE}/rest/v1/push_subscriptions?select=endpoint`, {
+    headers: { apikey: ANON, Authorization: `Bearer ${bystander.token}` },
+  })
   const readRows = (await readOthers.json()) as unknown[]
   check('남의 구독 정보는 읽을 수 없다', readRows.length === 0, `${readRows.length}건`)
 
@@ -236,7 +239,11 @@ try {
 
   const asService = await fetch(`${URL_BASE}/rest/v1/rpc/pending_notifications`, {
     method: 'POST',
-    headers: { apikey: SECRET, Authorization: `Bearer ${SECRET}`, 'Content-Type': 'application/json' },
+    headers: {
+      apikey: SECRET,
+      Authorization: `Bearer ${SECRET}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({ p_limit: 100 }),
   })
   const pend = (await asService.json()) as { outbox_id: string; body: string; url: string }[]
@@ -248,7 +255,9 @@ try {
   )
   check(
     '알림 문구에 대진과 대회가 들어간다',
-    Boolean(forThisMatch[0]?.body.includes('vs') && forThisMatch[0]?.body.includes('알림 테스트 대회')),
+    Boolean(
+      forThisMatch[0]?.body.includes('vs') && forThisMatch[0]?.body.includes('알림 테스트 대회'),
+    ),
     forThisMatch[0]?.body ?? '(없음)',
   )
 } finally {

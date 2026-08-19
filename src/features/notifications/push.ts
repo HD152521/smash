@@ -9,8 +9,7 @@ import { supabase } from '@/lib/supabase'
  */
 
 export type PushSupport =
-  | { ok: true }
-  | { ok: false; reason: 'unsupported' | 'ios-needs-install' | 'no-key' }
+  { ok: true } | { ok: false; reason: 'unsupported' | 'ios-needs-install' | 'no-key' }
 
 /** iOS 사파리인지 (아이패드는 데스크톱으로 위장하므로 터치 여부까지 본다) */
 function isIos(): boolean {

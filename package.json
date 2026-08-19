@@ -23,6 +23,7 @@
     "db:smoke:security": "tsx scripts/smoke-security.ts",
     "db:smoke:match": "tsx scripts/smoke-match.ts",
     "db:smoke:notify": "tsx scripts/smoke-notify.ts",
+    "db:smoke:push": "tsx scripts/smoke-push.ts",
     "demo:live": "tsx scripts/demo-live.ts",
     "check:csp": "tsx scripts/check-csp.ts",
     "push:keys": "tsx scripts/gen-vapid.ts",

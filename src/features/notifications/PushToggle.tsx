@@ -90,12 +90,11 @@ function Unsupported({ reason }: { reason: 'unsupported' | 'ios-needs-install' |
     return (
       <div className="rounded-2xl border border-border-subtle bg-surface-2 p-4">
         <p className="flex items-center gap-2 font-bold text-ink-1">
-          <Share className="size-4 shrink-0" aria-hidden />
-          홈 화면에 추가하면 알림을 받을 수 있어요
+          <Share className="size-4 shrink-0" aria-hidden />홈 화면에 추가하면 알림을 받을 수 있어요
         </p>
         <p className="mt-2 text-sm text-ink-2">
-          아이폰은 사파리 탭으로 열어둔 상태에서는 알림이 오지 않습니다. 애플 정책이라 앱에서
-          바꿀 수 없습니다.
+          아이폰은 사파리 탭으로 열어둔 상태에서는 알림이 오지 않습니다. 애플 정책이라 앱에서 바꿀
+          수 없습니다.
         </p>
         <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-ink-2">
           <li>사파리 아래쪽 공유 버튼을 누릅니다</li>

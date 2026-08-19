@@ -86,6 +86,9 @@ Deno.serve(async (req) => {
       ),
     )
 
+    // 다시 시도해서 될 실패(일시적)와, 시도해도 소용없는 실패(구독이 죽음)를 나눈다
+    let retryable = false
+
     for (let i = 0; i < results.length; i++) {
       const r = results[i]!
       const endpoint = row.subscriptions[i]!.endpoint
@@ -97,13 +100,16 @@ Deno.serve(async (req) => {
         const status = (r.reason as { statusCode?: number })?.statusCode
         const isGone = status === 404 || status === 410
         if (isGone) gone++
+        else retryable = true
         await admin.rpc('mark_subscription_failed', { p_endpoint: endpoint, p_gone: isGone })
       }
     }
 
-    // 한 명에게 기기가 여러 대인데 하나만 성공해도 그 사람에게는 닿았다.
-    // 전부 실패했으면 다음에 다시 시도하도록 남겨 둔다.
-    if (results.some((r) => r.status === 'fulfilled')) done.push(row.outbox_id)
+    // 기기가 여러 대인데 하나만 성공해도 그 사람에게는 닿았다.
+    // 전부 실패했더라도 그 구독들이 이미 죽어 지워졌다면 다시 시도해도 소용없다 —
+    // 남겨두면 보낼 곳도 없는 알림이 대기열에 영원히 쌓인다.
+    const delivered = results.some((r) => r.status === 'fulfilled')
+    if (delivered || !retryable) done.push(row.outbox_id)
   }
 
   if (done.length > 0) {
