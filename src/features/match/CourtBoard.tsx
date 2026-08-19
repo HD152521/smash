@@ -114,7 +114,7 @@ function CourtCard({
             <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <CircleDot
-                  className={cn('size-4', live ? 'text-live' : 'text-ink-3')}
+                  className={cn('size-4', live ? 'text-live-fg' : 'text-ink-3')}
                   aria-hidden
                 />
                 <h3 className="font-black text-ink-1">{court.name}</h3>
@@ -161,7 +161,7 @@ function CourtCard({
         title={`${court.name} 대기 경기`}
       >
         {claim.error && (
-          <p role="alert" className="mb-2 text-sm font-medium text-team-b">
+          <p role="alert" className="mb-2 text-sm font-medium text-team-b-fg">
             {toUserMessage(claim.error, '코트를 잡지 못했습니다')}
           </p>
         )}
@@ -253,7 +253,7 @@ function MatchRow({
         {(iAmReferee || (m.referees?.length ?? 0) > 0) && (
           <p className="mt-1.5 text-xs text-ink-3">
             심판 {m.referees?.join(', ') || '미지정'}
-            {iAmReferee && <span className="ml-1.5 font-bold text-brand-600">내가 심판</span>}
+            {iAmReferee && <span className="ml-1.5 font-bold text-brand-fg">내가 심판</span>}
           </p>
         )}
       </div>
@@ -305,7 +305,7 @@ function Team({
         className={cn(
           'truncate font-bold',
           emphasis ? 'text-base' : 'text-sm',
-          won ? 'text-brand-600' : 'text-ink-1',
+          won ? 'text-brand-fg' : 'text-ink-1',
         )}
       >
         {joker && <span aria-hidden>🃏 </span>}

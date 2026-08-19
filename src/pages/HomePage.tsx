@@ -16,7 +16,7 @@ export function HomePage() {
   return (
     <div className="min-h-dvh">
       <header className="flex items-center justify-between px-5 pt-6 pb-2">
-        <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">
+        <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">
           SMASH
         </p>
         <Button size="sm" variant="ghost" onClick={() => void signOut()}>

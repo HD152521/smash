@@ -67,7 +67,7 @@ export function MatchScorePage() {
   if (scoring.error) {
     return (
       <Wrap>
-        <p role="alert" className="p-6 text-center text-sm text-team-b">
+        <p role="alert" className="p-6 text-center text-sm text-team-b-fg">
           {toUserMessage(scoring.error, '경기를 불러오지 못했습니다')}
         </p>
       </Wrap>
@@ -110,13 +110,13 @@ export function MatchScorePage() {
         <div className="flex items-center gap-2 text-xs font-semibold">
           {m.court_name && <span className="text-ink-2">{m.court_name}</span>}
           {scoring.pendingCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-2 py-1 text-warn">
+            <span className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-2 py-1 text-warn-fg">
               <CloudOff className="size-3.5" aria-hidden />
               {scoring.pendingCount}개 전송 대기
             </span>
           )}
           {matchPoint && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-live/15 px-2 py-1 text-live">
+            <span className="inline-flex items-center gap-1 rounded-full bg-live/15 px-2 py-1 text-live-fg">
               <Zap className="size-3.5" aria-hidden />
               매치포인트
             </span>
@@ -125,7 +125,7 @@ export function MatchScorePage() {
       </header>
 
       {scoring.pendingCount > 0 && (
-        <p className="mx-4 rounded-xl bg-warn/10 p-3 text-sm font-medium text-warn">
+        <p className="mx-4 rounded-xl bg-warn/10 p-3 text-sm font-medium text-warn-fg">
           점수 {scoring.pendingCount}개가 아직 전송되지 않았습니다. 연결이 회복되면 자동으로
           보냅니다. 지금 경기를 끝내면 이 점수가 빠집니다.
         </p>
@@ -134,7 +134,7 @@ export function MatchScorePage() {
       {actionError && (
         <p
           role="alert"
-          className="mx-4 rounded-xl bg-team-b/10 p-3 text-sm font-medium text-team-b"
+          className="mx-4 rounded-xl bg-team-b/10 p-3 text-sm font-medium text-team-b-fg"
         >
           {actionError}
         </p>
@@ -311,12 +311,12 @@ function ScorePanel({
       <span className="tabular mt-1 block text-sm font-bold text-ink-3">
         목표 {target}점
         {!isWinner && remaining > 0 && remaining <= 3 && (
-          <span className="ml-2 text-live">{remaining}점 남음</span>
+          <span className="ml-2 text-live-fg">{remaining}점 남음</span>
         )}
       </span>
 
       {isWinner && (
-        <span className="mt-2 rounded-full bg-brand-500 px-3 py-1 text-sm font-black text-white">
+        <span className="mt-2 rounded-full bg-brand-500 px-3 py-1 text-sm font-black text-brand-900">
           승리
         </span>
       )}

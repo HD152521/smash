@@ -78,7 +78,7 @@ export function StandingsTable({ standings, matches, myGroupId }: StandingsTable
                     {r.group_name}
                   </span>
                   {mine && (
-                    <span className="ml-1.5 text-xs font-semibold text-brand-600">내 조</span>
+                    <span className="ml-1.5 text-xs font-semibold text-brand-fg">내 조</span>
                   )}
                 </td>
                 <td className="tabular px-2 py-3 text-right text-ink-2">{r.played}</td>
@@ -90,7 +90,7 @@ export function StandingsTable({ standings, matches, myGroupId }: StandingsTable
                 <td
                   className={cn(
                     'tabular px-3 py-3 text-right font-semibold',
-                    r.diff > 0 ? 'text-ok' : r.diff < 0 ? 'text-team-b' : 'text-ink-3',
+                    r.diff > 0 ? 'text-ok-fg' : r.diff < 0 ? 'text-team-b-fg' : 'text-ink-3',
                   )}
                 >
                   {r.diff > 0 ? '+' : ''}

@@ -46,7 +46,7 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
       </p>
 
       {error && (
-        <p role="alert" className="mt-3 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-3 text-sm font-medium text-team-b-fg">
           {toUserMessage(error, '코트를 변경하지 못했습니다')}
         </p>
       )}
@@ -159,7 +159,7 @@ function IconButton({
         'grid size-11 place-items-center rounded-lg text-ink-3 transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
         'disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent',
-        danger ? 'hover:bg-team-b/10 hover:text-team-b' : 'hover:bg-surface-2 hover:text-ink-1',
+        danger ? 'hover:bg-team-b/10 hover:text-team-b-fg' : 'hover:bg-surface-2 hover:text-ink-1',
       )}
     >
       {children}

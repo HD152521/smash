@@ -72,7 +72,7 @@ export function LoginPage() {
     <main className="grid min-h-dvh place-items-center px-5 py-10">
       <div className="w-full max-w-sm">
         <header className="mb-8">
-          <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">SMASH</p>
+          <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">SMASH</p>
           <h1 className="mt-1 text-4xl leading-tight font-black tracking-tight text-ink-1">
             코트에서
             <br />
@@ -137,12 +137,12 @@ export function LoginPage() {
           />
 
           {error && (
-            <p role="alert" className="text-sm font-medium text-team-b">
+            <p role="alert" className="text-sm font-medium text-team-b-fg">
               {error}
             </p>
           )}
           {notice && (
-            <p role="status" className="text-sm font-medium text-brand-600">
+            <p role="status" className="text-sm font-medium text-brand-fg">
               {notice}
             </p>
           )}
@@ -161,7 +161,7 @@ export function LoginPage() {
               setError(null)
               setNotice(null)
             }}
-            className="rounded px-1 py-2 font-semibold text-brand-600 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            className="rounded px-1 py-2 font-semibold text-brand-fg underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
           >
             {mode === 'signin' ? '가입하기' : '로그인'}
           </button>

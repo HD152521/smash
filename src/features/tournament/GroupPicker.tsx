@@ -64,11 +64,11 @@ export function GroupPicker({
                   </span>
                 )}
               </div>
-              <p className={cn('tabular mt-1 text-xs', over ? 'text-warn' : 'text-ink-3')}>
+              <p className={cn('tabular mt-1 text-xs', over ? 'text-warn-fg' : 'text-ink-3')}>
                 {count} / {g.capacity}명{over && ' · 정원 초과'}
               </p>
             </div>
-            {mine && <Check className="size-5 shrink-0 text-brand-600" aria-hidden />}
+            {mine && <Check className="size-5 shrink-0 text-brand-fg" aria-hidden />}
           </button>
         )
       })}

@@ -80,7 +80,7 @@ export function MatchRecordsPage() {
       </div>
 
       {matches.error && (
-        <p role="alert" className="mt-6 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(matches.error, '기록을 불러오지 못했습니다')}
         </p>
       )}
@@ -144,7 +144,7 @@ function RecordCard({ m }: { m: MatchOverviewRow }) {
           </span>
         )}
         {m.edited_at && !voided && m.source !== 'manual' && (
-          <span className="rounded-full bg-warn/15 px-2 py-0.5 font-semibold text-warn">
+          <span className="rounded-full bg-warn/15 px-2 py-0.5 font-semibold text-warn-fg">
             수정됨
           </span>
         )}
@@ -191,7 +191,7 @@ function Side({
 }) {
   return (
     <div className={cn('min-w-0 flex-1', align === 'right' && 'text-right')}>
-      <p className={cn('truncate font-bold', won ? 'text-brand-600' : 'text-ink-1')}>
+      <p className={cn('truncate font-bold', won ? 'text-brand-fg' : 'text-ink-1')}>
         {joker && <span aria-hidden>🃏 </span>}
         {name ?? '—'}
         {won && <span className="ml-1 text-xs">승</span>}

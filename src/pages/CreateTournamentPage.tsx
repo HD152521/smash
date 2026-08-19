@@ -117,7 +117,7 @@ export function CreateTournamentPage() {
             })}
           </div>
           {jokerCount === groupCount && groupCount > 0 && (
-            <p className="mt-2 text-xs text-warn">
+            <p className="mt-2 text-xs text-warn-fg">
               모든 조가 조커조입니다. 전부 같은 조건이라 핸디캡 효과가 없습니다.
             </p>
           )}
@@ -146,7 +146,7 @@ export function CreateTournamentPage() {
               onChange={setJokerPoints}
             />
             {jokerPoints >= normalPoints && jokerCount > 0 && (
-              <p className="text-xs text-warn">
+              <p className="text-xs text-warn-fg">
                 조커조 목표가 일반조보다 낮지 않으면 핸디캡이 되지 않습니다.
               </p>
             )}
@@ -154,7 +154,7 @@ export function CreateTournamentPage() {
         </details>
 
         {create.error && (
-          <p role="alert" className="text-sm font-medium text-team-b">
+          <p role="alert" className="text-sm font-medium text-team-b-fg">
             {toUserMessage(create.error, '대회를 만들지 못했습니다')}
           </p>
         )}

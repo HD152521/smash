@@ -26,12 +26,12 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-bold text-ink-1">참가자 {members.length}명</h2>
         {ungrouped.length > 0 && (
-          <span className="text-xs font-semibold text-warn">조 미정 {ungrouped.length}명</span>
+          <span className="text-xs font-semibold text-warn-fg">조 미정 {ungrouped.length}명</span>
         )}
       </div>
 
       {error && (
-        <p role="alert" className="mt-3 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-3 text-sm font-medium text-team-b-fg">
           {toUserMessage(error, '변경하지 못했습니다')}
         </p>
       )}
@@ -55,7 +55,7 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                   {isSelf && <span className="text-xs text-ink-3">(나)</span>}
                 </div>
                 {!m.groupId && (
-                  <p className="mt-1 text-xs font-semibold text-warn">조가 정해지지 않음</p>
+                  <p className="mt-1 text-xs font-semibold text-warn-fg">조가 정해지지 않음</p>
                 )}
               </div>
 
@@ -105,7 +105,7 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                     'grid size-11 shrink-0 place-items-center rounded-lg border transition-colors',
                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
                     m.role === 'admin'
-                      ? 'border-ok/40 bg-ok/10 text-ok hover:bg-ok/20'
+                      ? 'border-ok/40 bg-ok/10 text-ok-fg hover:bg-ok/20'
                       : 'border-border-subtle text-ink-3 hover:bg-surface-2 hover:text-ink-1',
                   )}
                 >

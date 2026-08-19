@@ -96,13 +96,13 @@ export function TournamentAdminPage() {
         </div>
 
         {t.status === 'draft' && ungrouped > 0 && (
-          <p className="mt-3 text-sm font-semibold text-warn">
+          <p className="mt-3 text-sm font-semibold text-warn-fg">
             아직 조를 고르지 않은 참가자가 {ungrouped}명 있습니다. 아래에서 배정해 주세요.
           </p>
         )}
 
         {setStatus.error && (
-          <p role="alert" className="mt-3 text-sm font-medium text-team-b">
+          <p role="alert" className="mt-3 text-sm font-medium text-team-b-fg">
             {toUserMessage(setStatus.error, '상태를 바꾸지 못했습니다')}
           </p>
         )}

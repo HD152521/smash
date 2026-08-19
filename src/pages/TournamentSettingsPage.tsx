@@ -55,7 +55,7 @@ export function TournamentSettingsPage() {
         )}
 
         {setGroup.error && (
-          <p role="alert" className="mt-3 text-sm font-medium text-team-b">
+          <p role="alert" className="mt-3 text-sm font-medium text-team-b-fg">
             {toUserMessage(setGroup.error, '조를 바꾸지 못했습니다')}
           </p>
         )}

@@ -46,7 +46,7 @@ export function TournamentSetupPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-10 pb-40">
-      <p className="text-sm font-semibold tracking-widest text-brand-600 uppercase">
+      <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">
         {tournament.data.name}
       </p>
       <h1 className="mt-2 text-3xl leading-tight font-black tracking-tight text-ink-1">
@@ -58,7 +58,7 @@ export function TournamentSetupPage() {
       </p>
 
       {setGroup.error && (
-        <p role="alert" className="mt-4 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-4 text-sm font-medium text-team-b-fg">
           {toUserMessage(setGroup.error, '조를 고르지 못했습니다')}
         </p>
       )}

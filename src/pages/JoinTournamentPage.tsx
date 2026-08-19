@@ -65,11 +65,11 @@ export function JoinTournamentPage() {
         </label>
 
         <div className="mt-3 flex items-center justify-between text-xs">
-          <span className={code.length === CODE_LENGTH ? 'text-brand-600' : 'text-ink-3'}>
+          <span className={code.length === CODE_LENGTH ? 'text-brand-fg' : 'text-ink-3'}>
             {code.length} / {CODE_LENGTH}
           </span>
           {showConfusableHint && (
-            <span className="text-warn">
+            <span className="text-warn-fg">
               코드에 <b>I · L · O · 0 · 1</b> 은 쓰이지 않습니다
             </span>
           )}
@@ -95,7 +95,7 @@ export function JoinTournamentPage() {
         </details>
 
         {join.error && (
-          <p role="alert" className="mt-5 text-sm font-medium text-team-b">
+          <p role="alert" className="mt-5 text-sm font-medium text-team-b-fg">
             {toUserMessage(join.error, '참가하지 못했습니다')}
           </p>
         )}

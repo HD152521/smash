@@ -12,8 +12,8 @@ export function Badge({
 }) {
   const tones = {
     neutral: 'bg-surface-2 text-ink-2 border-border-subtle',
-    live: 'bg-live/12 text-live border-live/25',
-    ok: 'bg-ok/12 text-ok border-ok/25',
+    live: 'bg-live/12 text-live-fg border-live/25',
+    ok: 'bg-ok/12 text-ok-fg border-ok/25',
     joker: 'bg-joker-soft text-joker-ink border-joker/40',
   } as const
 

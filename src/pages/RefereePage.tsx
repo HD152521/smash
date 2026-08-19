@@ -39,7 +39,7 @@ export function RefereePage() {
 
       <header className="mt-6">
         <h1 className="flex items-center gap-2 text-3xl font-black tracking-tight text-ink-1">
-          <Gavel className="size-7 text-brand-600" aria-hidden />내 심판 경기
+          <Gavel className="size-7 text-brand-fg" aria-hidden />내 심판 경기
         </h1>
         <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>
       </header>
@@ -128,7 +128,7 @@ function Group({
                 </p>
               </div>
 
-              <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-brand-600">
+              <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-brand-fg">
                 {m.status === 'scheduled' && <Play className="size-4" aria-hidden />}
                 {action}
                 <ChevronRight className="size-4" aria-hidden />

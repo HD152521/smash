@@ -30,7 +30,7 @@ export function LiveBoardPage() {
           <span
             className={cn(
               'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold',
-              realtime === 'live' ? 'bg-live/15 text-live' : 'bg-surface-2 text-ink-3',
+              realtime === 'live' ? 'bg-live/15 text-live-fg' : 'bg-surface-2 text-ink-3',
             )}
             title={realtime === 'live' ? '실시간 연결됨' : '연결이 끊겨 주기적으로 새로고침 중'}
           >

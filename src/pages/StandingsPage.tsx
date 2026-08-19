@@ -24,7 +24,7 @@ export function StandingsPage() {
       <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>
 
       {standings.error && (
-        <p role="alert" className="mt-6 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(standings.error, '순위를 불러오지 못했습니다')}
         </p>
       )}

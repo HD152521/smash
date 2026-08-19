@@ -47,7 +47,7 @@ export function AuditLogPage() {
       </p>
 
       {log.error && (
-        <p role="alert" className="mt-6 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(log.error, '기록을 불러오지 못했습니다')}
         </p>
       )}

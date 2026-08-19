@@ -39,7 +39,7 @@ export function MembersPage() {
       </p>
 
       {members.error && (
-        <p role="alert" className="mt-6 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(members.error, '참가자를 불러오지 못했습니다')}
         </p>
       )}
@@ -62,7 +62,7 @@ export function MembersPage() {
             <section className="overflow-hidden rounded-2xl border border-dashed border-warn/50">
               <header className="flex items-center justify-between border-b border-border-subtle bg-warn/5 px-4 py-2.5">
                 <h2 className="font-bold text-ink-1">조 미정</h2>
-                <span className="tabular text-xs font-semibold text-warn">
+                <span className="tabular text-xs font-semibold text-warn-fg">
                   {ungrouped.length}명
                 </span>
               </header>
@@ -102,7 +102,7 @@ function GroupCard({
             </Badge>
           )}
         </div>
-        <span className={cn('tabular text-xs font-semibold', over ? 'text-warn' : 'text-ink-3')}>
+        <span className={cn('tabular text-xs font-semibold', over ? 'text-warn-fg' : 'text-ink-3')}>
           {members.length} / {group.capacity}명{over && ' · 정원 초과'}
         </span>
       </header>
@@ -130,12 +130,12 @@ function MemberRows({
           <span
             className={cn(
               'min-w-0 flex-1 truncate font-semibold',
-              m.id === myMemberId ? 'text-brand-600' : 'text-ink-1',
+              m.id === myMemberId ? 'text-brand-fg' : 'text-ink-1',
             )}
           >
             {m.displayName}
           </span>
-          {m.id === myMemberId && <span className="text-xs font-bold text-brand-600">나</span>}
+          {m.id === myMemberId && <span className="text-xs font-bold text-brand-fg">나</span>}
           {m.role === 'owner' && <Badge>주최자</Badge>}
           {m.role === 'admin' && <Badge tone="ok">관리자</Badge>}
         </li>

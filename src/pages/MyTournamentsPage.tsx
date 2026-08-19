@@ -36,7 +36,7 @@ export function MyTournamentsPage() {
       )}
 
       {error && (
-        <p role="alert" className="mt-8 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-8 text-sm font-medium text-team-b-fg">
           {toUserMessage(error, '대회 목록을 불러오지 못했습니다')}
         </p>
       )}
@@ -104,7 +104,7 @@ export function MyTournamentsPage() {
                   )}
 
                   {t.role === 'member' && !t.groupId && t.status === 'draft' && (
-                    <p className="mt-2 text-xs font-semibold text-warn">
+                    <p className="mt-2 text-xs font-semibold text-warn-fg">
                       조를 아직 고르지 않았습니다
                     </p>
                   )}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BackLink } from '@/components/ui/BackLink'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/features/auth/useAuth'
@@ -48,9 +48,15 @@ export function MatchCreatePage() {
   const me = members.data?.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
 
+  /**
+   * 대진표의 빈 칸에서 넘어오면 두 조가 이미 정해져 있다 (?a=&b=).
+   * 첫 렌더에서 한 번만 읽는다 — 이후 사용자가 바꾼 선택을 주소가 되돌리면 안 된다.
+   * 없는 조 id 가 들어와도 그 조의 선수 목록이 비어 편성 자체가 막히므로 따로 막지 않는다.
+   */
+  const [searchParams] = useSearchParams()
   const [courtId, setCourtId] = useState<string>('')
-  const [groupA, setGroupA] = useState<string>('')
-  const [groupB, setGroupB] = useState<string>('')
+  const [groupA, setGroupA] = useState<string>(() => searchParams.get('a') ?? '')
+  const [groupB, setGroupB] = useState<string>(() => searchParams.get('b') ?? '')
   const [playersA, setPlayersA] = useState<string[]>([])
   const [playersB, setPlayersB] = useState<string[]>([])
   const [referees, setReferees] = useState<string[]>([])
@@ -235,7 +241,7 @@ export function MatchCreatePage() {
             <ScoreInput label={`${gB?.name ?? 'B팀'} 점수`} value={scoreB} onChange={setScoreB} />
           </div>
           {scoreA !== '' && scoreB !== '' && nA === nB && (
-            <p className="mt-2 text-sm font-medium text-warn">동점으로는 기록할 수 없습니다.</p>
+            <p className="mt-2 text-sm font-medium text-warn-fg">동점으로는 기록할 수 없습니다.</p>
           )}
         </section>
       )}
@@ -270,7 +276,7 @@ export function MatchCreatePage() {
       </section>
 
       {(create.error || manual.error) && (
-        <p role="alert" className="mt-6 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(create.error ?? manual.error, '경기를 저장하지 못했습니다')}
         </p>
       )}
@@ -346,7 +352,7 @@ function TeamSection({
     <section className="mt-8">
       <div className="flex items-baseline gap-2">
         <h2 className="text-sm font-semibold text-ink-2">
-          <span className={cn('font-black', side === 'A' ? 'text-team-a' : 'text-team-b')}>
+          <span className={cn('font-black', side === 'A' ? 'text-team-a' : 'text-team-b-fg')}>
             {label}
           </span>
         </h2>
@@ -378,7 +384,7 @@ function TeamSection({
             {selectedPlayers.length} / {squadSize}명 선택
           </p>
           {roster.length === 0 ? (
-            <p className="mt-2 text-sm text-warn">이 조에 배정된 참가자가 없습니다.</p>
+            <p className="mt-2 text-sm text-warn-fg">이 조에 배정된 참가자가 없습니다.</p>
           ) : (
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {roster.map((m) => {

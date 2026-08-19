@@ -48,6 +48,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
+    // 기본값이면 vitest 가 CSS import 를 빈 문자열로 바꿔치기한다.
+    // 명암비 테스트가 index.css 를 ?raw 로 읽어 토큰을 직접 검사하므로 필요하다.
+    css: true,
     coverage: {
       provider: 'v8',
       thresholds: { lines: 80, functions: 80, branches: 75, statements: 80 },

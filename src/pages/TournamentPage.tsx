@@ -3,6 +3,7 @@ import { BackLink } from '@/components/ui/BackLink'
 import {
   ChevronRight,
   Gavel,
+  Grid3x3,
   History,
   Settings,
   Sliders,
@@ -20,6 +21,7 @@ import {
   useMembers,
   useTournament,
 } from '@/features/tournament/queries'
+import { cn } from '@/lib/utils'
 import { toUserMessage } from '@/lib/errors'
 import type { TournamentStatus } from '@/types/database'
 
@@ -59,7 +61,7 @@ export function TournamentPage() {
   if (tournament.error) {
     return (
       <Shell id={id}>
-        <p role="alert" className="mt-8 text-sm font-medium text-team-b">
+        <p role="alert" className="mt-8 text-sm font-medium text-team-b-fg">
           {toUserMessage(tournament.error, '대회를 불러오지 못했습니다')}
         </p>
       </Shell>
@@ -115,7 +117,7 @@ export function TournamentPage() {
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold text-ink-1">코트 현황</h2>
-          {realtime === 'live' && <span className="text-xs font-semibold text-ok">실시간</span>}
+          {realtime === 'live' && <span className="text-xs font-semibold text-ok-fg">실시간</span>}
         </div>
         {matches.isPending || courts.isPending ? (
           <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
@@ -131,93 +133,92 @@ export function TournamentPage() {
       </section>
 
       {/* ── 다른 화면으로 ─────────────────────────────────────────── */}
-      <nav className="mt-8 flex flex-col gap-2.5" aria-label="대회 메뉴">
+      <nav className="mt-7 flex flex-col gap-1.5" aria-label="대회 메뉴">
         {/* 관리자는 이 화면에서 관리로 넘어가는 일이 가장 잦다. 맨 위에 둔다. */}
         {isAdmin && (
           <NavCard
             to={`/t/${id}/admin`}
-            icon={<Sliders className="size-5" aria-hidden />}
+            icon={<Sliders className="size-[18px]" aria-hidden />}
             title="대회 관리"
-            desc="멤버 · 코트 · 경기 편성 · 초대 코드"
           />
         )}
         <NavCard
           to={`/t/${id}/referee`}
-          icon={<Gavel className="size-5" aria-hidden />}
+          icon={<Gavel className="size-[18px]" aria-hidden />}
           title="심판"
-          desc="내가 맡은 경기를 채점합니다"
           badge={myRefereeCount > 0 ? `${myRefereeCount}경기` : undefined}
           accent={myRefereeCount > 0}
         />
         <NavCard
-          to={`/t/${id}/members`}
-          icon={<Users className="size-5" aria-hidden />}
-          title="참가자"
-          desc="조별로 누가 있는지"
-        />
-        <NavCard
-          to={`/t/${id}/records`}
-          icon={<History className="size-5" aria-hidden />}
-          title="경기 기록"
-          desc="누가 몇 대 몇으로 이겼는지"
+          to={`/t/${id}/schedule`}
+          icon={<Grid3x3 className="size-[18px]" aria-hidden />}
+          title="대진표"
         />
         <NavCard
           to={`/t/${id}/standings`}
-          icon={<Trophy className="size-5" aria-hidden />}
+          icon={<Trophy className="size-[18px]" aria-hidden />}
           title="조별 순위"
-          desc="승점 · 승패 · 득실차"
+        />
+        <NavCard
+          to={`/t/${id}/records`}
+          icon={<History className="size-[18px]" aria-hidden />}
+          title="경기 기록"
+        />
+        <NavCard
+          to={`/t/${id}/members`}
+          icon={<Users className="size-[18px]" aria-hidden />}
+          title="참가자"
         />
       </nav>
     </Shell>
   )
 }
 
+/**
+ * 메뉴 한 줄.
+ *
+ * 설명 문구를 뺐다. "조별 순위", "경기 기록" 은 제목만으로 뜻이 통하는데
+ * 두 줄짜리 카드 여섯 장이면 메뉴만으로 화면 한 판이 찬다.
+ * 높이는 44px 아래로 내리지 않는다 — 체육관에서 서서 누르는 화면이다.
+ */
 function NavCard({
   to,
   icon,
   title,
-  desc,
   badge,
   accent = false,
 }: {
   to: string
   icon: React.ReactNode
   title: string
-  desc: string
   badge?: string
   accent?: boolean
 }) {
   return (
     <Link
       to={to}
-      className={
+      className={cn(
+        'flex min-h-12 items-center gap-3 rounded-xl px-4 py-2.5',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
         accent
-          ? 'flex items-center gap-3 rounded-2xl bg-brand-600 p-4 text-white transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600'
-          : 'flex items-center gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600'
-      }
+          ? 'bg-brand-600 text-white'
+          : 'border border-border-subtle bg-surface-1 transition-colors hover:bg-surface-2',
+      )}
     >
       <span className={accent ? 'text-white' : 'text-ink-2'}>{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className={accent ? 'block font-bold' : 'block font-bold text-ink-1'}>
-          {title}
-          {badge && (
-            <span
-              className={
-                accent
-                  ? 'ml-2 rounded-full bg-white/20 px-2 py-0.5 text-xs font-black'
-                  : 'ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-bold text-ink-2'
-              }
-            >
-              {badge}
-            </span>
+      <span className={cn('flex-1 font-bold', !accent && 'text-ink-1')}>{title}</span>
+      {badge && (
+        <span
+          className={cn(
+            'rounded-full px-2 py-0.5 text-xs font-black',
+            accent ? 'bg-white/20' : 'bg-surface-2 text-ink-2',
           )}
+        >
+          {badge}
         </span>
-        <span className={accent ? 'block text-sm text-brand-100' : 'block text-sm text-ink-2'}>
-          {desc}
-        </span>
-      </span>
+      )}
       <ChevronRight
-        className={accent ? 'size-5 shrink-0' : 'size-5 shrink-0 text-ink-3'}
+        className={cn('size-4 shrink-0', !accent && 'text-ink-3')}
         aria-hidden
       />
     </Link>
