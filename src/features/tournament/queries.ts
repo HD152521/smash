@@ -21,6 +21,7 @@ import {
   setDisplayName,
   addRosterMember,
   removeMember,
+  renameCourt,
   moveCourt,
   fetchMatches,
   fetchStandings,
@@ -300,6 +301,19 @@ export function useAddRosterMember(tournamentId: string) {
 
 export function useRemoveMember(tournamentId: string) {
   return useRosterMutation(tournamentId, (memberId: string) => removeMember(memberId))
+}
+
+export function useRenameCourt(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ courtId, name }: { courtId: string; name: string }) =>
+      renameCourt(courtId, name),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] })
+      // 코트 이름은 경기 목록(match_overview)에도 박혀 나온다
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+    },
+  })
 }
 
 export function useAssignCourt(tournamentId: string) {

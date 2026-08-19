@@ -396,6 +396,22 @@ export async function removeMember(memberId: string): Promise<void> {
   unwrap(await supabase.rpc('remove_member', { p_member_id: memberId }))
 }
 
+/**
+ * 코트 이름 바꾸기.
+ *
+ * RLS 가 이미 관리자에게 courts 전체 쓰기를 열어 두고 있어서 RPC 가 필요 없다.
+ * 0행이 바뀌어도 PostgREST 는 성공을 주므로 single() 로 받아 오류로 잡는다.
+ */
+export async function renameCourt(courtId: string, name: string): Promise<CourtRow> {
+  const res = await supabase
+    .from('courts')
+    .update({ name })
+    .eq('id', courtId)
+    .select()
+    .single()
+  return unwrap(res) as unknown as CourtRow
+}
+
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {
   const res = await supabase
     .from('matches')

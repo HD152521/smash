@@ -498,6 +498,39 @@ try {
     '이름 변경으로 조 배정 규칙을 우회할 수 없어야 한다',
   )
 
+
+  // ── 코트 이름 수정 ──────────────────────────────────────────────
+  console.log('\n── 코트 이름 수정 ──')
+  const renameCourtByPlayer = await api(bystander.token, `courts?id=eq.${courtRows[0]!.id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ name: '해킹코트' }),
+  })
+  const { rows: courtAfter } = await db.query<{ name: string }>(
+    `select name from courts where id=$1`,
+    [courtRows[0]!.id],
+  )
+  check(
+    '일반 참가자는 코트 이름을 바꿀 수 없다',
+    courtAfter[0]!.name !== '해킹코트',
+    `${courtAfter[0]!.name} (응답 ${renameCourtByPlayer.status}) — PostgREST 는 0행이어도 200 을 준다`,
+  )
+
+  const renameCourtByAdmin = await api(attacker.token, `courts?id=eq.${courtRows[0]!.id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ name: '입구쪽' }),
+  })
+  const { rows: courtRenamed } = await db.query<{ name: string }>(
+    `select name from courts where id=$1`,
+    [courtRows[0]!.id],
+  )
+  check(
+    '관리자는 코트 이름을 바꿀 수 있다',
+    courtRenamed[0]!.name === '입구쪽',
+    `${courtRenamed[0]!.name} (응답 ${renameCourtByAdmin.status})`,
+  )
+
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,

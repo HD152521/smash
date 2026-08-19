@@ -5,7 +5,10 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "//": "assets 는 리라이트에서 뺀다. 배포가 새로 올라가면 예전 청크 파일이 사라지는데,",
+      "// ": "전부 index.html 로 보내면 브라우저가 JS 자리에서 HTML 을 받고 MIME 오류를 낸다.",
+      "//  ": "빼두면 없는 파일은 그냥 404 라서 원인이 바로 드러난다.",
+      "source": "/((?!assets/).*)",
       "destination": "/index.html"
     }
   ],

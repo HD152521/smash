@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/Button'
 import { LiveBadge } from '@/components/ui/Badge'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
-import { useCreateCourt, useDeleteCourt, useMoveCourt } from '@/features/tournament/queries'
+import { InlineEdit } from '@/components/ui/InlineEdit'
+import {
+  useCreateCourt,
+  useDeleteCourt,
+  useMoveCourt,
+  useRenameCourt,
+} from '@/features/tournament/queries'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
 interface CourtManagerProps {
@@ -24,6 +30,7 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
   const create = useCreateCourt(tournamentId)
   const remove = useDeleteCourt(tournamentId)
   const move = useMoveCourt(tournamentId)
+  const rename = useRenameCourt(tournamentId)
   const error = create.error ?? remove.error ?? move.error
 
   function handleAdd(e: FormEvent) {
@@ -62,7 +69,20 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-ink-1">{c.name}</span>
+                    {/* '1번 코트' 를 '입구쪽' 처럼 실제 부르는 이름으로 바꾼다.
+                        지우고 새로 만들면 그 코트의 경기 기록이 코트를 잃는다. */}
+                    <InlineEdit
+                      value={c.name}
+                      label={c.name}
+                      maxLength={20}
+                      pending={rename.isPending}
+                      error={
+                        rename.error ? toUserMessage(rename.error, '이름을 바꾸지 못했습니다') : null
+                      }
+                      onSave={async (next) => {
+                        await rename.mutateAsync({ courtId: c.id, name: next })
+                      }}
+                    />
                     {live && <LiveBadge />}
                   </div>
                   {live && (

@@ -1,5 +1,6 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { lazyPage } from './lazyPage'
 import { useAuth } from '@/features/auth/useAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
@@ -12,55 +13,55 @@ import { HomePage } from '@/pages/HomePage'
  * 화면이나 감사 로그 코드까지 내려받을 이유가 없다.
  * 체육관 회선이 느릴수록 첫 화면이 빨리 뜨는 게 중요하다.
  */
-const CreateTournamentPage = lazy(() =>
+const CreateTournamentPage = lazyPage(() =>
   import('@/pages/CreateTournamentPage').then((m) => ({ default: m.CreateTournamentPage })),
 )
-const JoinTournamentPage = lazy(() =>
+const JoinTournamentPage = lazyPage(() =>
   import('@/pages/JoinTournamentPage').then((m) => ({ default: m.JoinTournamentPage })),
 )
-const MyTournamentsPage = lazy(() =>
+const MyTournamentsPage = lazyPage(() =>
   import('@/pages/MyTournamentsPage').then((m) => ({ default: m.MyTournamentsPage })),
 )
-const TournamentPage = lazy(() =>
+const TournamentPage = lazyPage(() =>
   import('@/pages/TournamentPage').then((m) => ({ default: m.TournamentPage })),
 )
-const TournamentSetupPage = lazy(() =>
+const TournamentSetupPage = lazyPage(() =>
   import('@/pages/TournamentSetupPage').then((m) => ({ default: m.TournamentSetupPage })),
 )
-const TournamentSettingsPage = lazy(() =>
+const TournamentSettingsPage = lazyPage(() =>
   import('@/pages/TournamentSettingsPage').then((m) => ({ default: m.TournamentSettingsPage })),
 )
-const TournamentAdminPage = lazy(() =>
+const TournamentAdminPage = lazyPage(() =>
   import('@/pages/TournamentAdminPage').then((m) => ({ default: m.TournamentAdminPage })),
 )
-const MatchCreatePage = lazy(() =>
+const MatchCreatePage = lazyPage(() =>
   import('@/pages/MatchCreatePage').then((m) => ({ default: m.MatchCreatePage })),
 )
-const MatchScorePage = lazy(() =>
+const MatchScorePage = lazyPage(() =>
   import('@/pages/MatchScorePage').then((m) => ({ default: m.MatchScorePage })),
 )
-const LiveBoardPage = lazy(() =>
+const LiveBoardPage = lazyPage(() =>
   import('@/pages/LiveBoardPage').then((m) => ({ default: m.LiveBoardPage })),
 )
-const RefereePage = lazy(() =>
+const RefereePage = lazyPage(() =>
   import('@/pages/RefereePage').then((m) => ({ default: m.RefereePage })),
 )
-const StandingsPage = lazy(() =>
+const StandingsPage = lazyPage(() =>
   import('@/pages/StandingsPage').then((m) => ({ default: m.StandingsPage })),
 )
-const SchedulePage = lazy(() =>
+const SchedulePage = lazyPage(() =>
   import('@/pages/SchedulePage').then((m) => ({ default: m.SchedulePage })),
 )
-const MatchDetailPage = lazy(() =>
+const MatchDetailPage = lazyPage(() =>
   import('@/pages/MatchDetailPage').then((m) => ({ default: m.MatchDetailPage })),
 )
-const MembersPage = lazy(() =>
+const MembersPage = lazyPage(() =>
   import('@/pages/MembersPage').then((m) => ({ default: m.MembersPage })),
 )
-const MatchRecordsPage = lazy(() =>
+const MatchRecordsPage = lazyPage(() =>
   import('@/pages/MatchRecordsPage').then((m) => ({ default: m.MatchRecordsPage })),
 )
-const AuditLogPage = lazy(() =>
+const AuditLogPage = lazyPage(() =>
   import('@/pages/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
 )
 
