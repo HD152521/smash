@@ -68,11 +68,9 @@ async function hydrate(id: string, matchId: string): Promise<Banner | null> {
 
   return {
     id,
-    title: '경기가 잡혔습니다',
-    body: [
-      `${data.group_a_name ?? '—'} vs ${data.group_b_name ?? '—'}`,
-      data.court_name ?? '코트 미정',
-    ].join(' · '),
+    // 받는 사람이 알아야 할 것은 '어느 코트로 가라' 다
+    title: `${data.court_name ?? '코트'} 배정`,
+    body: `${data.group_a_name ?? '—'} vs ${data.group_b_name ?? '—'}`,
     url: `/t/${data.tournament_id}/matches/${data.id}`,
   }
 }

@@ -112,7 +112,9 @@ try {
     [memberOf('선수3').id, memberOf('선수4').id],
   ])
 
-  console.log('\n── 편성하면 관련된 사람에게만 쌓인다 ──')
+  console.log('\n── 코트를 안 정하면 알리지 않는다 ──')
+  // 편성만 해두고 코트를 안 정하면 언제 뛰는지 알 수 없다.
+  // 그 상태로 알림이 가면 받는 사람이 할 게 없다.
   const match = await rpc(admin.token, 'create_match', {
     p_tournament_id: t.id,
     p_court_id: null,
@@ -126,24 +128,68 @@ try {
   check('경기 편성', match.status === 200, `status=${match.status}`)
   const matchId = (match.body as unknown as { id: string }).id
 
-  const { rows: box } = await db.query<{ user_id: string }>(
-    `select user_id from notification_outbox where match_id=$1`,
+  const { rows: beforeCourt } = await db.query(
+    `select 1 from notification_outbox where match_id=$1`,
+    [matchId],
+  )
+  check('코트 미배정 상태에서는 알림이 안 쌓인다', beforeCourt.length === 0, `${beforeCourt.length}건`)
+
+  console.log('\n── 코트를 배정하면 관련된 사람에게만 쌓인다 ──')
+  const { rows: courtRows } = await db.query<{ id: string }>(
+    `insert into courts (tournament_id,name,sort_order) values ($1,'1번 코트',1) returning id`,
+    [t.id],
+  )
+  const assigned = await fetch(`${URL_BASE}/rest/v1/matches?id=eq.${matchId}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: ANON,
+      Authorization: `Bearer ${admin.token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({ court_id: courtRows[0]!.id }),
+  })
+  check('관리자가 코트를 배정한다', assigned.status === 200, `status=${assigned.status}`)
+
+  const { rows: box } = await db.query<{ user_id: string; kind: string }>(
+    `select user_id, kind from notification_outbox where match_id=$1`,
     [matchId],
   )
   const notified = new Set(box.map((r) => r.user_id))
-  check(
-    '뛰는 선수 4명 모두에게 쌓인다',
-    p.every((x) => notified.has(x.uid)),
-    `쌓인 수 ${notified.size}`,
-  )
+  check('뛰는 선수 4명 모두에게 쌓인다', p.every((x) => notified.has(x.uid)), `쌓인 수 ${notified.size}`)
   check('심판에게도 쌓인다', notified.has(ref.uid))
   check('상관없는 참가자에게는 안 쌓인다', !notified.has(bystander.uid))
-  check(
-    '편성한 본인에게는 안 쌓인다',
-    !notified.has(admin.uid),
-    '자기가 만든 걸 자기 폰이 알릴 이유가 없다',
-  )
+  check('배정한 본인에게는 안 쌓인다', !notified.has(admin.uid), '자기가 배정한 걸 자기 폰이 알릴 이유가 없다')
   check('사람 수만큼만 쌓인다 (중복 없음)', box.length === 5, `${box.length}건`)
+  check(
+    "종류가 'court_assigned' 다",
+    box.length > 0 && box.every((r) => r.kind === 'court_assigned'),
+    box[0]?.kind ?? '(없음)',
+  )
+
+  console.log('\n── 코트를 지정해서 편성해도 알린다 ──')
+  // create_match 는 경기를 먼저 넣고 선수를 나중에 넣는다. 일반 트리거였다면
+  // 이 경우 '알릴 사람이 없다' 고 판단해 조용히 아무것도 안 보냈을 것이다.
+  const withCourt = await rpc(admin.token, 'create_match', {
+    p_tournament_id: t.id,
+    p_court_id: courtRows[0]!.id,
+    p_label: null,
+    p_group_a: groups[0]!.id,
+    p_players_a: [memberOf('선수1').id, memberOf('선수2').id],
+    p_group_b: groups[1]!.id,
+    p_players_b: [memberOf('선수3').id, memberOf('선수4').id],
+    p_referees: [],
+  })
+  const withCourtId = (withCourt.body as unknown as { id: string } | null)?.id
+  const { rows: box2 } = await db.query(
+    `select 1 from notification_outbox where match_id=$1`,
+    [withCourtId ?? '00000000-0000-0000-0000-000000000000'],
+  )
+  check(
+    '코트를 지정해 편성하면 그 자리에서 쌓인다',
+    withCourt.status === 200 && box2.length === 4,
+    `status=${withCourt.status} / ${box2.length}건 (선수 4명)`,
+  )
 
   console.log('\n── 수동 기록은 알리지 않는다 ──')
   // 이미 끝난 경기를 장부에만 남기는 것이라 알릴 대상이 없다
@@ -182,7 +228,8 @@ try {
     headers: { apikey: ANON, Authorization: `Bearer ${bystander.token}` },
   })
   const otherRows = (await others.json()) as unknown[]
-  check('선수는 자기 알림을 본다', mineRows.length === 1, `${mineRows.length}건`)
+  // 위에서 경기를 둘 만들었고(코트 배정 1 + 코트 지정 편성 1) 선수1 은 둘 다 뛴다
+  check('선수는 자기 알림을 본다', mineRows.length === 2, `${mineRows.length}건`)
   check('무관한 사람에게는 아무것도 안 보인다', otherRows.length === 0, `${otherRows.length}건`)
 
   console.log('\n── 구독 정보 권한 ──')
@@ -246,7 +293,12 @@ try {
     },
     body: JSON.stringify({ p_limit: 100 }),
   })
-  const pend = (await asService.json()) as { outbox_id: string; body: string; url: string }[]
+  const pend = (await asService.json()) as {
+    outbox_id: string
+    title: string
+    body: string
+    url: string
+  }[]
   const forThisMatch = pend.filter((r) => r.url.includes(matchId))
   check(
     '발송기는 대기열을 읽는다',
@@ -259,6 +311,11 @@ try {
       forThisMatch[0]?.body.includes('vs') && forThisMatch[0]?.body.includes('알림 테스트 대회'),
     ),
     forThisMatch[0]?.body ?? '(없음)',
+  )
+  check(
+    '제목이 어느 코트인지 알려준다',
+    Boolean(forThisMatch[0]?.title.includes('1번 코트')),
+    `${forThisMatch[0]?.title ?? '(없음)'} — 받는 사람이 알아야 할 건 어디로 가느냐다`,
   )
 } finally {
   await db.query(

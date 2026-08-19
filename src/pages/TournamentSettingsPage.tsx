@@ -78,7 +78,7 @@ export function TournamentSettingsPage() {
       <section className="mt-10">
         <h2 className="text-lg font-bold text-ink-1">알림</h2>
         <p className="mt-1 mb-3 text-sm text-ink-2">
-          내 경기가 잡히면 알려드립니다. 이 기기에만 적용됩니다.
+          내 경기에 코트가 배정되면 알려드립니다. 이 기기에만 적용됩니다.
         </p>
         <PushToggle />
       </section>

@@ -199,8 +199,8 @@ export function useCreateMatch(tournamentId: string) {
     mutationFn: (input: Omit<CreateMatchInput, 'tournamentId'>) =>
       createMatch({ ...input, tournamentId }),
     onSuccess: () => {
-      // 알림을 밀어내라고 한 번 찔러 준다. 실패해도 무시한다 —
-      // 보낼 것은 DB 아웃박스에 남아 다음 편성 때 함께 나간다.
+      // 코트를 지정해서 편성했다면 여기서 이미 알림이 생긴다.
+      // 실패해도 무시한다 — 아웃박스에 남아 다음 호출 때 함께 나간다.
       void kickPushSender()
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] })
@@ -259,7 +259,11 @@ export function useAssignCourt(tournamentId: string) {
   return useMutation({
     mutationFn: ({ matchId, courtId }: { matchId: string; courtId: string | null }) =>
       assignCourt(matchId, courtId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
+    onSuccess: () => {
+      // 알림은 코트가 배정되는 순간 생긴다. 여기서 안 깨우면 다음 편성 때까지 안 나간다.
+      void kickPushSender()
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+    },
   })
 }
 
@@ -268,6 +272,9 @@ export function useClaimCourt(tournamentId: string) {
   return useMutation({
     mutationFn: ({ matchId, courtId }: { matchId: string; courtId: string }) =>
       claimCourt(matchId, courtId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
+    onSuccess: () => {
+      void kickPushSender()
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+    },
   })
 }

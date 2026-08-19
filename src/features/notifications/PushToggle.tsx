@@ -61,7 +61,7 @@ export function PushToggle() {
         <div className="min-w-0 flex-1">
           <p className="font-bold text-ink-1">{on ? '알림 켜짐' : '알림 꺼짐'}</p>
           <p className="mt-1 text-sm text-ink-2">
-            내 경기가 잡히면 알려드립니다. 앱을 닫아둬도 옵니다.
+            내 경기에 코트가 배정되면 알려드립니다. 앱을 닫아둬도 옵니다.
           </p>
         </div>
       </div>

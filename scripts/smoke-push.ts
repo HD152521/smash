@@ -107,8 +107,13 @@ try {
     [M('선수1').user_id, endpoint, p256dh, auth],
   )
 
+  // 알림은 '코트가 배정될 때' 나간다. 코트 없이 편성하면 아무것도 안 쌓인다.
+  const { rows: courtRows } = await db.query<{ id: string }>(
+    `insert into courts (tournament_id,name,sort_order) values ($1,'1번 코트',1) returning id`,
+    [t.id],
+  )
   await rpc(admin.token, 'create_match', {
-    p_tournament_id: t.id, p_court_id: null, p_label: null,
+    p_tournament_id: t.id, p_court_id: courtRows[0]!.id, p_label: null,
     p_group_a: groups[0]!.id, p_players_a: [M('선수1').id, M('선수2').id],
     p_group_b: groups[1]!.id, p_players_b: [M('선수3').id, M('선수4').id],
     p_referees: [],
@@ -116,7 +121,7 @@ try {
 
   const { rows: before } = await db.query<{ n: string }>(
     `select count(*)::text n from notification_outbox where sent_at is null`)
-  check('편성으로 발송 대기가 생겼다', Number(before[0]!.n) >= 4, `${before[0]!.n}건`)
+  check('코트 배정으로 발송 대기가 생겼다', Number(before[0]!.n) >= 4, `${before[0]!.n}건`)
 
   const res = await fetch(`${URL_BASE}/functions/v1/send-push`, {
     method: 'POST',

@@ -174,7 +174,15 @@ export function MatchCreatePage() {
 
       {/* 코트 */}
       <section className={cn('mt-8', mode === 'manual' && 'hidden')}>
-        <h2 className="text-sm font-semibold text-ink-2">코트</h2>
+        <h2 className="text-sm font-semibold text-ink-2">
+          코트 <span className="font-normal text-ink-3">(나중에 정해도 됩니다)</span>
+        </h2>
+        {/* 코트를 안 정하면 대진표의 '코트 미배정' 에 모인다.
+            비는 코트를 보고 그때 배정하는 게 실제 운영 순서다. */}
+        <p className="mt-1 text-sm text-ink-3">
+          지금 고르지 않고 넘어가도 됩니다. 대진표에서 비는 코트를 보고 배정할 수 있고, 선수와
+          심판에게는 코트가 정해지는 순간 알림이 갑니다.
+        </p>
         {courts.data && courts.data.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {courts.data.map((c) => (
