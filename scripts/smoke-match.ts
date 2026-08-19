@@ -523,6 +523,50 @@ try {
     `status=${editFinished.status} — 점수가 붙어 있는데 선수를 바꾸면 그 점수가 누구 것인지 알 수 없다`,
   )
 
+
+  // ── 무효 처리 ───────────────────────────────────────────────────
+  // 대회 중에 엉뚱한 경기에 점수를 넣는 일은 실제로 일어난다.
+  // 되돌릴 방법이 없으면 순위가 틀린 채로 대회가 끝난다.
+  console.log('\n── 무효 처리 ──')
+  const before = await rpc(admin.token, 'get_standings', { p_tournament_id: t.id })
+  const beforeRows = before.body as unknown as { group_id: string; points: string; played: string }[]
+  const jokerBefore = beforeRows.find((r) => r.group_id === jokerGroup.id)!
+
+  const voided = await rpc(admin.token, 'void_match', {
+    p_match_id: matchId,
+    p_reason: '엉뚱한 경기에 기록함',
+  })
+  check('관리자가 경기를 무효 처리한다', voided.status === 200, `status=${voided.status}`)
+
+  const after = await rpc(admin.token, 'get_standings', { p_tournament_id: t.id })
+  const afterRows = after.body as unknown as { group_id: string; points: string; played: string }[]
+  const jokerAfter = afterRows.find((r) => r.group_id === jokerGroup.id)!
+  check(
+    '무효 경기는 순위 집계에서 빠진다',
+    Number(jokerAfter.played) === Number(jokerBefore.played) - 1 &&
+      Number(jokerAfter.points) < Number(jokerBefore.points),
+    `경기 ${jokerBefore.played}→${jokerAfter.played}, 승점 ${jokerBefore.points}→${jokerAfter.points}`,
+  )
+
+  const { rows: keptEvents } = await db.query<{ n: string }>(
+    `select count(*)::text n from score_events where match_id=$1`,
+    [matchId],
+  )
+  check(
+    '점수 기록 자체는 지워지지 않는다',
+    Number(keptEvents[0]!.n) > 0,
+    `${keptEvents[0]!.n}건 — 지우면 왜 무효인지 나중에 확인할 수 없다`,
+  )
+
+  const { rows: auditRow } = await db.query<{ n: string }>(
+    `select count(*)::text n from audit_logs where tournament_id=$1 and action='match.void'`,
+    [t.id],
+  )
+  check('변경 기록에 남는다', Number(auditRow[0]!.n) > 0, `${auditRow[0]!.n}건`)
+
+  const byRef = await rpc(ref.token, 'void_match', { p_match_id: matchId, p_reason: null })
+  check('심판은 무효 처리할 수 없다', byRef.status >= 400, `status=${byRef.status}`)
+
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,
