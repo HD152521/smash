@@ -335,3 +335,9 @@ export async function moveCourt(courtId: string, direction: -1 | 1): Promise<Cou
   const res = await supabase.rpc('move_court', { p_court_id: courtId, p_direction: direction })
   return unwrap(res) as unknown as CourtRow[]
 }
+
+/** 공용 대기 경기를 특정 코트가 가져간다 (심판·관리자) */
+export async function claimCourt(matchId: string, courtId: string): Promise<MatchRow> {
+  const res = await supabase.rpc('claim_court', { p_match_id: matchId, p_court_id: courtId })
+  return unwrap(res) as MatchRow
+}

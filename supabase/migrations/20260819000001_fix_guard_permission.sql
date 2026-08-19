@@ -1,0 +1,24 @@
+-- ════════════════════════════════════════════════════════════════════
+-- 관리자의 정상적인 수정이 전부 막혀 있던 문제
+--
+-- 증상: 주최자가 남의 조를 바꾸려 하면 "권한이 없습니다".
+--       대회 이름 수정, 경기 코트 변경, 멤버 내보내기도 전부 실패.
+--
+-- 원인: 20260818000007 에서 is_direct_api_call() 의 EXECUTE 를
+--       authenticated 에서 회수했는데, 정작 그 함수를 호출하는 게
+--       가드 트리거들이다. 트리거는 SECURITY INVOKER 라 호출자
+--       (authenticated) 권한으로 실행되므로 함수를 부르지 못하고
+--       "permission denied for function is_direct_api_call" 로 죽는다.
+--
+--       공격이 차단되는 건 맞았지만, 정상 동작도 같이 차단됐다.
+--
+-- 왜 트리거를 SECURITY DEFINER 로 바꾸면 안 되는가:
+--       그러면 트리거 안에서 current_user 가 함수 소유자(postgres)가 되어
+--       is_direct_api_call() 이 항상 false 를 반환한다. 즉 가드가 영영
+--       발동하지 않고 보안 구멍이 그대로 다시 열린다.
+--
+-- 해결: 함수 자체는 아무 정보도 노출하지 않는다 (current_user 비교 한 줄).
+--       authenticated 가 호출할 수 있게 되돌린다.
+-- ════════════════════════════════════════════════════════════════════
+
+grant execute on function is_direct_api_call() to authenticated, anon;

@@ -280,6 +280,31 @@ try {
   )
 
 
+  console.log('\n── 관리자의 정상 동작 (과잉 차단 회귀 방지) ──')
+  // 이 검사가 없어서 가드 트리거가 권한 오류로 죽는 걸 놓쳤다.
+  // '차단됐다' 만 보면 정상 동작이 막힌 것도 통과해 버린다.
+  const okGroup = await api(attacker.token, `tournament_members?id=eq.${playerMember.id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ group_id: groups[1]!.id }),
+  })
+  check(
+    '관리자가 남의 조를 옮길 수 있다',
+    okGroup.status === 200 && Array.isArray(okGroup.body) && okGroup.body.length === 1,
+    `status=${okGroup.status}`,
+  )
+
+  const okName = await api(attacker.token, `tournaments?id=eq.${t.id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ name: '이름 바꾼 대회' }),
+  })
+  check(
+    '관리자가 대회 이름을 바꿀 수 있다',
+    okName.status === 200 && Array.isArray(okName.body) && okName.body.length === 1,
+    `status=${okName.status}`,
+  )
+
   console.log('\n── M-2. 경기 이력 소거 ──')
   await db.query(
     `insert into match_team_players (match_team_id, member_id)

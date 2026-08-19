@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, CircleDot, ListOrdered } from 'lucide-react'
 import { LiveBadge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { useClaimCourt } from '@/features/tournament/queries'
 import { cn } from '@/lib/utils'
+import { toUserMessage } from '@/lib/errors'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
 interface CourtBoardProps {
@@ -31,8 +33,6 @@ export function CourtBoard({
   myDisplayName,
   canScore,
 }: CourtBoardProps) {
-  const unassigned = matches.filter((m) => !m.court_id && m.status !== 'finished')
-
   if (courts.length === 0) {
     return (
       <p className="rounded-2xl border border-dashed border-border-subtle p-6 text-center text-sm text-ink-2">
@@ -54,22 +54,6 @@ export function CourtBoard({
         />
       ))}
 
-      {unassigned.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-dashed border-border-subtle">
-          <header className="border-b border-border-subtle px-4 py-2.5">
-            <h3 className="font-bold text-ink-2">코트 미배정</h3>
-          </header>
-          {unassigned.map((m) => (
-            <MatchRow
-              key={m.id}
-              m={m}
-              tournamentId={tournamentId}
-              myDisplayName={myDisplayName}
-              canScore={canScore}
-            />
-          ))}
-        </section>
-      )}
     </div>
   )
 }
@@ -95,10 +79,29 @@ function CourtCard({
   canScore: boolean
 }) {
   const [queueOpen, setQueueOpen] = useState(false)
+  const navigate = useNavigate()
+  const claim = useClaimCourt(tournamentId)
+
   const onCourt = matches.filter((m) => m.court_id === court.id)
   const live = onCourt.find((m) => m.status === 'live')
-  const queued = onCourt.filter((m) => m.status === 'scheduled')
   const finishedCount = onCourt.filter((m) => m.status === 'finished').length
+  // 코트를 정하지 않은 경기(공용 대기)는 모든 코트의 대기열에 함께 뜬다.
+  // 먼저 비는 코트가 집어간다.
+  const shared = matches.filter((m) => !m.court_id && m.status === 'scheduled')
+  const queued = [...onCourt.filter((m) => m.status === 'scheduled'), ...shared]
+
+  async function open(m: MatchOverviewRow) {
+    if (!m.id) return
+    // 공용 대기에서 집어가면 그 순간 이 코트에 배정한다
+    if (!m.court_id) {
+      try {
+        await claim.mutateAsync({ matchId: m.id, courtId: court.id })
+      } catch {
+        return // 오류는 아래 모달에 표시된다
+      }
+    }
+    navigate(`/t/${tournamentId}/matches/${m.id}`)
+  }
 
   return (
           <section
@@ -157,6 +160,11 @@ function CourtCard({
         onClose={() => setQueueOpen(false)}
         title={`${court.name} 대기 경기`}
       >
+        {claim.error && (
+          <p role="alert" className="mb-2 text-sm font-medium text-team-b">
+            {toUserMessage(claim.error, '코트를 잡지 못했습니다')}
+          </p>
+        )}
         <ul className="flex flex-col gap-2">
           {queued.map((m) => (
             <li key={m.id}>
@@ -166,6 +174,8 @@ function CourtCard({
                 myDisplayName={myDisplayName}
                 canScore={canScore}
                 boxed
+                shared={!m.court_id}
+                onOpen={() => void open(m)}
               />
             </li>
           ))}
@@ -187,6 +197,8 @@ function MatchRow({
   canScore,
   emphasis = false,
   boxed = false,
+  shared = false,
+  onOpen,
 }: {
   m: MatchOverviewRow
   tournamentId: string
@@ -195,6 +207,10 @@ function MatchRow({
   emphasis?: boolean
   /** 모달 안에서는 목록 행이 아니라 카드로 보여준다 */
   boxed?: boolean
+  /** 코트가 정해지지 않은 공용 대기 경기인가 */
+  shared?: boolean
+  /** 링크 대신 직접 처리해야 할 때 (공용 대기 → 코트 배정) */
+  onOpen?: () => void
 }) {
   const iAmReferee = myDisplayName ? Boolean(m.referees?.includes(myDisplayName)) : false
   const clickable = (canScore || iAmReferee) && m.status !== 'void'
@@ -202,6 +218,11 @@ function MatchRow({
   const inner = (
     <>
       <div className="min-w-0 flex-1">
+        {shared && (
+          <span className="mb-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-ink-2">
+            공용 대기 · 이 코트에서 시작
+          </span>
+        )}
         <div className="flex items-center gap-2">
           <Team
             name={m.group_a_name}
@@ -249,12 +270,17 @@ function MatchRow({
       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
   )
 
-  return clickable ? (
+  if (!clickable) return <div className={className}>{inner}</div>
+  if (onOpen)
+    return (
+      <button type="button" onClick={onOpen} className={cn(className, 'w-full text-left')}>
+        {inner}
+      </button>
+    )
+  return (
     <Link to={`/t/${tournamentId}/matches/${m.id}`} className={className}>
       {inner}
     </Link>
-  ) : (
-    <div className={className}>{inner}</div>
   )
 }
 

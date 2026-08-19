@@ -153,6 +153,10 @@ export type Database = {
         Args: { p_court_id: string; p_direction: number }
         Returns: CourtRow[]
       }
+      claim_court: {
+        Args: { p_match_id: string; p_court_id: string }
+        Returns: MatchRow
+      }
       void_match: {
         Args: { p_match_id: string; p_reason?: string | null }
         Returns: MatchRow
