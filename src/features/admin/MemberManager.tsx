@@ -1,9 +1,16 @@
-import { Shield, ShieldOff } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Shield, ShieldOff, UserMinus } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { NameEditor } from '@/features/tournament/NameEditor'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
-import { useSetMemberGroup, useSetMemberRole } from '@/features/tournament/queries'
+import { Button } from '@/components/ui/Button'
+import {
+  useAddRosterMember,
+  useRemoveMember,
+  useSetMemberGroup,
+  useSetMemberRole,
+} from '@/features/tournament/queries'
 import type { MemberSummary } from '@/features/tournament/api'
 import type { GroupRow } from '@/types/database'
 
@@ -18,9 +25,26 @@ interface MemberManagerProps {
 export function MemberManager({ tournamentId, members, groups, myMemberId }: MemberManagerProps) {
   const setRole = useSetMemberRole(tournamentId)
   const setGroup = useSetMemberGroup(tournamentId)
-  const error = setRole.error ?? setGroup.error
+  const addMember = useAddRosterMember(tournamentId)
+  const removeMember = useRemoveMember(tournamentId)
+  const [newName, setNewName] = useState('')
+
+  const error =
+    setRole.error ?? setGroup.error ?? addMember.error ?? removeMember.error
 
   const ungrouped = members.filter((m) => !m.groupId)
+  const pending = members.filter((m) => !m.userId)
+
+  async function add() {
+    const name = newName.trim()
+    if (!name) return
+    try {
+      await addMember.mutateAsync(name)
+      setNewName('')
+    } catch {
+      // 오류는 위에 표시된다 (중복 이름 등)
+    }
+  }
 
   return (
     <section>
@@ -31,11 +55,43 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
         )}
       </div>
 
+      {pending.length > 0 && (
+        <p className="mt-1 text-xs text-ink-3">
+          미가입 {pending.length}명 — 조 배정과 경기는 되지만 심판은 맡을 수 없습니다.
+        </p>
+      )}
+
       {error && (
         <p role="alert" className="mt-3 text-sm font-medium text-team-b-fg">
           {toUserMessage(error, '변경하지 못했습니다')}
         </p>
       )}
+
+      {/* 명단에 미리 넣기 — 대회 날 아침에 20명이 각자 코드를 치길 기다릴 수 없다 */}
+      <div className="mt-4 flex gap-2">
+        <input
+          value={newName}
+          maxLength={20}
+          placeholder="이름으로 참가자 추가"
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void add()
+          }}
+          aria-label="추가할 참가자 이름"
+          className="min-h-11 min-w-0 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-3
+                     text-base text-ink-1
+                     focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-600"
+        />
+        <Button
+          onClick={() => void add()}
+          loading={addMember.isPending}
+          disabled={newName.trim().length === 0}
+          className="shrink-0"
+        >
+          <Plus className="size-4" aria-hidden />
+          추가
+        </Button>
+      </div>
 
       <ul className="mt-4 flex flex-col gap-2">
         {members.map((m) => {
@@ -60,6 +116,7 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                   />
                   {isOwner && <Badge>주최자</Badge>}
                   {m.role === 'admin' && <Badge tone="ok">관리자</Badge>}
+                  {!m.userId && <Badge tone="neutral">미가입</Badge>}
                   {isSelf && <span className="text-xs text-ink-3">(나)</span>}
                 </div>
                 {!m.groupId && (
@@ -122,6 +179,26 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                   ) : (
                     <ShieldOff className="size-4" aria-hidden />
                   )}
+                </button>
+              )}
+
+              {/* 경기에 나간 사람은 서버가 막는다 — 지우면 그 경기 기록에서도 사라진다 */}
+              {!isOwner && !isSelf && (
+                <button
+                  type="button"
+                  disabled={removeMember.isPending}
+                  onClick={() => {
+                    if (confirm(`${m.displayName}님을 이 대회에서 뺄까요?`)) {
+                      removeMember.mutate(m.id)
+                    }
+                  }}
+                  aria-label={`${m.displayName} 제외`}
+                  className="grid size-11 shrink-0 place-items-center rounded-lg border
+                             border-border-subtle text-ink-3 transition-colors
+                             hover:border-team-b/40 hover:bg-team-b/10 hover:text-team-b-fg
+                             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                >
+                  <UserMinus className="size-4" aria-hidden />
                 </button>
               )}
 

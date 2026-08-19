@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Settings, Sliders } from 'lucide-react'
+import { Home, Settings, Sliders } from 'lucide-react'
 import { BackLink } from '@/components/ui/BackLink'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
@@ -42,7 +42,23 @@ export function TournamentNav({ id, active }: { id: string; active: TournamentTa
   return (
     <header>
       <div className="flex items-center justify-between gap-2">
-        <BackLink to="/my">내 대회</BackLink>
+        <div className="flex items-center gap-1">
+          <BackLink to="/my">내 대회</BackLink>
+          {/*
+            뒤로가기만 있으면 대회 안에서 빠져나갈 길이 없다.
+            히스토리를 되짚는 것과 '다른 대회로 옮겨 가는 것' 은 다른 일이라
+            버튼을 따로 둔다.
+          */}
+          <Link
+            to="/"
+            aria-label="홈으로"
+            className="grid size-11 place-items-center rounded-lg text-ink-2 transition-colors
+                       hover:bg-surface-2 hover:text-ink-1
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <Home className="size-5" aria-hidden />
+          </Link>
+        </div>
         <div className="flex items-center gap-1">
           {nav.isAdmin && (
             <Link

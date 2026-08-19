@@ -122,7 +122,8 @@ export async function fetchTournament(id: string): Promise<TournamentRow> {
 
 export interface MemberSummary {
   id: string
-  userId: string
+  /** null 이면 아직 앱에 안 들어온 '명단만' 참가자다 */
+  userId: string | null
   displayName: string
   role: MemberRole
   groupId: string | null
@@ -375,6 +376,24 @@ export async function setDisplayName(memberId: string, name: string): Promise<vo
     p_name: name,
   })
   unwrap(res)
+}
+
+/** 관리자가 명단에 사람을 미리 넣는다 (계정 없이) */
+export async function addRosterMember(tournamentId: string, name: string): Promise<void> {
+  unwrap(await supabase.rpc('add_roster_member', {
+    p_tournament_id: tournamentId,
+    p_name: name,
+  }))
+}
+
+/**
+ * 명단에서 뺀다.
+ *
+ * 경기에 나간 사람은 서버가 막는다 — match_team_players 가 cascade 라
+ * 지우면 지난 경기에서도 조용히 사라지기 때문이다.
+ */
+export async function removeMember(memberId: string): Promise<void> {
+  unwrap(await supabase.rpc('remove_member', { p_member_id: memberId }))
 }
 
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {

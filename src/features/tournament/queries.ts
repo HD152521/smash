@@ -19,6 +19,8 @@ import {
   claimCourt,
   fetchScoreEvents,
   setDisplayName,
+  addRosterMember,
+  removeMember,
   moveCourt,
   fetchMatches,
   fetchStandings,
@@ -278,6 +280,26 @@ export function useSetDisplayName(tournamentId: string) {
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
     },
   })
+}
+
+function useRosterMutation<T>(tournamentId: string, fn: (input: T) => Promise<void>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    // 명단이 바뀌면 조 구성·경기 편성 후보가 함께 바뀐다
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'members'] })
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+    },
+  })
+}
+
+export function useAddRosterMember(tournamentId: string) {
+  return useRosterMutation(tournamentId, (name: string) => addRosterMember(tournamentId, name))
+}
+
+export function useRemoveMember(tournamentId: string) {
+  return useRosterMutation(tournamentId, (memberId: string) => removeMember(memberId))
 }
 
 export function useAssignCourt(tournamentId: string) {

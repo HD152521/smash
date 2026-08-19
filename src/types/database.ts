@@ -169,6 +169,14 @@ export type Database = {
         Args: { p_member_id: string; p_name: string }
         Returns: TournamentMemberRow
       }
+      add_roster_member: {
+        Args: { p_tournament_id: string; p_name: string }
+        Returns: TournamentMemberRow
+      }
+      remove_member: {
+        Args: { p_member_id: string }
+        Returns: void
+      }
       set_tournament_status: {
         Args: { p_tournament_id: string; p_status: TournamentRow['status'] }
         Returns: TournamentRow
