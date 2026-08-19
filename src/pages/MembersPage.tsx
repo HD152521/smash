@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { TournamentNav } from '@/features/tournament/TournamentNav'
+import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { Users } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
@@ -21,6 +22,7 @@ export function MembersPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const tournament = useTournament(id)
+  const nav = useTournamentNav(id)
   const groups = useGroups(id)
   const members = useMembers(id)
 
@@ -30,12 +32,11 @@ export function MembersPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}`}>대회로</BackLink>
-
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">참가자</h1>
-      <p className="mt-2 flex items-center gap-1.5 text-sm text-ink-2">
+      <TournamentNav id={id!} active="members" {...nav} />
+      <h1 className="sr-only">참가자</h1>
+      <p className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-ink-2">
         <Users className="size-4" aria-hidden />
-        {tournament.data?.name} · {members.data?.length ?? 0}명
+        참가자 {members.data?.length ?? 0}명
       </p>
 
       {members.error && (

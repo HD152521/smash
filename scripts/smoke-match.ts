@@ -351,6 +351,73 @@ try {
     projection.rows[0]!.score_a === Number(ledgerSum.rows[0]!.s),
     `투영 ${projection.rows[0]!.score_a} / 원장 ${ledgerSum.rows[0]!.s}`,
   )
+
+  // ── 대기열 미리 짜기 ────────────────────────────────────────────
+  // 규칙을 '편성하는 순간' 이 아니라 '시작하는 순간' 에 검사해야 한다.
+  // 지금 뛰는 선수도 몇 분 뒤면 내려오고, 도는 코트도 곧 빈다.
+  console.log('\n── 대기열 미리 짜기 ──')
+  const { rows: courtRows } = await db.query<{ id: string }>(
+    `insert into courts (tournament_id,name,sort_order) values ($1,'1번 코트',1) returning id`,
+    [t.id],
+  )
+  const courtId = courtRows[0]!.id
+
+  const squad = {
+    p_tournament_id: t.id,
+    p_label: null,
+    p_group_a: jokerGroup.id,
+    p_players_a: [memberOf('선수1'), memberOf('선수2')],
+    p_group_b: normalGroup.id,
+    p_players_b: [memberOf('선수3'), memberOf('선수4')],
+    p_referees: [],
+  }
+
+  const q1 = await rpc(admin.token, 'create_match', { ...squad, p_court_id: courtId })
+  const q1Id = (q1.body as unknown as { id: string }).id
+  await rpc(admin.token, 'start_match', { p_match_id: q1Id })
+
+  const q2 = await rpc(admin.token, 'create_match', { ...squad, p_court_id: courtId })
+  check(
+    '진행 중인 코트에도 다음 경기를 줄 세울 수 있다',
+    q2.status === 200,
+    `status=${q2.status} ${JSON.stringify(q2.body)}`,
+  )
+  check(
+    '지금 뛰는 선수로도 다음 경기를 미리 짤 수 있다',
+    q2.status === 200,
+    `status=${q2.status}`,
+  )
+  const q2Id = (q2.body as unknown as { id: string }).id
+
+  const startSameCourt = await rpc(admin.token, 'start_match', { p_match_id: q2Id })
+  check(
+    '같은 코트에서 두 경기를 겹쳐 시작할 수 없다',
+    startSameCourt.status === 400 &&
+      /진행 중인 경기를 먼저/.test(String((startSameCourt.body as { message?: string })?.message)),
+    `status=${startSameCourt.status} ${JSON.stringify(startSameCourt.body)}`,
+  )
+
+  // 코트를 비워도 선수가 겹치면 시작할 수 없어야 한다 (검사가 코트에만
+  // 걸려 있으면 여기서 통과해버린다)
+  await db.query(`update matches set court_id=null where id=$1`, [q2Id])
+  const startSamePlayers = await rpc(admin.token, 'start_match', { p_match_id: q2Id })
+  check(
+    '선수가 다른 코트에서 뛰는 중이면 시작할 수 없다',
+    startSamePlayers.status === 400 &&
+      /다른 코트에서 경기 중/.test(String((startSamePlayers.body as { message?: string })?.message)),
+    `status=${startSamePlayers.status} ${JSON.stringify(startSamePlayers.body)}`,
+  )
+
+  await rpc(admin.token, 'record_score', {
+    p_match_id: q1Id, p_side: 'A', p_delta: 1, p_client_event_id: `${q1Id}-queue-a1`,
+  })
+  await rpc(admin.token, 'finish_match', { p_match_id: q1Id, p_winner_side: 'A' })
+  const startAfter = await rpc(admin.token, 'start_match', { p_match_id: q2Id })
+  check(
+    '앞 경기가 끝나면 대기 경기를 시작할 수 있다',
+    startAfter.status === 200,
+    `status=${startAfter.status} ${JSON.stringify(startAfter.body)}`,
+  )
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,

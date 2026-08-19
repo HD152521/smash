@@ -153,6 +153,19 @@ body {
   font-feature-settings: 'tnum';
 }
 
+/*
+ * 가로로 미는 줄(탭 등)에서 스크롤바를 감춘다.
+ * 폰에서는 어차피 안 보이는데 데스크톱에서만 회색 막대가 생겨서
+ * 탭 아래에 줄이 하나 더 그어진 것처럼 보인다.
+ * 스크롤 자체는 그대로 되고 키보드 접근성도 영향받지 않는다.
+ */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* 심판 화면 등 오조작이 치명적인 곳에서 텍스트 선택/롱프레스 메뉴를 막는다 */
 .no-touch-callout {
   -webkit-touch-callout: none;

@@ -1,15 +1,16 @@
 import { useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { TournamentNav } from '@/features/tournament/TournamentNav'
+import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { useAuth } from '@/features/auth/useAuth'
 import { StandingsTable } from '@/features/standings/StandingsTable'
-import { useMatches, useMembers, useStandings, useTournament } from '@/features/tournament/queries'
+import { useMatches, useMembers, useStandings } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 
 /** 조별 순위만 보는 화면. 대회 메인에 얹으면 코트 현황이 묻힌다. */
 export function StandingsPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const tournament = useTournament(id)
+  const nav = useTournamentNav(id)
   const standings = useStandings(id)
   const matches = useMatches(id)
   const members = useMembers(id)
@@ -18,10 +19,8 @@ export function StandingsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}`}>대회로</BackLink>
-
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">조별 순위</h1>
-      <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>
+      <TournamentNav id={id!} active="standings" {...nav} />
+      <h1 className="sr-only">조별 순위</h1>
 
       {standings.error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">

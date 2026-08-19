@@ -1,153 +1,86 @@
 import { describe, expect, it } from 'vitest'
-import type { MatchOverviewRow } from '@/types/database'
-import {
-  buildMatchupIndex,
-  cellState,
-  pairKey,
-  remainingPairings,
-  scheduleProgress,
-  scoreForRow,
-  type GroupLite,
-} from './schedule'
+import type { CourtRow, MatchOverviewRow } from '@/types/database'
+import { buildSchedule, matchTitle } from './schedule'
 
-const groups: GroupLite[] = [
-  { id: 'g1', name: '1조', is_joker: true, sort_order: 1 },
-  { id: 'g2', name: '2조', is_joker: false, sort_order: 2 },
-  { id: 'g3', name: '3조', is_joker: false, sort_order: 3 },
-]
+const courts = [
+  { id: 'c1', name: '1번 코트' },
+  { id: 'c2', name: '2번 코트' },
+] as CourtRow[]
 
 function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
   return {
-    id: 'm1',
-    tournament_id: 't1',
-    court_id: null,
-    court_name: null,
-    label: null,
-    status: 'scheduled',
-    source: 'live',
-    score_a: 0,
-    score_b: 0,
-    winner_side: null,
-    started_at: null,
-    finished_at: null,
-    edited_at: null,
-    created_at: null,
-    group_a_id: 'g1',
-    group_a_name: '1조',
-    group_a_joker: true,
-    target_a: 11,
-    group_b_id: 'g2',
-    group_b_name: '2조',
-    group_b_joker: false,
-    target_b: 21,
-    players_a: null,
-    players_b: null,
-    referees: null,
+    id: 'm1', tournament_id: 't1', court_id: null, court_name: null, label: null,
+    status: 'scheduled', source: 'live', score_a: 0, score_b: 0, winner_side: null,
+    started_at: null, finished_at: null, edited_at: null, created_at: null,
+    group_a_id: 'g1', group_a_name: '1조', group_a_joker: true, target_a: 11,
+    group_b_id: 'g2', group_b_name: '2조', group_b_joker: false, target_b: 21,
+    players_a: null, players_b: null, referees: null,
     ...over,
   }
 }
 
-describe('pairKey', () => {
-  it('조의 순서가 바뀌어도 같은 키를 만든다', () => {
-    expect(pairKey('a', 'b')).toBe(pairKey('b', 'a'))
+describe('buildSchedule', () => {
+  it('코트를 안 정한 예정 경기를 따로 모은다', () => {
+    const s = buildSchedule(
+      [match({ id: 'a' }), match({ id: 'b', court_id: 'c1' })],
+      courts,
+    )
+    expect(s.unassigned.map((m) => m.id)).toEqual(['a'])
+    expect(s.courts[0]!.waiting.map((m) => m.id)).toEqual(['b'])
+    expect(s.courts[1]!.waiting).toEqual([])
+  })
+
+  it('코트마다 진행 중인 경기는 하나만 잡는다', () => {
+    const s = buildSchedule(
+      [match({ id: 'live', status: 'live', court_id: 'c1' }), match({ id: 'wait', court_id: 'c1' })],
+      courts,
+    )
+    expect(s.courts[0]!.live?.id).toBe('live')
+    expect(s.courts[0]!.waiting.map((m) => m.id)).toEqual(['wait'])
+    expect(s.courts[1]!.live).toBeNull()
+  })
+
+  it('끝난 경기와 무효 경기는 대진표에 안 나온다', () => {
+    // 대진표는 '앞으로 할 것' 만 본다. 끝난 건 경기 기록이 맡는다.
+    const s = buildSchedule(
+      [
+        match({ id: 'done', status: 'finished', court_id: 'c1' }),
+        match({ id: 'void', status: 'void' }),
+        match({ id: 'next' }),
+      ],
+      courts,
+    )
+    expect(s.scheduledCount).toBe(1)
+    expect(s.unassigned.map((m) => m.id)).toEqual(['next'])
+    expect(s.courts[0]!.waiting).toEqual([])
+  })
+
+  it('진행 중 경기 수를 센다', () => {
+    const s = buildSchedule(
+      [match({ status: 'live', court_id: 'c1' }), match({ status: 'live', court_id: 'c2' })],
+      courts,
+    )
+    expect(s.liveCount).toBe(2)
+  })
+
+  it('코트가 없으면 전부 미배정으로 남는다', () => {
+    const s = buildSchedule([match({ id: 'a' })], [])
+    expect(s.courts).toEqual([])
+    expect(s.unassigned).toHaveLength(1)
+  })
+
+  it('모르는 코트 id 는 엉뚱한 줄에 끼지 않는다', () => {
+    // 실제로 코트를 지우면 FK 가 on delete set null 이라 미배정으로 돌아온다.
+    // 그래도 모르는 id 를 만났을 때 아무 코트 줄에나 밀어 넣지는 않는지 못 박는다.
+    const s = buildSchedule([match({ id: 'orphan', court_id: 'gone' })], courts)
+    expect(s.scheduledCount).toBe(1)
+    expect(s.unassigned).toEqual([])
+    expect(s.courts.every((c) => c.waiting.length === 0)).toBe(true)
   })
 })
 
-describe('buildMatchupIndex', () => {
-  it('같은 조합의 경기를 한 칸에 모은다', () => {
-    const index = buildMatchupIndex([
-      match({ id: 'm1' }),
-      match({ id: 'm2', group_a_id: 'g2', group_b_id: 'g1' }),
-    ])
-    expect(index.byPair.get(pairKey('g1', 'g2'))).toHaveLength(2)
-  })
-
-  it('무효 경기는 판에서 뺀다', () => {
-    // 무효 경기가 남아 있으면 "이미 붙은 조합" 으로 잘못 세어
-    // 남은 대진에서 사라진다 — 그러면 그 조합은 영영 안 잡힌다
-    const index = buildMatchupIndex([match({ status: 'void' })])
-    expect(index.byPair.size).toBe(0)
-    expect(remainingPairings(groups, index)).toHaveLength(3)
-  })
-})
-
-describe('remainingPairings', () => {
-  it('아직 안 붙은 조합만 조 순서대로 돌려준다', () => {
-    const index = buildMatchupIndex([match({ group_a_id: 'g1', group_b_id: 'g2' })])
-    const rest = remainingPairings(groups, index)
-    expect(rest.map((p) => `${p.a.name}-${p.b.name}`)).toEqual(['1조-3조', '2조-3조'])
-  })
-
-  it('전부 붙었으면 빈 배열', () => {
-    const index = buildMatchupIndex([
-      match({ group_a_id: 'g1', group_b_id: 'g2' }),
-      match({ group_a_id: 'g1', group_b_id: 'g3' }),
-      match({ group_a_id: 'g2', group_b_id: 'g3' }),
-    ])
-    expect(remainingPairings(groups, index)).toEqual([])
-  })
-})
-
-describe('cellState', () => {
-  it('자기 자신은 self', () => {
-    expect(cellState(buildMatchupIndex([]), 'g1', 'g1')).toEqual({ kind: 'self' })
-  })
-
-  it('경기가 없으면 empty', () => {
-    expect(cellState(buildMatchupIndex([]), 'g1', 'g2')).toEqual({ kind: 'empty' })
-  })
-
-  it('진행 중인 경기를 끝난 경기보다 먼저 보여준다', () => {
-    // 지금 벌어지는 일이 지난 결과보다 급하다
-    const index = buildMatchupIndex([
-      match({ id: 'old', status: 'finished', winner_side: 'A' }),
-      match({ id: 'now', status: 'live' }),
-    ])
-    const cell = cellState(index, 'g1', 'g2')
-    expect(cell.kind).toBe('live')
-    expect(cell.kind === 'live' && cell.match.id).toBe('now')
-  })
-
-  it('행 조가 이겼는지 A/B 가 아니라 행 기준으로 판단한다', () => {
-    // A 팀이 g1 이고 A 가 이겼다 → g1 행에서는 이김, g2 행에서는 짐
-    const index = buildMatchupIndex([
-      match({ status: 'finished', winner_side: 'A', group_a_id: 'g1', group_b_id: 'g2' }),
-    ])
-    const fromG1 = cellState(index, 'g1', 'g2')
-    const fromG2 = cellState(index, 'g2', 'g1')
-    expect(fromG1.kind === 'done' && fromG1.aWon).toBe(true)
-    expect(fromG2.kind === 'done' && fromG2.aWon).toBe(false)
-  })
-
-  it('여러 번 붙었으면 나머지 개수를 알려준다', () => {
-    const index = buildMatchupIndex([
-      match({ id: 'm1', status: 'finished', winner_side: 'A' }),
-      match({ id: 'm2', status: 'finished', winner_side: 'B' }),
-    ])
-    const cell = cellState(index, 'g1', 'g2')
-    expect(cell.kind === 'done' && cell.extra).toBe(1)
-  })
-})
-
-describe('scoreForRow', () => {
-  it('행 조의 점수를 앞에 놓는다', () => {
-    const m = match({ score_a: 21, score_b: 15, group_a_id: 'g1', group_b_id: 'g2' })
-    expect(scoreForRow(m, 'g1')).toEqual({ mine: 21, theirs: 15 })
-    expect(scoreForRow(m, 'g2')).toEqual({ mine: 15, theirs: 21 })
-  })
-})
-
-describe('scheduleProgress', () => {
-  it('전체 조합 수와 진행 상황을 센다', () => {
-    const index = buildMatchupIndex([
-      match({ group_a_id: 'g1', group_b_id: 'g2', status: 'finished' }),
-      match({ group_a_id: 'g1', group_b_id: 'g3', status: 'live' }),
-    ])
-    expect(scheduleProgress(groups, index)).toEqual({
-      totalPairings: 3,
-      playedPairings: 2,
-      liveMatches: 1,
-      finishedMatches: 1,
-    })
+describe('matchTitle', () => {
+  it('조 이름을 한 줄로 만든다', () => {
+    expect(matchTitle(match({}))).toBe('1조 vs 2조')
   })
 })

@@ -1,9 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { TournamentNav } from '@/features/tournament/TournamentNav'
+import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { ChevronRight, Gavel, Play } from 'lucide-react'
 import { LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
-import { useMatches, useMembers, useTournament } from '@/features/tournament/queries'
+import { useMatches, useMembers } from '@/features/tournament/queries'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
 import { cn } from '@/lib/utils'
 import type { MatchOverviewRow } from '@/types/database'
@@ -18,7 +19,7 @@ import type { MatchOverviewRow } from '@/types/database'
 export function RefereePage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const tournament = useTournament(id)
+  const nav = useTournamentNav(id)
   const members = useMembers(id)
   const matches = useMatches(id)
   useRealtimeMatches(id)
@@ -35,13 +36,12 @@ export function RefereePage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}`}>대회로</BackLink>
+      <TournamentNav id={id!} active="referee" {...nav} />
 
-      <header className="mt-6">
-        <h1 className="flex items-center gap-2 text-3xl font-black tracking-tight text-ink-1">
-          <Gavel className="size-7 text-brand-fg" aria-hidden />내 심판 경기
+      <header className="mt-4">
+        <h1 className="flex items-center gap-2 text-xl font-black tracking-tight text-ink-1">
+          <Gavel className="size-5 text-brand-fg" aria-hidden />내 심판 경기
         </h1>
-        <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>
       </header>
 
       {matches.isPending || members.isPending ? (

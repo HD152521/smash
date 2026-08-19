@@ -1,158 +1,226 @@
 import { Link, useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
-import { MatchupGrid } from '@/features/schedule/MatchupGrid'
-import { useAuth } from '@/features/auth/useAuth'
-import { useGroups, useMatches, useMembers, useTournament } from '@/features/tournament/queries'
-import { buildMatchupIndex, remainingPairings, scheduleProgress } from '@/lib/schedule'
+import { CircleDot } from 'lucide-react'
+import { TournamentNav } from '@/features/tournament/TournamentNav'
+import { useAssignCourt, useCourts, useMatches } from '@/features/tournament/queries'
+import { useTournamentNav } from '@/features/tournament/useTournamentNav'
+import { buildSchedule, matchTitle } from '@/lib/schedule'
 import { toUserMessage } from '@/lib/errors'
+import { cn } from '@/lib/utils'
+import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
 /**
- * 대진표 — 어떤 조끼리 붙었고 뭐가 남았나.
+ * 대진표 — 앞으로 할 경기 목록.
  *
- * 경기 기록은 "끝난 것", 코트 현황은 "지금 하는 것" 을 보여준다.
- * 판 전체를 보는 화면이 따로 필요하다.
+ * 코트를 아직 안 정한 경기를 맨 위에 둔다. 관리자가 다음에 손댈 곳이
+ * 거기이고, 코트를 정해줘야 비로소 그 코트 줄에 서기 때문이다.
  */
 export function SchedulePage() {
   const { id } = useParams<{ id: string }>()
-  const { user } = useAuth()
-  const tournament = useTournament(id)
-  const groups = useGroups(id)
   const matches = useMatches(id)
-  const members = useMembers(id)
+  const courts = useCourts(id)
+  const assign = useAssignCourt(id ?? '')
+  const nav = useTournamentNav(id)
+  const isAdmin = nav.isAdmin
 
-  const me = members.data?.find((m) => m.userId === user?.id)
-  const isAdmin = me?.role === 'owner' || me?.role === 'admin'
-
-  const groupList = groups.data ?? []
-  const matchList = matches.data ?? []
-  const index = buildMatchupIndex(matchList)
-  const progress = scheduleProgress(groupList, index)
-  const remaining = remainingPairings(groupList, index)
-
-  const loading = groups.isPending || matches.isPending
-  const error = groups.error ?? matches.error
+  const s = buildSchedule(matches.data ?? [], courts.data ?? [])
+  const loading = matches.isPending || courts.isPending
+  const error = matches.error ?? courts.error
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}`}>대회로</BackLink>
-
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">대진표</h1>
-      <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>
+      <TournamentNav id={id!} active="schedule" {...nav} />
+      <h1 className="sr-only">대진표</h1>
 
       {error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(error, '대진표를 불러오지 못했습니다')}
         </p>
       )}
+      {assign.error && (
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
+          {toUserMessage(assign.error, '코트를 배정하지 못했습니다')}
+        </p>
+      )}
 
       {loading ? (
-        <div className="mt-6 h-56 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+        <div className="mt-6 h-48 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+      ) : s.scheduledCount === 0 ? (
+        <p className="mt-8 rounded-2xl border border-dashed border-border-subtle p-6 text-center text-sm text-ink-2">
+          예정된 경기가 없습니다.
+          {isAdmin && ' 관리에서 경기를 편성해 주세요.'}
+        </p>
       ) : (
         <>
           <p className="mt-5 text-sm font-semibold text-ink-1">
-            맞대결 {progress.playedPairings}
-            <span className="text-ink-3"> / {progress.totalPairings}</span>
-            {progress.liveMatches > 0 && (
-              <span className="ml-2 text-live-fg">· 진행 중 {progress.liveMatches}</span>
-            )}
+            예정 {s.scheduledCount}경기
+            {s.liveCount > 0 && <span className="ml-2 text-live-fg">· 진행 중 {s.liveCount}</span>}
           </p>
 
-          <div className="mt-3">
-            <MatchupGrid
-              tournamentId={id!}
-              groups={groupList}
-              matches={matchList}
-              myGroupId={me?.groupId}
-              isAdmin={isAdmin}
-            />
-          </div>
-
-          <Legend isAdmin={isAdmin} />
-
-          <section className="mt-8">
-            <h2 className="text-lg font-bold text-ink-1">
-              남은 대진
-              <span className="ml-2 text-sm font-semibold text-ink-3">{remaining.length}</span>
+          {/* 코트 미배정 — 관리자가 다음에 할 일 */}
+          <section className="mt-5">
+            <h2 className="text-sm font-bold text-ink-2">
+              코트 미배정 <span className="text-ink-3">{s.unassigned.length}</span>
             </h2>
-
-            {remaining.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-2">모든 조합이 한 번씩 끝났습니다.</p>
+            {s.unassigned.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-3">모든 경기가 코트에 배정됐습니다.</p>
             ) : (
-              <ul className="mt-3 flex flex-col gap-2">
-                {remaining.map((p) => (
-                  <li key={`${p.a.id}|${p.b.id}`}>
-                    <PairRow pairing={p} tournamentId={id!} isAdmin={isAdmin} />
+              <ul className="mt-2 flex flex-col gap-2">
+                {s.unassigned.map((m) => (
+                  <li key={m.id}>
+                    <MatchCard
+                      m={m}
+                      tournamentId={id!}
+                      canOpen={false}
+                      courts={isAdmin ? (courts.data ?? []) : []}
+                      onAssign={(courtId) => m.id && assign.mutate({ matchId: m.id, courtId })}
+                      pending={assign.isPending}
+                    />
                   </li>
                 ))}
               </ul>
             )}
           </section>
+
+          {/* 코트별 줄 */}
+          {s.courts.map((q) => (
+            <section key={q.court.id} className="mt-6">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-ink-2">
+                <CircleDot
+                  className={cn('size-4', q.live ? 'text-live-fg' : 'text-ink-3')}
+                  aria-hidden
+                />
+                {q.court.name}
+                <span className="text-ink-3">대기 {q.waiting.length}</span>
+                {q.live && <span className="text-xs font-black text-live-fg">진행 중</span>}
+              </h2>
+              {q.waiting.length === 0 ? (
+                <p className="mt-2 text-sm text-ink-3">대기 중인 경기가 없습니다.</p>
+              ) : (
+                <ul className="mt-2 flex flex-col gap-2">
+                  {q.waiting.map((m, i) => (
+                    <li key={m.id}>
+                      <MatchCard
+                        m={m}
+                        tournamentId={id!}
+                        canOpen={isAdmin}
+                        order={i + 1}
+                        courts={isAdmin ? (courts.data ?? []) : []}
+                        currentCourtId={q.court.id}
+                        onAssign={(courtId) => m.id && assign.mutate({ matchId: m.id, courtId })}
+                        pending={assign.isPending}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
         </>
       )}
     </main>
   )
 }
 
-function PairRow({
-  pairing,
+function MatchCard({
+  m,
   tournamentId,
-  isAdmin,
+  canOpen,
+  order,
+  courts,
+  currentCourtId,
+  onAssign,
+  pending,
 }: {
-  pairing: ReturnType<typeof remainingPairings>[number]
+  m: MatchOverviewRow
   tournamentId: string
-  isAdmin: boolean
+  /**
+   * 눌러서 채점 화면으로 들어갈 수 있는가.
+   * 관리자만 연다 — 심판은 '심판' 탭에서 자기 경기를 받는다.
+   * 여기서까지 열어주면 남의 경기를 눌러 보게 되고, 이 화면의 목적
+   * (판이 어떻게 짜였나 보기) 도 흐려진다.
+   */
+  canOpen: boolean
+  order?: number
+  /** 비어 있으면 배정 버튼을 아예 안 그린다 (관리자가 아님) */
+  courts: CourtRow[]
+  currentCourtId?: string
+  onAssign: (courtId: string | null) => void
+  pending: boolean
 }) {
-  const text = (
-    <span className="flex min-h-11 flex-1 items-center gap-2 text-sm font-semibold text-ink-1">
-      <span>
-        {pairing.a.name}
-        {pairing.a.isJoker && <span className="ml-0.5 text-xs text-warn-fg">★</span>}
-      </span>
-      <span className="text-ink-3">vs</span>
-      <span>
-        {pairing.b.name}
-        {pairing.b.isJoker && <span className="ml-0.5 text-xs text-warn-fg">★</span>}
-      </span>
-    </span>
+  const hasPlayers = (m.players_a?.length ?? 0) > 0 || (m.players_b?.length ?? 0) > 0
+
+  const body = (
+    <div className="min-w-0 flex-1">
+      <p className="flex items-center gap-1.5 font-bold text-ink-1">
+        {order !== undefined && (
+          <span className="tabular text-xs font-black text-ink-3">{order}</span>
+        )}
+        <span className="truncate">
+          {m.group_a_joker && <span aria-hidden>🃏 </span>}
+          {matchTitle(m)}
+          {m.group_b_joker && <span aria-hidden> 🃏</span>}
+        </span>
+      </p>
+      {hasPlayers && (
+        <p className="mt-0.5 truncate text-xs text-ink-3">
+          {m.players_a?.join(' · ')} / {m.players_b?.join(' · ')}
+        </p>
+      )}
+      {(m.referees?.length ?? 0) > 0 && (
+        <p className="mt-0.5 truncate text-xs text-ink-3">심판 {m.referees?.join(', ')}</p>
+      )}
+    </div>
   )
 
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center rounded-xl border border-border-subtle bg-surface-1 px-4">
-        {text}
-      </div>
-    )
-  }
-
   return (
-    <Link
-      to={`/t/${tournamentId}/matches/new?a=${pairing.a.id}&b=${pairing.b.id}`}
-      className="flex items-center rounded-xl border border-border-subtle bg-surface-1 px-4
-                 transition-colors hover:bg-surface-2
-                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-    >
-      {text}
-      <span className="text-sm font-bold text-brand-fg">편성</span>
-    </Link>
-  )
-}
+    <div className="rounded-xl border border-border-subtle bg-surface-1 px-4 py-3">
+      {canOpen && m.id ? (
+        <Link
+          to={`/t/${tournamentId}/matches/${m.id}`}
+          className="flex min-h-11 items-center gap-2 rounded-lg
+                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        >
+          {body}
+          <span className="shrink-0 text-sm font-bold text-brand-fg">시작</span>
+        </Link>
+      ) : (
+        <div className="flex min-h-11 items-center">{body}</div>
+      )}
 
-function Legend({ isAdmin }: { isAdmin: boolean }) {
-  return (
-    <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
-      <li>
-        <span className="font-black text-ok-fg">21:15</span> 우리 조 승
-      </li>
-      <li>
-        <span className="font-black text-ink-3">15:21</span> 패
-      </li>
-      <li>
-        <span className="font-black text-live-fg">LIVE</span> 진행 중
-      </li>
-      <li>
-        <span className="text-warn-fg">★</span> 조커조
-      </li>
-      {isAdmin && <li>+ 눌러서 편성</li>}
-    </ul>
+      {courts.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-border-subtle pt-2">
+          <span className="text-xs font-semibold text-ink-3">코트</span>
+          {courts.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              disabled={pending || c.id === currentCourtId}
+              onClick={() => onAssign(c.id)}
+              className={cn(
+                'min-h-9 rounded-full px-3 text-xs font-bold transition-colors',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                c.id === currentCourtId
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-surface-2 text-ink-2 hover:text-ink-1 disabled:opacity-50',
+              )}
+            >
+              {c.name}
+            </button>
+          ))}
+          {currentCourtId && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onAssign(null)}
+              className="min-h-9 rounded-full px-3 text-xs font-bold text-ink-3
+                         transition-colors hover:text-ink-1 disabled:opacity-50
+                         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              배정 해제
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }

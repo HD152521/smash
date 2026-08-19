@@ -1,18 +1,8 @@
-import { Link, Navigate, useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
-import {
-  ChevronRight,
-  Gavel,
-  Grid3x3,
-  History,
-  Settings,
-  Sliders,
-  Trophy,
-  Users,
-} from 'lucide-react'
+import { Navigate, useParams } from 'react-router-dom'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
+import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
 import {
   useCourts,
@@ -21,7 +11,6 @@ import {
   useMembers,
   useTournament,
 } from '@/features/tournament/queries'
-import { cn } from '@/lib/utils'
 import { toUserMessage } from '@/lib/errors'
 import type { TournamentStatus } from '@/types/database'
 
@@ -85,8 +74,8 @@ export function TournamentPage() {
   const t = tournament.data
 
   return (
-    <Shell id={id}>
-      <header className="mt-6">
+    <Shell id={id} isAdmin={isAdmin} refereeCount={myRefereeCount}>
+      <header className="mt-5">
         <div className="flex flex-wrap items-center gap-2">
           {t.status === 'live' ? (
             <LiveBadge />
@@ -132,114 +121,26 @@ export function TournamentPage() {
         )}
       </section>
 
-      {/* ── 다른 화면으로 ─────────────────────────────────────────── */}
-      <nav className="mt-7 flex flex-col gap-1.5" aria-label="대회 메뉴">
-        {/* 관리자는 이 화면에서 관리로 넘어가는 일이 가장 잦다. 맨 위에 둔다. */}
-        {isAdmin && (
-          <NavCard
-            to={`/t/${id}/admin`}
-            icon={<Sliders className="size-[18px]" aria-hidden />}
-            title="대회 관리"
-          />
-        )}
-        <NavCard
-          to={`/t/${id}/referee`}
-          icon={<Gavel className="size-[18px]" aria-hidden />}
-          title="심판"
-          badge={myRefereeCount > 0 ? `${myRefereeCount}경기` : undefined}
-          accent={myRefereeCount > 0}
-        />
-        <NavCard
-          to={`/t/${id}/schedule`}
-          icon={<Grid3x3 className="size-[18px]" aria-hidden />}
-          title="대진표"
-        />
-        <NavCard
-          to={`/t/${id}/standings`}
-          icon={<Trophy className="size-[18px]" aria-hidden />}
-          title="조별 순위"
-        />
-        <NavCard
-          to={`/t/${id}/records`}
-          icon={<History className="size-[18px]" aria-hidden />}
-          title="경기 기록"
-        />
-        <NavCard
-          to={`/t/${id}/members`}
-          icon={<Users className="size-[18px]" aria-hidden />}
-          title="참가자"
-        />
-      </nav>
     </Shell>
   )
 }
 
-/**
- * 메뉴 한 줄.
- *
- * 설명 문구를 뺐다. "조별 순위", "경기 기록" 은 제목만으로 뜻이 통하는데
- * 두 줄짜리 카드 여섯 장이면 메뉴만으로 화면 한 판이 찬다.
- * 높이는 44px 아래로 내리지 않는다 — 체육관에서 서서 누르는 화면이다.
- */
-function NavCard({
-  to,
-  icon,
-  title,
-  badge,
-  accent = false,
+function Shell({
+  id,
+  isAdmin = false,
+  refereeCount = 0,
+  children,
 }: {
-  to: string
-  icon: React.ReactNode
-  title: string
-  badge?: string
-  accent?: boolean
+  id: string | undefined
+  isAdmin?: boolean
+  refereeCount?: number
+  children: React.ReactNode
 }) {
   return (
-    <Link
-      to={to}
-      className={cn(
-        'flex min-h-12 items-center gap-3 rounded-xl px-4 py-2.5',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-        accent
-          ? 'bg-brand-600 text-white'
-          : 'border border-border-subtle bg-surface-1 transition-colors hover:bg-surface-2',
-      )}
-    >
-      <span className={accent ? 'text-white' : 'text-ink-2'}>{icon}</span>
-      <span className={cn('flex-1 font-bold', !accent && 'text-ink-1')}>{title}</span>
-      {badge && (
-        <span
-          className={cn(
-            'rounded-full px-2 py-0.5 text-xs font-black',
-            accent ? 'bg-white/20' : 'bg-surface-2 text-ink-2',
-          )}
-        >
-          {badge}
-        </span>
-      )}
-      <ChevronRight
-        className={cn('size-4 shrink-0', !accent && 'text-ink-3')}
-        aria-hidden
-      />
-    </Link>
-  )
-}
-
-function Shell({ id, children }: { id: string | undefined; children: React.ReactNode }) {
-  return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <div className="flex items-center justify-between">
-        <BackLink to="/my">내 대회</BackLink>
-        {id && (
-          <Link
-            to={`/t/${id}/settings`}
-            aria-label="설정"
-            className="grid size-11 place-items-center rounded-lg text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            <Settings className="size-5" aria-hidden />
-          </Link>
-        )}
-      </div>
+      {id && (
+        <TournamentNav id={id} active="court" isAdmin={isAdmin} refereeCount={refereeCount} />
+      )}
       {children}
     </main>
   )

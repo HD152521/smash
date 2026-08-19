@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { BackLink } from '@/components/ui/BackLink'
+import { TournamentNav } from '@/features/tournament/TournamentNav'
+import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { useParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
-import { useGroups, useMatches, useTournament } from '@/features/tournament/queries'
+import { useGroups, useMatches } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import type { MatchOverviewRow } from '@/types/database'
@@ -16,7 +17,7 @@ import type { MatchOverviewRow } from '@/types/database'
  */
 export function MatchRecordsPage() {
   const { id } = useParams<{ id: string }>()
-  const tournament = useTournament(id)
+  const nav = useTournamentNav(id)
   const matches = useMatches(id)
   const groups = useGroups(id)
 
@@ -37,10 +38,8 @@ export function MatchRecordsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}`}>대회로</BackLink>
-
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">경기 기록</h1>
-      <p className="mt-2 text-sm text-ink-2">{tournament.data?.name}</p>
+      <TournamentNav id={id!} active="records" {...nav} />
+      <h1 className="sr-only">경기 기록</h1>
 
       {/* 필터 */}
       <div className="mt-6 flex flex-col gap-3">

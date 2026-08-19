@@ -14,6 +14,7 @@ import {
   deleteCourt,
   voidMatch,
   fetchCourts,
+  assignCourt,
   claimCourt,
   moveCourt,
   fetchMatches,
@@ -246,6 +247,15 @@ export function useMoveCourt(tournamentId: string) {
     mutationFn: ({ courtId, direction }: { courtId: string; direction: -1 | 1 }) =>
       moveCourt(courtId, direction),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
+  })
+}
+
+export function useAssignCourt(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ matchId, courtId }: { matchId: string; courtId: string | null }) =>
+      assignCourt(matchId, courtId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
   })
 }
 

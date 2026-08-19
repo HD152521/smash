@@ -337,6 +337,28 @@ export async function moveCourt(courtId: string, direction: -1 | 1): Promise<Cou
 }
 
 /** 공용 대기 경기를 특정 코트가 가져간다 (심판·관리자) */
+/**
+ * 관리자가 예정 경기를 코트 대기열에 넣거나 뺀다.
+ *
+ * claim_court 와 다르다. 그쪽은 "빈 코트를 집어가 지금 시작" 이라 코트에
+ * 진행 중인 경기가 있으면 막는다. 이건 "저 코트 줄에 세워두기" 라서
+ * 코트가 지금 바쁘더라도 넣을 수 있어야 한다.
+ * 한 코트 한 경기 규칙은 시작 시점(start_match)에서 지켜진다.
+ *
+ * 점수·상태·승자는 가드 트리거가 직접 수정을 막으므로 코트만 바뀐다.
+ */
+export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {
+  const res = await supabase
+    .from('matches')
+    .update({ court_id: courtId })
+    .eq('id', matchId)
+    // single() 이 있어야 RLS 에 걸려 0행이 바뀐 경우를 오류로 잡는다.
+    // PostgREST 는 아무것도 못 바꿔도 성공으로 응답한다.
+    .select()
+    .single()
+  return unwrap(res) as unknown as MatchRow
+}
+
 export async function claimCourt(matchId: string, courtId: string): Promise<MatchRow> {
   const res = await supabase.rpc('claim_court', { p_match_id: matchId, p_court_id: courtId })
   return unwrap(res) as MatchRow
