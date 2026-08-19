@@ -5,7 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'supabase/.temp'] },
+  // supabase/functions 는 Deno 에서 돈다 — npm/Deno import 문법이 달라 앱 린터로 볼 수 없다
+  { ignores: ['dist', 'coverage', 'supabase/.temp', 'supabase/functions'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

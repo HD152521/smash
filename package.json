@@ -22,8 +22,11 @@
     "db:confirm": "tsx scripts/confirm-emails.ts",
     "db:smoke:security": "tsx scripts/smoke-security.ts",
     "db:smoke:match": "tsx scripts/smoke-match.ts",
+    "db:smoke:notify": "tsx scripts/smoke-notify.ts",
     "demo:live": "tsx scripts/demo-live.ts",
     "check:csp": "tsx scripts/check-csp.ts",
+    "push:keys": "tsx scripts/gen-vapid.ts",
+    "gen:icons": "tsx scripts/gen-icons.ts",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run check:csp && npm run build"
   },
   "dependencies": {

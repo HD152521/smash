@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 import { AppRoutes } from '@/app/routes'
+import { NotificationBanner } from '@/features/notifications/NotificationBanner'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -27,6 +28,8 @@ createRoot(rootEl).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          {/* 라우터 안에 둬야 배너의 링크가 동작한다 */}
+          <NotificationBanner />
           <AppRoutes />
         </BrowserRouter>
       </AuthProvider>

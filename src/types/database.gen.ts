@@ -118,6 +118,15 @@ export type MatchesRow = {
   updated_at: string
 }
 
+export type NotificationOutboxRow = {
+  id: string
+  match_id: string
+  user_id: string
+  kind: string
+  created_at: string
+  sent_at: string | null
+}
+
 export type ProfilesRow = {
   id: string
   name: string
@@ -125,6 +134,18 @@ export type ProfilesRow = {
   avatar_url: string | null
   created_at: string
   updated_at: string
+}
+
+export type PushSubscriptionsRow = {
+  id: string
+  user_id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_agent: string | null
+  created_at: string
+  last_success_at: string | null
+  failure_count: number
 }
 
 export type ScoreEventsRow = {
@@ -173,7 +194,9 @@ export type Database = {
       match_team_players: { Row: MatchTeamPlayersRow; Insert: MatchTeamPlayersRow; Update: Partial<MatchTeamPlayersRow>; Relationships: [] }
       match_teams: { Row: MatchTeamsRow; Insert: Partial<MatchTeamsRow> & Pick<MatchTeamsRow, 'match_id' | 'side' | 'group_id' | 'target_score' | 'win_points'>; Update: Partial<MatchTeamsRow>; Relationships: [] }
       matches: { Row: MatchesRow; Insert: Partial<MatchesRow> & Pick<MatchesRow, 'tournament_id'>; Update: Partial<MatchesRow>; Relationships: [] }
+      notification_outbox: { Row: NotificationOutboxRow; Insert: Partial<NotificationOutboxRow> & Pick<NotificationOutboxRow, 'match_id' | 'user_id' | 'kind'>; Update: Partial<NotificationOutboxRow>; Relationships: [] }
       profiles: { Row: ProfilesRow; Insert: Partial<ProfilesRow> & Pick<ProfilesRow, 'id'>; Update: Partial<ProfilesRow>; Relationships: [] }
+      push_subscriptions: { Row: PushSubscriptionsRow; Insert: Partial<PushSubscriptionsRow> & Pick<PushSubscriptionsRow, 'user_id' | 'endpoint' | 'p256dh' | 'auth'>; Update: Partial<PushSubscriptionsRow>; Relationships: [] }
       score_events: { Row: ScoreEventsRow; Insert: Partial<ScoreEventsRow> & Pick<ScoreEventsRow, 'match_id' | 'side' | 'delta' | 'client_event_id'>; Update: Partial<ScoreEventsRow>; Relationships: [] }
       tournament_members: { Row: TournamentMembersRow; Insert: Partial<TournamentMembersRow> & Pick<TournamentMembersRow, 'tournament_id' | 'user_id' | 'display_name'>; Update: Partial<TournamentMembersRow>; Relationships: [] }
       tournaments: { Row: TournamentsRow; Insert: Partial<TournamentsRow> & Pick<TournamentsRow, 'name' | 'invite_code' | 'owner_id'>; Update: Partial<TournamentsRow>; Relationships: [] }

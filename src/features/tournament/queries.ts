@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/useAuth'
+import { kickPushSender } from '@/features/notifications/push'
 import {
   createTournament,
   fetchGroups,
@@ -198,6 +199,9 @@ export function useCreateMatch(tournamentId: string) {
     mutationFn: (input: Omit<CreateMatchInput, 'tournamentId'>) =>
       createMatch({ ...input, tournamentId }),
     onSuccess: () => {
+      // 알림을 밀어내라고 한 번 찔러 준다. 실패해도 무시한다 —
+      // 보낼 것은 DB 아웃박스에 남아 다음 편성 때 함께 나간다.
+      void kickPushSender()
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] })
     },
