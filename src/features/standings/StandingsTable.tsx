@@ -1,11 +1,9 @@
-import { extractHeadToHead, formatPoints, sortStandings } from '@/lib/standings'
+import { formatPoints, sortStandings } from '@/lib/standings'
 import { cn } from '@/lib/utils'
-import type { MatchOverviewRow, StandingRow } from '@/types/database'
+import type { StandingRow } from '@/types/database'
 
 interface StandingsTableProps {
   standings: StandingRow[]
-  /** 승자승 계산에 쓴다 — 승점이 같은 조끼리는 맞대결 결과가 우선한다 */
-  matches: MatchOverviewRow[]
   /** 내 조를 강조한다 */
   myGroupId?: string | null
 }
@@ -13,14 +11,14 @@ interface StandingsTableProps {
 /**
  * 조별 순위표.
  *
- * 정렬: 승점 → 승자승 → 득실차 → 총득점 → 조 번호
+ * 정렬: 승점 → 조커 → 득실차 → 총득점 → 조 번호
  *
- * 승점을 1순위로 두는 게 핵심이다. 조커조는 11점만 내면 이기지만 승점이
- * 절반이라, 승점 기준이면 핸디캡이 순위에 자동으로 반영된다.
- * 득실차를 앞에 두면 만점이 11점인 조커조가 구조적으로 불리해진다.
+ * 조커조는 이겨도 승점이 0.5 라 같은 승점을 쌓으려면 두 배를 이겨야 한다.
+ * 그래서 승점이 같으면 조커를 위에 둔다 — 득실로 가리면 조커 규칙이
+ * 이득이 아니라 벌칙이 된다.
  */
-export function StandingsTable({ standings, matches, myGroupId }: StandingsTableProps) {
-  const sorted = sortStandings(standings, extractHeadToHead(matches))
+export function StandingsTable({ standings, myGroupId }: StandingsTableProps) {
+  const sorted = sortStandings(standings)
   const anyPlayed = sorted.some((r) => r.played > 0)
 
   if (!anyPlayed) {
@@ -34,7 +32,7 @@ export function StandingsTable({ standings, matches, myGroupId }: StandingsTable
   return (
     <div className="overflow-x-auto rounded-2xl border border-border-subtle">
       <table className="w-full min-w-[26rem] border-collapse text-sm">
-        <caption className="sr-only">조별 순위 — 승점, 승자승, 득실차, 총득점 순으로 정렬</caption>
+        <caption className="sr-only">조별 순위 — 승점, 조커, 득실차, 총득점 순으로 정렬</caption>
         <thead>
           <tr className="bg-surface-2 text-xs font-bold text-ink-2">
             <th scope="col" className="px-3 py-2.5 text-left">

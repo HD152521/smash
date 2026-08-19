@@ -47,7 +47,10 @@ export function TournamentAdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}`}>대회로</BackLink>
+      {/* 관리에서 뒤로는 늘 대회 화면이다. 편성을 여러 번 오간 뒤에도 한 번에 나간다. */}
+      <BackLink to={`/t/${id}`} fixed>
+        대회로
+      </BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">관리</h1>
       <p className="mt-1 text-sm text-ink-2">{t.name}</p>

@@ -134,7 +134,7 @@ export function CourtManager({ tournamentId, courts, matches }: CourtManagerProp
           maxLength={20}
           placeholder="예) 1번 코트"
           aria-label="코트 이름"
-          className="h-11 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-3.5
+          className="h-11 min-w-0 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-3.5
                      text-ink-1 outline-none placeholder:text-ink-3
                      focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
         />

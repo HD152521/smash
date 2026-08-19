@@ -100,12 +100,18 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
           const group = groups.find((g) => g.id === m.groupId)
 
           return (
+            /*
+             * 한 줄에 담는다. 조작이 가로를 먹지 않게 만드는 게 관건이라
+             * 조 선택은 폭을 못 박고(w-16) 글자도 '미정' 처럼 짧게 줄였다.
+             * 예전엔 이 드롭다운 하나가 135px 를 먹어 이름이 밀렸다.
+             */
             <li
               key={m.id}
-              className="flex flex-wrap items-center gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-4"
+              className="flex items-center gap-2 rounded-xl border border-border-subtle
+                         bg-surface-1 py-2 pr-2 pl-3"
             >
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {/* 오타로 들어온 이름을 관리자가 고쳐 준다. 본인이 못 고치는
                       상황(폰이 없거나 이미 대회 중)이 흔하다. */}
                   <NameEditor
@@ -113,19 +119,26 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                     memberId={m.id}
                     name={m.displayName}
                     label={m.displayName}
+                    compact
                   />
-                  {isOwner && <Badge>주최자</Badge>}
-                  {m.role === 'admin' && <Badge tone="ok">관리자</Badge>}
+                  {/*
+                    좁은 화면에서 배지가 이름 폭을 먹는다. 글자를 줄인다.
+                    '(나)' 는 뺐다 — 본인 행에는 애초에 조작 버튼이 안 나오므로
+                    그 자체가 표시다.
+                    '관리자' 는 방패 버튼이 이미 상태를 보여 주지만, 버튼이
+                    안 보이는 좁은 화면도 있으므로 배지는 남긴다.
+                  */}
+                  <span className="flex shrink-0 items-center gap-1">
+                  {isOwner && <Badge>주최</Badge>}
+                  {m.role === 'admin' && <Badge tone="ok">관리</Badge>}
                   {!m.userId && <Badge tone="neutral">미가입</Badge>}
-                  {isSelf && <span className="text-xs text-ink-3">(나)</span>}
+                  </span>
                 </div>
-                {!m.groupId && (
-                  <p className="mt-1 text-xs font-semibold text-warn-fg">조가 정해지지 않음</p>
-                )}
               </div>
 
+              <div className="flex shrink-0 items-center gap-1">
               {/* 조 재배정 — 대회 시작 뒤에는 관리자만 할 수 있는 유일한 경로다 */}
-              <label className="shrink-0">
+              <label>
                 <span className="sr-only">{m.displayName} 조 변경</span>
                 <select
                   value={m.groupId ?? ''}
@@ -134,17 +147,18 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                   }
                   disabled={setGroup.isPending}
                   className={cn(
-                    // 조 재배정은 관리자가 40명 대회에서 수십 번 누른다. 44px 로.
-                    'h-11 rounded-lg border bg-surface-1 px-2 text-sm font-semibold text-ink-1',
+                    // 폭을 못 박는다. 내용에 맡기면 '조 미정' 이 135px 를 먹는다.
+                    'h-10 w-[4.5rem] rounded-lg border bg-surface-1 pr-1 pl-2',
+                    'text-xs font-bold text-ink-1',
                     'focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 focus:outline-none',
-                    m.groupId ? 'border-border-subtle' : 'border-warn/50',
+                    m.groupId ? 'border-border-subtle' : 'border-warn/50 text-warn-fg',
                   )}
                 >
-                  <option value="">조 미정</option>
+                  <option value="">미정</option>
                   {groups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}
-                      {g.is_joker ? ' 🃏' : ''}
+                      {g.is_joker ? '🃏' : ''}
                     </option>
                   ))}
                 </select>
@@ -167,7 +181,7 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                       : `${m.displayName} 관리자 임명`
                   }
                   className={cn(
-                    'grid size-11 shrink-0 place-items-center rounded-lg border transition-colors',
+                    'grid size-10 shrink-0 place-items-center rounded-lg border transition-colors',
                     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
                     m.role === 'admin'
                       ? 'border-ok/40 bg-ok/10 text-ok-fg hover:bg-ok/20'
@@ -193,7 +207,7 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                     }
                   }}
                   aria-label={`${m.displayName} 제외`}
-                  className="grid size-11 shrink-0 place-items-center rounded-lg border
+                  className="grid size-10 shrink-0 place-items-center rounded-lg border
                              border-border-subtle text-ink-3 transition-colors
                              hover:border-team-b/40 hover:bg-team-b/10 hover:text-team-b-fg
                              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
@@ -201,6 +215,7 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                   <UserMinus className="size-4" aria-hidden />
                 </button>
               )}
+              </div>
 
               {group?.is_joker && <span className="sr-only">{group.name}는 조커조입니다</span>}
             </li>

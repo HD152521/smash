@@ -19,6 +19,7 @@ export function InlineEdit({
   error,
   maxLength = 20,
   label,
+  compact = false,
 }: {
   value: string
   /** 저장에 실패하면 던져야 입력칸이 열린 채로 남는다 */
@@ -28,6 +29,12 @@ export function InlineEdit({
   maxLength?: number
   /** 연필 버튼의 접근성 이름 — 목록에서 누구의 것인지 구분된다 */
   label?: string
+  /**
+   * 목록 안에서 쓸 때. 연필 버튼 없이 이름 자체를 눌러 고친다.
+   * 좁은 화면에서 40px 짜리 버튼 하나가 이름을 통째로 밀어내기 때문이다.
+   * 편집을 시작하면 입력칸과 저장/취소는 그대로 44px 이다.
+   */
+  compact?: boolean
 }) {
   /**
    * null 이면 편집 중이 아니다.
@@ -55,6 +62,27 @@ export function InlineEdit({
   }
 
   if (!editing) {
+    /*
+     * 목록 안(compact)에서는 이름 자체가 버튼이다.
+     * 연필을 따로 두면 그 40px 이 이름 몫에서 빠진다. 좁은 화면에서는
+     * 이름이 한 글자도 못 나오는 지경이 된다.
+     * 이름을 눌러 고치는 건 목록에서 흔한 방식이라 배우는 비용도 없다.
+     */
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={() => setDraft(value)}
+          aria-label={label ? `${label} 이름 바꾸기` : '이름 바꾸기'}
+          className="min-w-0 truncate rounded-lg text-left font-bold text-ink-1
+                     transition-colors hover:text-brand-fg
+                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        >
+          {value}
+        </button>
+      )
+    }
+
     return (
       <span className="inline-flex min-w-0 items-center gap-1">
         <span className="truncate font-bold text-ink-1">{value}</span>

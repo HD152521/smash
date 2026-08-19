@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BackLink } from '@/components/ui/BackLink'
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/features/auth/useAuth'
@@ -25,7 +25,6 @@ import type { GroupRow, TournamentConfig } from '@/types/database'
  */
 export function MatchCreatePage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const { user } = useAuth()
 
   const tournament = useTournament(id)
@@ -42,6 +41,8 @@ export function MatchCreatePage() {
    * 선수 고르는 절차가 똑같아서 화면을 나누면 같은 코드가 두 벌이 된다.
    */
   const [mode, setMode] = useState<'schedule' | 'manual'>('schedule')
+  /** 저장한 횟수. 화면에 머무르므로 '저장됐다' 를 눈에 보이게 알려야 한다 */
+  const [justSaved, setJustSaved] = useState(0)
   const [scoreA, setScoreA] = useState('')
   const [scoreB, setScoreB] = useState('')
 
@@ -130,7 +131,23 @@ export function MatchCreatePage() {
           scoreB: nB,
         })
       }
-      navigate(`/t/${id}`, { replace: true })
+      /*
+       * 화면을 떠나지 않는다.
+       *
+       * 대회 준비는 한 판만 짜고 끝나지 않는다. 저장할 때마다 대회 홈으로
+       * 튕기면 다시 관리 → 편성으로 두 번 들어와야 다음 경기를 짠다.
+       * 대신 방금 넣은 값을 지워 다음 편성을 바로 시작할 수 있게 한다.
+       *
+       * 코트는 남긴다 — 같은 코트에 여러 경기를 줄 세우는 일이 잦다.
+       */
+      setGroupA('')
+      setGroupB('')
+      setPlayersA([])
+      setPlayersB([])
+      setReferees([])
+      setScoreA('')
+      setScoreB('')
+      setJustSaved((n) => n + 1)
     } catch {
       // mutation.error 로 화면에 뿌린다
     }
@@ -138,7 +155,10 @@ export function MatchCreatePage() {
 
   return (
     <main className={cn('mx-auto w-full max-w-2xl px-5 pt-6', ready ? 'pb-40' : 'pb-16')}>
-      <BackLink to={`/t/${id}/admin`}>관리로</BackLink>
+      {/* 편성을 반복하면 히스토리가 이 화면으로 쌓인다. 부모를 못 박는다. */}
+      <BackLink to={`/t/${id}/admin`} fixed>
+        관리로
+      </BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">
         {mode === 'schedule' ? '경기 편성' : '지난 결과 입력'}
@@ -282,6 +302,14 @@ export function MatchCreatePage() {
           </p>
         )}
       </section>
+
+      {/* 화면에 그대로 머무르므로 저장됐다는 걸 눈에 보이게 알려야 한다.
+          안 그러면 저장이 됐는지 몰라 같은 경기를 두 번 넣는다. */}
+      {justSaved > 0 && !create.error && !manual.error && (
+        <p role="status" className="mt-6 text-sm font-semibold text-ok-fg">
+          저장했습니다 · 이번에 {justSaved}경기 편성 — 이어서 다음 경기를 짜세요
+        </p>
+      )}
 
       {(create.error || manual.error) && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">

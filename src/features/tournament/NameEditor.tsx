@@ -14,11 +14,13 @@ export function NameEditor({
   memberId,
   name,
   label,
+  compact,
 }: {
   tournamentId: string
   memberId: string
   name: string
   label?: string
+  compact?: boolean
 }) {
   const rename = useSetDisplayName(tournamentId)
 
@@ -26,6 +28,7 @@ export function NameEditor({
     <InlineEdit
       value={name}
       label={label}
+      compact={compact}
       pending={rename.isPending}
       error={rename.error ? toUserMessage(rename.error, '이름을 바꾸지 못했습니다') : null}
       onSave={async (next) => {

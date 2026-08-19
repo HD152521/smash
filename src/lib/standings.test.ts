@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { extractHeadToHead, formatPoints, sortStandings, type HeadToHead } from './standings'
+import { formatPoints, sortStandings } from './standings'
 import type { StandingRow } from '@/types/database'
 
 function row(
@@ -19,7 +19,7 @@ function row(
   }
 }
 
-describe('순위 정렬', () => {
+describe('순위 정렬 — 승점 → 조커 → 득실차 → 총득점 → 조 번호', () => {
   test('승점이 높은 조가 앞선다', () => {
     const rows = [
       row({ group_id: 'g1', sort_order: 1, points: 1.5 }),
@@ -29,6 +29,7 @@ describe('순위 정렬', () => {
   })
 
   test('조커조가 4승이어도 승점 2.0이면 3승(3.0)인 일반조에 밀린다', () => {
+    // 조커 우선은 '승점이 같을 때' 만이다. 승점 자체를 뒤집지 않는다.
     const rows = [
       row({ group_id: 'joker', sort_order: 1, is_joker: true, wins: 4, points: 2.0 }),
       row({ group_id: 'normal', sort_order: 3, wins: 3, points: 3.0 }),
@@ -36,37 +37,45 @@ describe('순위 정렬', () => {
     expect(sortStandings(rows).map((r) => r.group_id)).toEqual(['normal', 'joker'])
   })
 
-  test('승점이 같으면 맞대결에서 이긴 조가 앞선다', () => {
+  test('승점이 같으면 조커조가 앞선다 — 득실이 나빠도', () => {
+    /*
+     * 이게 이 정렬의 핵심이다.
+     * 조커조는 이겨도 0.5 점이라 같은 승점을 쌓으려면 두 배를 이겨야 한다.
+     * 그렇게 따라붙은 조를 득실 몇 점 차이로 아래에 두면
+     * 조커 규칙이 이득이 아니라 벌칙이 된다.
+     */
     const rows = [
-      row({ group_id: 'g1', sort_order: 1, points: 2, diff: 10 }),
-      row({ group_id: 'g2', sort_order: 2, points: 2, diff: 5 }),
+      row({ group_id: 'normal', sort_order: 1, points: 3, diff: 30 }),
+      row({ group_id: 'joker', sort_order: 2, is_joker: true, points: 3, diff: 5 }),
     ]
-    const h2h: HeadToHead[] = [{ winnerGroupId: 'g2', loserGroupId: 'g1' }]
-    // 득실차는 g1 이 앞서지만 맞대결에서 g2 가 이겼으므로 g2 가 위다
-    expect(sortStandings(rows, h2h).map((r) => r.group_id)).toEqual(['g2', 'g1'])
+    expect(sortStandings(rows).map((r) => r.group_id)).toEqual(['joker', 'normal'])
   })
 
-  test('맞대결이 1승 1패면 득실차로 넘어간다', () => {
+  test('조커끼리는 득실차로 가린다', () => {
     const rows = [
-      row({ group_id: 'g1', sort_order: 1, points: 2, diff: 10 }),
-      row({ group_id: 'g2', sort_order: 2, points: 2, diff: 5 }),
+      row({ group_id: 'j1', sort_order: 1, is_joker: true, points: 2, diff: 3 }),
+      row({ group_id: 'j2', sort_order: 2, is_joker: true, points: 2, diff: 9 }),
     ]
-    const h2h: HeadToHead[] = [
-      { winnerGroupId: 'g2', loserGroupId: 'g1' },
-      { winnerGroupId: 'g1', loserGroupId: 'g2' },
-    ]
-    expect(sortStandings(rows, h2h).map((r) => r.group_id)).toEqual(['g1', 'g2'])
+    expect(sortStandings(rows).map((r) => r.group_id)).toEqual(['j2', 'j1'])
   })
 
-  test('승점·맞대결·득실차가 모두 같으면 총득점으로 가른다', () => {
+  test('일반조끼리도 득실차로 가린다', () => {
     const rows = [
-      row({ group_id: 'g1', sort_order: 1, points: 2, diff: 3, scored: 40 }),
-      row({ group_id: 'g2', sort_order: 2, points: 2, diff: 3, scored: 55 }),
+      row({ group_id: 'g1', sort_order: 1, points: 2, diff: -2 }),
+      row({ group_id: 'g2', sort_order: 2, points: 2, diff: 4 }),
     ]
     expect(sortStandings(rows).map((r) => r.group_id)).toEqual(['g2', 'g1'])
   })
 
-  test('전부 같으면 조 번호 순으로 안정적으로 정렬된다', () => {
+  test('득실차까지 같으면 총득점이 많은 조가 앞선다', () => {
+    const rows = [
+      row({ group_id: 'g1', sort_order: 1, points: 2, diff: 0, scored: 40 }),
+      row({ group_id: 'g2', sort_order: 2, points: 2, diff: 0, scored: 63 }),
+    ]
+    expect(sortStandings(rows).map((r) => r.group_id)).toEqual(['g2', 'g1'])
+  })
+
+  test('전부 같으면 조 번호 순 — 순서가 매번 달라지면 안 된다', () => {
     const rows = [
       row({ group_id: 'g3', sort_order: 3 }),
       row({ group_id: 'g1', sort_order: 1 }),
@@ -75,63 +84,34 @@ describe('순위 정렬', () => {
     expect(sortStandings(rows).map((r) => r.group_id)).toEqual(['g1', 'g2', 'g3'])
   })
 
-  test('원본 배열을 변형하지 않는다', () => {
+  test('원본 배열을 건드리지 않는다', () => {
     const rows = [
       row({ group_id: 'g1', sort_order: 1, points: 0 }),
       row({ group_id: 'g2', sort_order: 2, points: 5 }),
     ]
-    const snapshot = rows.map((r) => r.group_id)
+    const before = rows.map((r) => r.group_id)
     sortStandings(rows)
-    expect(rows.map((r) => r.group_id)).toEqual(snapshot)
+    expect(rows.map((r) => r.group_id)).toEqual(before)
   })
 
-  test('동점 3조 시나리오 — 승자승 사이클이면 득실차로 결정된다', () => {
+  test('아직 아무도 안 치른 대회도 순서가 정해진다', () => {
     const rows = [
-      row({ group_id: 'g1', sort_order: 1, points: 2, diff: 1 }),
-      row({ group_id: 'g2', sort_order: 2, points: 2, diff: 5 }),
-      row({ group_id: 'g3', sort_order: 3, points: 2, diff: 3 }),
+      row({ group_id: 'g2', sort_order: 2, is_joker: false }),
+      row({ group_id: 'g1', sort_order: 1, is_joker: true }),
     ]
-    // g1 > g2 > g3 > g1 (가위바위보 사이클)
-    const h2h: HeadToHead[] = [
-      { winnerGroupId: 'g1', loserGroupId: 'g2' },
-      { winnerGroupId: 'g2', loserGroupId: 'g3' },
-      { winnerGroupId: 'g3', loserGroupId: 'g1' },
-    ]
-    // 사이클이라 승자승으로는 못 가린다. 결과가 3개 조를 모두 포함하고
-    // 정렬이 터지지 않는지(예외/유실 없음)를 확인한다.
-    const sorted = sortStandings(rows, h2h)
-    expect(sorted).toHaveLength(3)
-    expect(new Set(sorted.map((r) => r.group_id))).toEqual(new Set(['g1', 'g2', 'g3']))
-  })
-})
-
-describe('맞대결 추출', () => {
-  test('끝난 경기만 세고 승자를 올바르게 집는다', () => {
-    const h2h = extractHeadToHead([
-      { status: 'finished', winner_side: 'A', group_a_id: 'g1', group_b_id: 'g2' },
-      { status: 'finished', winner_side: 'B', group_a_id: 'g1', group_b_id: 'g3' },
-      { status: 'live', winner_side: null, group_a_id: 'g2', group_b_id: 'g3' },
-    ])
-    expect(h2h).toEqual([
-      { winnerGroupId: 'g1', loserGroupId: 'g2' },
-      { winnerGroupId: 'g3', loserGroupId: 'g1' },
-    ])
-  })
-
-  test('조가 비어 있는 경기는 건너뛴다', () => {
-    expect(
-      extractHeadToHead([
-        { status: 'finished', winner_side: 'A', group_a_id: null, group_b_id: 'g2' },
-      ]),
-    ).toEqual([])
+    // 승점이 0 으로 같으니 조커가 위
+    expect(sortStandings(rows).map((r) => r.group_id)).toEqual(['g1', 'g2'])
   })
 })
 
 describe('승점 표기', () => {
   test('정수는 소수점 없이', () => {
-    expect(formatPoints(3)).toBe('3')
+    expect(formatPoints(2)).toBe('2')
+    expect(formatPoints(0)).toBe('0')
   })
-  test('조커 승점은 소수 첫째 자리까지', () => {
+
+  test('조커 승점은 0.5 단위로 보인다', () => {
     expect(formatPoints(2.5)).toBe('2.5')
+    expect(formatPoints(0.5)).toBe('0.5')
   })
 })

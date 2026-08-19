@@ -20,15 +20,24 @@ export function BackLink({
   to,
   children,
   className,
+  fixed = false,
 }: {
-  /** 되짚을 히스토리가 없을 때만 쓰는 목적지 */
+  /** 되짚을 히스토리가 없을 때만 쓰는 목적지 (fixed 면 항상 여기로) */
   to: string
   children: React.ReactNode
   className?: string
+  /**
+   * 히스토리를 무시하고 항상 to 로 간다.
+   *
+   * 한 화면에서 같은 일을 반복하는 곳(경기 편성)에서는 히스토리가 그 화면으로
+   * 잔뜩 쌓인다. 그때 뒤로가기가 히스토리를 따라가면 같은 화면을 몇 번이고
+   * 지나야 빠져나온다. 그런 곳은 부모 화면을 못 박는 게 낫다.
+   */
+  fixed?: boolean
 }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const canGoBack = location.key !== 'default'
+  const canGoBack = !fixed && location.key !== 'default'
 
   return (
     <button

@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { useAuth } from '@/features/auth/useAuth'
 import { StandingsTable } from '@/features/standings/StandingsTable'
-import { useMatches, useMembers, useStandings } from '@/features/tournament/queries'
+import { useMembers, useStandings } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 
 /** 조별 순위만 보는 화면. 대회 메인에 얹으면 코트 현황이 묻힌다. */
@@ -10,7 +10,6 @@ export function StandingsPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const standings = useStandings(id)
-  const matches = useMatches(id)
   const members = useMembers(id)
 
   const me = members.data?.find((m) => m.userId === user?.id)
@@ -32,13 +31,12 @@ export function StandingsPage() {
         ) : (
           <StandingsTable
             standings={standings.data ?? []}
-            matches={matches.data ?? []}
             myGroupId={me?.groupId}
           />
         )}
       </div>
 
-      <p className="mt-4 text-xs text-ink-3">승점 → 승자승 → 득실차 → 총득점 순으로 정렬합니다.</p>
+      <p className="mt-4 text-xs text-ink-3">승점 → 조커조 → 득실차 → 총득점 순으로 정렬합니다.</p>
     </main>
   )
 }
