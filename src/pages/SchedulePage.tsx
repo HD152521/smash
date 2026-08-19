@@ -11,8 +11,9 @@ import type { CourtRow, MatchOverviewRow } from '@/types/database'
 /**
  * 대진표 — 앞으로 할 경기 목록.
  *
- * 코트를 아직 안 정한 경기를 맨 위에 둔다. 관리자가 다음에 손댈 곳이
- * 거기이고, 코트를 정해줘야 비로소 그 코트 줄에 서기 때문이다.
+ * 코트별 줄을 먼저, 코트 미배정을 맨 아래에 둔다.
+ * 체육관에서 실제로 눈이 가는 건 '지금 어느 코트에 뭐가 걸려 있나' 이고,
+ * 미배정은 아직 판에 오르지 않은 대기 물량이다.
  */
 export function SchedulePage() {
   const { id } = useParams<{ id: string }>()
@@ -56,34 +57,9 @@ export function SchedulePage() {
             {s.liveCount > 0 && <span className="ml-2 text-live-fg">· 진행 중 {s.liveCount}</span>}
           </p>
 
-          {/* 코트 미배정 — 관리자가 다음에 할 일 */}
-          <section className="mt-5">
-            <h2 className="text-sm font-bold text-ink-2">
-              코트 미배정 <span className="text-ink-3">{s.unassigned.length}</span>
-            </h2>
-            {s.unassigned.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-3">모든 경기가 코트에 배정됐습니다.</p>
-            ) : (
-              <ul className="mt-2 flex flex-col gap-2">
-                {s.unassigned.map((m) => (
-                  <li key={m.id}>
-                    <MatchCard
-                      m={m}
-                      tournamentId={id!}
-                      canOpen={false}
-                      courts={isAdmin ? (courts.data ?? []) : []}
-                      onAssign={(courtId) => m.id && assign.mutate({ matchId: m.id, courtId })}
-                      pending={assign.isPending}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* 코트별 줄 */}
+          {/* 코트별 줄 — 지금 돌아가는 판 */}
           {s.courts.map((q) => (
-            <section key={q.court.id} className="mt-6">
+            <section key={q.court.id} className="mt-5">
               <h2 className="flex items-center gap-2 text-sm font-bold text-ink-2">
                 <CircleDot
                   className={cn('size-4', q.live ? 'text-live-fg' : 'text-ink-3')}
@@ -115,6 +91,32 @@ export function SchedulePage() {
               )}
             </section>
           ))}
+          {/* 코트에 아직 안 올린 경기는 맨 아래. 코트별 줄이 지금 돌아가는
+              판이고, 이건 아직 판에 오르지 않은 대기 물량이다. */}
+          <section className="mt-8">
+            <h2 className="text-sm font-bold text-ink-2">
+              코트 미배정 <span className="text-ink-3">{s.unassigned.length}</span>
+            </h2>
+            {s.unassigned.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-3">모든 경기가 코트에 배정됐습니다.</p>
+            ) : (
+              <ul className="mt-2 flex flex-col gap-2">
+                {s.unassigned.map((m) => (
+                  <li key={m.id}>
+                    <MatchCard
+                      m={m}
+                      tournamentId={id!}
+                      canOpen={false}
+                      courts={isAdmin ? (courts.data ?? []) : []}
+                      onAssign={(courtId) => m.id && assign.mutate({ matchId: m.id, courtId })}
+                      pending={assign.isPending}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
         </>
       )}
     </main>
