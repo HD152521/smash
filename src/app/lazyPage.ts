@@ -14,6 +14,12 @@ import { lazy, type ComponentType } from 'react'
  *
  * 한 번만 한다 — 진짜로 파일이 깨진 경우 무한 새로고침에 빠지면
  * 원인을 볼 기회조차 사라진다.
+ *
+ * 짝이 되는 설정이 vercel.json 에 있다:
+ *   "source": "/((?!assets/).*)"
+ * SPA 리라이트에서 assets 를 빼둔 것이다. 안 그러면 없는 청크 요청에도
+ * index.html 이 돌아와 'JS 자리에 HTML' 이라는 엉뚱한 증상만 보인다.
+ * vercel.json 은 주석을 못 달아(스키마 검증에서 걸린다) 여기 적어 둔다.
  */
 export const RELOAD_FLAG = 'smash:chunk-reloaded'
 
