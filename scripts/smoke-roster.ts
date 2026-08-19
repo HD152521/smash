@@ -313,6 +313,59 @@ try {
     `${String(mergedBlank[0]!.group_id)} — 여기가 null 이면 합친 사람이 아무 조에도 안 남는다`,
   )
 
+  // ★ 양쪽 다 경기를 뛴 경우 — 실제 대회에서 나온 유일한 사례다.
+  //   막지 말고 기록을 합쳐야 한다.
+  const bothPlayed = await rpc(admin.token, 'add_roster_member', {
+    p_tournament_id: t.id,
+    p_name: '양쪽다뛴사람',
+  })
+  const bothId = (bothPlayed.body as unknown as { id: string }).id
+  await db.query(`update tournament_members set group_id=$1 where id=$2`, [groups[0]!.id, bothId])
+
+  const joiner3 = await makeUser(db, 'joiner3', '같은사람계정')
+  emails.push(joiner3.email)
+  await rpc(joiner3.token, 'join_tournament', { p_code: t.invite_code })
+  const { rows: j3 } = await db.query<{ id: string }>(
+    `select id from tournament_members where tournament_id=$1 and user_id=$2`,
+    [t.id, joiner3.uid],
+  )
+  await db.query(`update tournament_members set group_id=$1 where id=$2`, [groups[0]!.id, j3[0]!.id])
+
+  // 명단 쪽으로 한 경기, 계정 쪽으로 한 경기 — 서로 다른 경기다
+  await rpc(admin.token, 'create_match', {
+    p_tournament_id: t.id, p_court_id: null, p_label: null,
+    p_group_a: groups[0]!.id, p_players_a: [bothId, ids[1]],
+    p_group_b: groups[1]!.id, p_players_b: [ids[2], ids[3]],
+    p_referees: [],
+  })
+  await rpc(admin.token, 'create_match', {
+    p_tournament_id: t.id, p_court_id: null, p_label: null,
+    p_group_a: groups[0]!.id, p_players_a: [j3[0]!.id, ids[1]],
+    p_group_b: groups[1]!.id, p_players_b: [ids[2], ids[3]],
+    p_referees: [],
+  })
+
+  const merge = await rpc(admin.token, 'link_member_account', {
+    p_roster_member_id: bothId,
+    p_account_member_id: j3[0]!.id,
+  })
+  check('양쪽 다 경기를 뛰었어도 합친다', merge.status === 200, `status=${merge.status}`)
+
+  const { rows: mergedPlays } = await db.query<{ n: string }>(
+    `select count(*)::text n from match_team_players where member_id=$1`,
+    [bothId],
+  )
+  check(
+    '두 사람의 경기 기록이 합쳐진다',
+    mergedPlays[0]!.n === '2',
+    `${mergedPlays[0]!.n}건 — 한쪽을 버리면 1건이 된다`,
+  )
+  const { rows: orphan } = await db.query<{ n: string }>(
+    `select count(*)::text n from match_team_players where member_id=$1`,
+    [j3[0]!.id],
+  )
+  check('계정 쪽에는 아무 기록도 안 남는다', orphan[0]!.n === '0', `${orphan[0]!.n}건`)
+
   const relink = await rpc(admin.token, 'link_member_account', {
     p_roster_member_id: ids[0],
     p_account_member_id: j2[0]!.id,
