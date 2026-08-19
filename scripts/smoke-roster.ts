@@ -229,6 +229,102 @@ try {
   // 계정 쪽에 있던 조 배정이 함께 사라졌다 — 본인이 고른 조가 조용히 날아간다.
   // 어느 쪽 정보를 남길지 칸 단위로 정한 뒤에 다시 만든다.
   // (자세한 내용은 20260819000009_drop_link_member.sql)
+
+  // ── 명단과 계정 잇기 ────────────────────────────────────────────
+  //
+  // 첫 시도는 계정 행을 통째로 버려서 그 안의 조가 사라졌다.
+  // 칸 단위로 남기는지 여기서 못 박는다.
+  console.log('\n── 명단과 계정 잇기 ──')
+
+  const joiner = await makeUser(db, 'joiner', '나중에온사람')
+  emails.push(joiner.email)
+  await rpc(joiner.token, 'join_tournament', { p_code: t.invite_code })
+  const { rows: joinerRow } = await db.query<{ id: string }>(
+    `select id from tournament_members where tournament_id=$1 and user_id=$2`,
+    [t.id, joiner.uid],
+  )
+  // 본인이 코드로 들어와 2조를 골랐다
+  await db.query(`update tournament_members set group_id=$1 where id=$2`, [
+    groups[1]!.id,
+    joinerRow[0]!.id,
+  ])
+
+  // ids[0] = '김철수' — 이미 경기를 뛰었고 1조에 배정돼 있다
+  const link1 = await rpc(admin.token, 'link_member_account', {
+    p_roster_member_id: ids[0],
+    p_account_member_id: joinerRow[0]!.id,
+  })
+  check('명단과 계정을 잇는다', link1.status === 200, `status=${link1.status}`)
+
+  const { rows: merged } = await db.query<{
+    user_id: string | null
+    display_name: string
+    group_id: string | null
+  }>(`select user_id, display_name, group_id from tournament_members where id=$1`, [ids[0]])
+  check('계정이 붙는다', merged[0]!.user_id === joiner.uid)
+  check(
+    '명단에 적어둔 이름이 남는다',
+    merged[0]!.display_name === '김철수',
+    `${merged[0]!.display_name}`,
+  )
+  check(
+    '명단 쪽 조(1조)가 유지된다',
+    merged[0]!.group_id === groups[0]!.id,
+    '경기 기록이 이 조에 쌓였으므로 계정 쪽 조로 덮으면 안 된다',
+  )
+  const { rows: keptPlays } = await db.query<{ n: string }>(
+    `select count(*)::text n from match_team_players where member_id=$1`,
+    [ids[0]],
+  )
+  check('지난 경기 기록이 그대로다', keptPlays[0]!.n === '1', `${keptPlays[0]!.n}건`)
+  const { rows: dupGone } = await db.query(`select 1 from tournament_members where id=$1`, [
+    joinerRow[0]!.id,
+  ])
+  check('중복 계정 행은 사라진다', dupGone.length === 0)
+
+  // ★ 지난번 버그: 명단 쪽에 조가 없으면 계정 쪽 조를 가져와야 한다
+  const blank = await rpc(admin.token, 'add_roster_member', {
+    p_tournament_id: t.id,
+    p_name: '조없는명단',
+  })
+  const blankId = (blank.body as unknown as { id: string }).id
+  const joiner2 = await makeUser(db, 'joiner2', '조고른사람')
+  emails.push(joiner2.email)
+  await rpc(joiner2.token, 'join_tournament', { p_code: t.invite_code })
+  const { rows: j2 } = await db.query<{ id: string }>(
+    `select id from tournament_members where tournament_id=$1 and user_id=$2`,
+    [t.id, joiner2.uid],
+  )
+  await db.query(`update tournament_members set group_id=$1 where id=$2`, [
+    groups[1]!.id,
+    j2[0]!.id,
+  ])
+  await rpc(admin.token, 'link_member_account', {
+    p_roster_member_id: blankId,
+    p_account_member_id: j2[0]!.id,
+  })
+  const { rows: mergedBlank } = await db.query<{ group_id: string | null }>(
+    `select group_id from tournament_members where id=$1`,
+    [blankId],
+  )
+  check(
+    '명단에 조가 없으면 계정이 고른 조를 가져온다',
+    mergedBlank[0]!.group_id === groups[1]!.id,
+    `${String(mergedBlank[0]!.group_id)} — 여기가 null 이면 합친 사람이 아무 조에도 안 남는다`,
+  )
+
+  const relink = await rpc(admin.token, 'link_member_account', {
+    p_roster_member_id: ids[0],
+    p_account_member_id: j2[0]!.id,
+  })
+  check('이미 계정이 붙은 명단에는 또 붙일 수 없다', relink.status >= 400, `status=${relink.status}`)
+
+  const byOutsider = await rpc(outsider.token, 'link_member_account', {
+    p_roster_member_id: ids[1],
+    p_account_member_id: ids[0],
+  })
+  check('일반 참가자는 연결할 수 없다', byOutsider.status >= 400, `status=${byOutsider.status}`)
+
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,

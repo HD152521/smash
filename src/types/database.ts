@@ -165,6 +165,10 @@ export type Database = {
         Args: { p_tournament_id: string; p_group_id: string | null }
         Returns: TournamentMemberRow
       }
+      link_member_account: {
+        Args: { p_roster_member_id: string; p_account_member_id: string }
+        Returns: TournamentMemberRow
+      }
       update_match: {
         Args: {
           p_match_id: string

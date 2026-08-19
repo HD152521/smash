@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import {
   useAddRosterMember,
+  useLinkMemberAccount,
   useRemoveMember,
   useSetMemberGroup,
   useSetMemberRole,
@@ -27,13 +28,20 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
   const setGroup = useSetMemberGroup(tournamentId)
   const addMember = useAddRosterMember(tournamentId)
   const removeMember = useRemoveMember(tournamentId)
+  const linkAccount = useLinkMemberAccount(tournamentId)
   const [newName, setNewName] = useState('')
 
   const error =
-    setRole.error ?? setGroup.error ?? addMember.error ?? removeMember.error
+    setRole.error ?? setGroup.error ?? addMember.error ?? removeMember.error ?? linkAccount.error
 
   const ungrouped = members.filter((m) => !m.groupId)
   const pending = members.filter((m) => !m.userId)
+  /*
+   * 이을 후보: 코드로 들어왔는데 아직 아무 조도 안 정해진 사람.
+   * 주최자는 뺀다 — 합치면 대회 주인이 사라진다.
+   * 조를 이미 고른 사람도 후보로 두는 게 맞다 (그 조를 물려받는다).
+   */
+  const linkable = members.filter((m) => m.userId && m.role !== 'owner')
 
   async function add() {
     const name = newName.trim()
@@ -107,9 +115,9 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
              */
             <li
               key={m.id}
-              className="flex items-center gap-2 rounded-xl border border-border-subtle
-                         bg-surface-1 py-2 pr-2 pl-3"
+              className="rounded-xl border border-border-subtle bg-surface-1 py-2 pr-2 pl-3"
             >
+              <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   {/* 오타로 들어온 이름을 관리자가 고쳐 준다. 본인이 못 고치는
@@ -218,6 +226,37 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
               </div>
 
               {group?.is_joker && <span className="sr-only">{group.name}는 조커조입니다</span>}
+              </div>
+
+              {/*
+                명단으로 넣어둔 사람이 나중에 코드로 들어오면 같은 사람이 둘이 된다.
+                관리자가 지목해서 잇는다 — 이름이 같다고 자동으로 붙이면
+                프로필 이름만 바꿔도 남의 경기 기록을 가져갈 수 있다.
+              */}
+              {!m.userId && linkable.length > 0 && (
+                <label className="mt-1.5 flex items-center gap-2 border-t border-border-subtle pt-1.5">
+                  <span className="shrink-0 text-xs text-ink-3">계정 연결</span>
+                  <select
+                    value=""
+                    disabled={linkAccount.isPending}
+                    onChange={(e) => {
+                      if (!e.target.value) return
+                      linkAccount.mutate({ rosterId: m.id, accountId: e.target.value })
+                    }}
+                    aria-label={`${m.displayName}에 계정 연결`}
+                    className="h-9 min-w-0 flex-1 rounded-lg border border-border-subtle
+                               bg-surface-1 px-2 text-xs font-semibold text-ink-2
+                               focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 focus:outline-none"
+                  >
+                    <option value="">본인 계정 고르기</option>
+                    {linkable.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </li>
           )
         })}

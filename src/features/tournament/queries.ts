@@ -21,6 +21,7 @@ import {
   setDisplayName,
   addRosterMember,
   removeMember,
+  linkMemberAccount,
   renameCourt,
   updateMatch,
   moveCourt,
@@ -295,6 +296,14 @@ function useRosterMutation<T>(tournamentId: string, fn: (input: T) => Promise<vo
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
     },
   })
+}
+
+export function useLinkMemberAccount(tournamentId: string) {
+  return useRosterMutation(
+    tournamentId,
+    ({ rosterId, accountId }: { rosterId: string; accountId: string }) =>
+      linkMemberAccount(rosterId, accountId),
+  )
 }
 
 export function useAddRosterMember(tournamentId: string) {

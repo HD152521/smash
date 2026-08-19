@@ -442,6 +442,25 @@ export async function updateMatch(input: UpdateMatchInput): Promise<MatchRow> {
   return unwrap(res) as unknown as MatchRow
 }
 
+/**
+ * 명단에 적어둔 사람과, 나중에 코드로 들어온 계정을 잇는다.
+ *
+ * 행 단위로 합치지 않는다. 경기 기록과 이름은 명단 쪽, 계정은 계정 쪽,
+ * 조는 명단 쪽이 없으면 계정 쪽 — 칸마다 남길 쪽이 다르다.
+ * 그 규칙은 서버에 있다 (link_member_account).
+ */
+export async function linkMemberAccount(
+  rosterMemberId: string,
+  accountMemberId: string,
+): Promise<void> {
+  unwrap(
+    await supabase.rpc('link_member_account', {
+      p_roster_member_id: rosterMemberId,
+      p_account_member_id: accountMemberId,
+    }),
+  )
+}
+
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {
   const res = await supabase
     .from('matches')
