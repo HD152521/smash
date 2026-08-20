@@ -34,6 +34,15 @@ const TournamentSettingsPage = lazyPage(() =>
 const TournamentAdminPage = lazyPage(() =>
   import('@/pages/TournamentAdminPage').then((m) => ({ default: m.TournamentAdminPage })),
 )
+const AdminGroupsPage = lazyPage(() =>
+  import('@/pages/AdminGroupsPage').then((m) => ({ default: m.AdminGroupsPage })),
+)
+const AdminCourtsPage = lazyPage(() =>
+  import('@/pages/AdminCourtsPage').then((m) => ({ default: m.AdminCourtsPage })),
+)
+const AdminMembersPage = lazyPage(() =>
+  import('@/pages/AdminMembersPage').then((m) => ({ default: m.AdminMembersPage })),
+)
 const MatchCreatePage = lazyPage(() =>
   import('@/pages/MatchCreatePage').then((m) => ({ default: m.MatchCreatePage })),
 )
@@ -159,11 +168,39 @@ export function AppRoutes() {
         }
       />
 
+      {/*
+        관리는 목록 화면(허브) 하나에 하위 화면 셋이다. 코트·참가자·조를 한
+        화면에 쌓으면 급할 때 필요한 게 스크롤 밑으로 밀린다.
+      */}
       <Route
         path="/t/:id/admin"
         element={
           <Protected>
             <TournamentAdminPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/admin/groups"
+        element={
+          <Protected>
+            <AdminGroupsPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/admin/courts"
+        element={
+          <Protected>
+            <AdminCourtsPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/admin/members"
+        element={
+          <Protected>
+            <AdminMembersPage />
           </Protected>
         }
       />

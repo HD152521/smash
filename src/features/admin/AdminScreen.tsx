@@ -1,0 +1,52 @@
+import type { ReactNode } from 'react'
+import { Navigate } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
+import { useAdminGate } from './useAdminGate'
+
+interface AdminScreenProps {
+  tournamentId: string
+  /** 화면 제목 — 관리 목록에 적힌 이름과 같아야 한다 */
+  title: string
+  /** 제목 밑 한 줄. 여기서 무엇을 바꾸는지 */
+  description?: string
+  /** 이 화면이 따로 기다리는 데이터가 아직 없다 */
+  pending?: boolean
+  children: ReactNode
+}
+
+/**
+ * 관리 하위 화면의 공통 껍데기 — 권한 확인 · 뒤로가기 · 제목 · 로딩.
+ *
+ * 관리를 화면 하나에 다 얹으면 정작 급할 때 필요한 항목이 스크롤 밑으로
+ * 밀린다. 코트 · 참가자 · 조를 각자 화면으로 떼면서 세 화면이 똑같은
+ * 껍데기를 갖게 됐고, 그걸 여기 모았다.
+ *
+ * 뒤로는 히스토리를 되짚는다. 관리 목록에서 들어오는 게 유일한 길이라
+ * 되짚으면 목록으로 돌아간다. 주소로 바로 들어온 경우에만 목록으로 보낸다.
+ */
+export function AdminScreen({
+  tournamentId,
+  title,
+  description,
+  pending = false,
+  children,
+}: AdminScreenProps) {
+  const gate = useAdminGate(tournamentId)
+
+  if (gate.denied) return <Navigate to={`/t/${tournamentId}`} replace />
+
+  return (
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
+      <BackLink to={`/t/${tournamentId}/admin`}>관리</BackLink>
+
+      <h1 className="mt-4 text-3xl font-black tracking-tight text-ink-1">{title}</h1>
+      {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
+
+      {gate.loading || pending ? (
+        <div className="mt-8 h-48 animate-pulse rounded-2xl bg-surface-2" aria-busy />
+      ) : (
+        <div className="mt-8">{children}</div>
+      )}
+    </main>
+  )
+}

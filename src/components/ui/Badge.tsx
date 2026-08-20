@@ -8,13 +8,15 @@ export function Badge({
 }: {
   children: ReactNode
   className?: string
-  tone?: 'neutral' | 'live' | 'ok' | 'joker'
+  tone?: 'neutral' | 'live' | 'ok' | 'joker' | 'warn'
 }) {
   const tones = {
     neutral: 'bg-surface-2 text-ink-2 border-border-subtle',
     live: 'bg-live/12 text-live-fg border-live/25',
     ok: 'bg-ok/12 text-ok-fg border-ok/25',
     joker: 'bg-joker-soft text-joker-ink border-joker/40',
+    /* 손봐야 할 게 남았다는 표시 — 오류(team-b)와 달리 눌러서 고칠 수 있다 */
+    warn: 'bg-warn/12 text-warn-fg border-warn/25',
   } as const
 
   return (

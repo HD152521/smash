@@ -1,45 +1,55 @@
+import type { ReactNode } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import {
+  ChevronRight,
+  Layers,
+  LayoutGrid,
+  Monitor,
+  Play,
+  RefreshCw,
+  ScrollText,
+  Square,
+  Users,
+} from 'lucide-react'
 import { BackLink } from '@/components/ui/BackLink'
-import { Monitor, Play, RefreshCw, ScrollText, Square } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { InlineEdit } from '@/components/ui/InlineEdit'
-import { MemberManager } from '@/features/admin/MemberManager'
-import { CourtManager } from '@/features/admin/CourtManager'
-import { useAuth } from '@/features/auth/useAuth'
+import { useAdminGate } from '@/features/admin/useAdminGate'
 import {
   useCourts,
   useGroups,
-  useRenameGroup,
-  useRenameTournament,
-  useMatches,
-  useMembers,
   useRegenerateInviteCode,
+  useRenameTournament,
   useSetTournamentStatus,
   useTournament,
 } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 
+/**
+ * 관리 — 대회 자체를 다루는 것만 남기고 나머지는 각자 화면으로 보낸다.
+ *
+ * 예전에는 조 · 코트 · 참가자 목록이 전부 이 화면에 세로로 쌓여 있었다.
+ * 참가자가 스무 명이면 코트 하나 고치려고 화면을 한참 굴려야 했고, 정작
+ * 대회 도중 급한 '시작 · 종료' 와 초대 코드가 위로 밀려 올라갔다.
+ *
+ * 여기 남는 건 세 가지다 — 대회 이름, 상태, 초대 코드. 셋 다 대회에 하나뿐이고
+ * 목록이 아니라서 길어지지 않는다. 목록인 것들은 전부 아래 메뉴로 내보낸다.
+ */
 export function TournamentAdminPage() {
   const { id } = useParams<{ id: string }>()
-  const { user } = useAuth()
 
+  const gate = useAdminGate(id)
   const tournament = useTournament(id)
   const groups = useGroups(id)
-  const renameT = useRenameTournament(id ?? '')
-  const renameG = useRenameGroup(id ?? '')
-  const members = useMembers(id)
   const courts = useCourts(id)
-  const matches = useMatches(id)
+  const renameT = useRenameTournament(id ?? '')
   const setStatus = useSetTournamentStatus(id ?? '')
   const regenerate = useRegenerateInviteCode(id ?? '')
 
-  const me = members.data?.find((m) => m.userId === user?.id)
-  const isAdmin = me?.role === 'owner' || me?.role === 'admin'
+  if (gate.denied) return <Navigate to={`/t/${id}`} replace />
 
-  if (members.data && !isAdmin) return <Navigate to={`/t/${id}`} replace />
-
-  if (!tournament.data || !members.data || !groups.data) {
+  if (!tournament.data || gate.loading) {
     return (
       <main className="mx-auto w-full max-w-2xl px-5 pt-10">
         <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
@@ -48,7 +58,8 @@ export function TournamentAdminPage() {
   }
 
   const t = tournament.data
-  const ungrouped = members.data.filter((m) => !m.groupId).length
+  const members = gate.members ?? []
+  const ungrouped = members.filter((m) => !m.groupId).length
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
@@ -71,42 +82,6 @@ export function TournamentAdminPage() {
           }}
         />
       </div>
-
-      {/* ── 조 ─────────────────────────────────────────────────────── */}
-      <section className="mt-8">
-        <h2 className="text-lg font-bold text-ink-1">조 {groups.data?.length ?? 0}개</h2>
-        <p className="mt-1 text-sm text-ink-2">
-          이름만 바꿉니다. 조커 지정과 개수는 대회를 만들 때 정해집니다 — 이미 치른 경기의 목표
-          점수가 그 설정으로 굳어 있어서 나중에 바꾸면 어긋납니다.
-        </p>
-        {renameG.error && (
-          <p role="alert" className="mt-2 text-sm font-medium text-team-b-fg">
-            {toUserMessage(renameG.error, '조 이름을 바꾸지 못했습니다')}
-          </p>
-        )}
-        <ul className="mt-3 flex flex-col gap-2">
-          {(groups.data ?? []).map((g) => (
-            <li
-              key={g.id}
-              className="flex items-center gap-2 rounded-xl border border-border-subtle
-                         bg-surface-1 py-2 pr-3 pl-3"
-            >
-              <span className="min-w-0 flex-1">
-                <InlineEdit
-                  value={g.name}
-                  label={g.name}
-                  compact
-                  pending={renameG.isPending}
-                  onSave={async (next) => {
-                    await renameG.mutateAsync({ groupId: g.id, name: next })
-                  }}
-                />
-              </span>
-              {g.is_joker && <Badge tone="joker">🃏 조커</Badge>}
-            </li>
-          ))}
-        </ul>
-      </section>
 
       {/* ── 대회 상태 ─────────────────────────────────────────────── */}
       <section className="mt-8 rounded-2xl border border-border-subtle bg-surface-1 p-5">
@@ -151,9 +126,21 @@ export function TournamentAdminPage() {
           )}
         </div>
 
+        {/*
+          조 없는 사람이 남으면 시작을 막는다. 배정하는 곳이 이 화면에서 빠졌으므로
+          문구로만 알리면 어디로 가야 하는지 알 수 없다 — 바로 그 화면으로 보낸다.
+        */}
         {t.status === 'draft' && ungrouped > 0 && (
           <p className="mt-3 text-sm font-semibold text-warn-fg">
-            아직 조를 고르지 않은 참가자가 {ungrouped}명 있습니다. 아래에서 배정해 주세요.
+            아직 조를 고르지 않은 참가자가 {ungrouped}명 있습니다.{' '}
+            <Link
+              to={`/t/${id}/admin/members`}
+              className="underline underline-offset-2 focus-visible:outline-2
+                         focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              참가자에서 배정
+            </Link>
+            해 주세요.
           </p>
         )}
 
@@ -202,47 +189,97 @@ export function TournamentAdminPage() {
         </Link>
       </section>
 
-      <section className="mt-4">
-        <Link
-          to={`/t/${id}/live`}
-          className="flex items-center justify-between rounded-2xl border border-border-subtle
-                     bg-surface-1 p-4 transition-colors hover:bg-surface-2"
-        >
-          <span className="flex items-center gap-2 font-semibold text-ink-1">
-            <Monitor className="size-4 text-ink-2" aria-hidden />
-            관전 화면
-          </span>
-          <span className="text-sm text-ink-3">코트 옆 태블릿·TV 용</span>
-        </Link>
-      </section>
+      {/*
+        바꾸는 것들. 목록이라 길어지므로 각자 화면을 준다.
+        개수를 여기 적어 두면 들어가 보지 않고도 뭘 손봐야 할지 안다.
+      */}
+      <nav aria-label="대회 구성" className="mt-8">
+        <h2 className="text-sm font-semibold text-ink-2">구성 바꾸기</h2>
+        <ul className="mt-2 flex flex-col gap-2">
+          <AdminMenuItem
+            to={`/t/${id}/admin/groups`}
+            icon={<Layers className="size-4" aria-hidden />}
+            label="조"
+            count={groups.data?.length}
+            hint="조 이름 바꾸기"
+          />
+          <AdminMenuItem
+            to={`/t/${id}/admin/courts`}
+            icon={<LayoutGrid className="size-4" aria-hidden />}
+            label="코트"
+            count={courts.data?.length}
+            hint="추가 · 이름 · 순서"
+          />
+          <AdminMenuItem
+            to={`/t/${id}/admin/members`}
+            icon={<Users className="size-4" aria-hidden />}
+            label="참가자"
+            count={members.length}
+            hint="조 배정 · 권한 · 명단"
+            warn={ungrouped > 0 ? `조 없음 ${ungrouped}` : undefined}
+          />
+        </ul>
+      </nav>
 
-      <section className="mt-4">
-        <Link
-          to={`/t/${id}/audit`}
-          className="flex items-center justify-between rounded-2xl border border-border-subtle
-                     bg-surface-1 p-4 transition-colors hover:bg-surface-2"
-        >
-          <span className="flex items-center gap-2 font-semibold text-ink-1">
-            <ScrollText className="size-4 text-ink-2" aria-hidden />
-            변경 기록
-          </span>
-          <span className="text-sm text-ink-3">누가 무엇을 바꿨는지</span>
-        </Link>
-      </section>
-
-      <div className="mt-10">
-        <CourtManager tournamentId={id!} courts={courts.data ?? []} matches={matches.data ?? []} />
-      </div>
-
-      <div className="mt-10">
-        <MemberManager
-          tournamentId={id!}
-          members={members.data}
-          matches={matches.data ?? []}
-          groups={groups.data}
-          myMemberId={me?.id}
-        />
-      </div>
+      <nav aria-label="보기" className="mt-6">
+        <h2 className="text-sm font-semibold text-ink-2">보기</h2>
+        <ul className="mt-2 flex flex-col gap-2">
+          <AdminMenuItem
+            to={`/t/${id}/live`}
+            icon={<Monitor className="size-4" aria-hidden />}
+            label="관전 화면"
+            hint="코트 옆 태블릿·TV 용"
+          />
+          <AdminMenuItem
+            to={`/t/${id}/audit`}
+            icon={<ScrollText className="size-4" aria-hidden />}
+            label="변경 기록"
+            hint="누가 무엇을 바꿨는지"
+          />
+        </ul>
+      </nav>
     </main>
+  )
+}
+
+function AdminMenuItem({
+  to,
+  icon,
+  label,
+  hint,
+  count,
+  warn,
+}: {
+  to: string
+  icon: ReactNode
+  label: string
+  hint: string
+  /** 아직 안 왔으면 자리를 비운다 — 0 을 깜빡 보여주면 없는 줄 안다 */
+  count?: number
+  /** 손봐야 할 게 있을 때만 */
+  warn?: string
+}) {
+  return (
+    <li>
+      <Link
+        to={to}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border border-border-subtle
+                   bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2
+                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      >
+        <span className="text-ink-2">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-ink-1">
+              {label}
+              {count !== undefined && <span className="tabular ml-1.5 text-ink-3">{count}</span>}
+            </span>
+            {warn && <Badge tone="warn">{warn}</Badge>}
+          </span>
+          <span className="mt-0.5 block truncate text-sm text-ink-3">{hint}</span>
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-ink-3" aria-hidden />
+      </Link>
+    </li>
   )
 }
