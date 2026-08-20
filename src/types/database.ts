@@ -169,6 +169,10 @@ export type Database = {
         Args: { p_roster_member_id: string; p_account_member_id: string }
         Returns: TournamentMemberRow
       }
+      set_court_queue: {
+        Args: { p_tournament_id: string; p_court_id: string | null; p_match_ids: string[] }
+        Returns: void
+      }
       update_match: {
         Args: {
           p_match_id: string

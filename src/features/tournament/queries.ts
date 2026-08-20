@@ -26,6 +26,7 @@ import {
   renameCourt,
   renameGroup,
   renameTournament,
+  setCourtQueue,
   updateMatch,
   moveCourt,
   fetchMatches,
@@ -370,6 +371,19 @@ export function useRenameGroup(tournamentId: string) {
       void qc.invalidateQueries({ queryKey: tournamentKeys.groups(tournamentId) })
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'standings'] })
+    },
+  })
+}
+
+export function useSetCourtQueue(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ courtId, matchIds }: { courtId: string | null; matchIds: string[] }) =>
+      setCourtQueue(tournamentId, courtId, matchIds),
+    onSuccess: () => {
+      // 코트가 새로 정해진 경기가 있으면 알림이 생긴다
+      void kickPushSender()
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
     },
   })
 }

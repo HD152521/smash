@@ -628,6 +628,65 @@ try {
     '예전 가드는 score_events 만 봐서 이게 그냥 지워졌다',
   )
 
+
+  // ── 대기 순서 ───────────────────────────────────────────────────
+  console.log('\n── 대기 순서 ──')
+  const { rows: qCourt } = await db.query<{ id: string }>(
+    `insert into courts (tournament_id,name,sort_order) values ($1,'순서코트',9) returning id`,
+    [t.id],
+  )
+  const made: string[] = []
+  for (let i = 0; i < 3; i++) {
+    const r = await rpc(admin.token, 'create_match', {
+      p_tournament_id: t.id, p_court_id: null, p_label: null,
+      p_group_a: jokerGroup.id, p_players_a: [memberOf('선수1'), memberOf('선수2')],
+      p_group_b: normalGroup.id, p_players_b: [memberOf('선수3'), memberOf('선수4')],
+      p_referees: [],
+    })
+    made.push((r.body as unknown as { id: string }).id)
+  }
+  const { rows: byCreate } = await db.query<{ id: string }>(
+    `select id from matches where id = any($1) order by queue_order`, [made])
+  check(
+    '새 경기는 만든 순서대로 줄 맨 뒤에 붙는다',
+    byCreate.map((x) => x.id).join() === made.join(),
+    '기본값이 고정값이면 새 경기가 맨 앞으로 튀어나온다',
+  )
+
+  // 3-1-2 순서로 코트에 세운다
+  const wanted = [made[2]!, made[0]!, made[1]!]
+  const setQ = await rpc(admin.token, 'set_court_queue', {
+    p_tournament_id: t.id, p_court_id: qCourt[0]!.id, p_match_ids: wanted,
+  })
+  check('관리자가 대기 순서를 바꾼다', setQ.status < 300, `status=${setQ.status}`)
+
+  const { rows: reordered } = await db.query<{ id: string; court_id: string }>(
+    `select id, court_id from matches where id = any($1) order by queue_order`, [made])
+  check(
+    '바꾼 순서가 그대로 저장된다',
+    reordered.map((x) => x.id).join() === wanted.join(),
+    '다시 그리면 원래대로 돌아가면 안 된다',
+  )
+  check(
+    '끌어 놓은 코트로 함께 옮겨진다',
+    reordered.every((x) => x.court_id === qCourt[0]!.id),
+    '옮기기와 순서 바꾸기는 같은 일이다',
+  )
+
+  const queueByPlayer = await rpc(players[0]!.token, 'set_court_queue', {
+    p_tournament_id: t.id, p_court_id: qCourt[0]!.id, p_match_ids: wanted,
+  })
+  check('일반 참가자는 순서를 못 바꾼다', queueByPlayer.status >= 400, `status=${queueByPlayer.status}`)
+
+  const withFinished = await rpc(admin.token, 'set_court_queue', {
+    p_tournament_id: t.id, p_court_id: qCourt[0]!.id, p_match_ids: [matchId],
+  })
+  check(
+    '끝난 경기는 끌어 옮길 수 없다',
+    withFinished.status >= 400,
+    `status=${withFinished.status} — 진행 중인 걸 옮기면 한 코트 한 경기가 깨진다`,
+  )
+
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,

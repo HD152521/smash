@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { unwrap } from '@/lib/errors'
+import { unwrap, unwrapVoid } from '@/lib/errors'
 import type {
   CourtRow,
   JoinTournamentResult,
@@ -257,7 +257,9 @@ export async function fetchMatches(tournamentId: string): Promise<MatchOverviewR
     .from('match_overview')
     .select('*')
     .eq('tournament_id', tournamentId)
-    .order('created_at', { ascending: false })
+    // 먼저 만든 경기가 위, 나중이 아래. 끌어서 순서를 바꾸면 queue_order 가 바뀐다.
+    .order('queue_order', { ascending: true })
+    .order('created_at', { ascending: true })
   return unwrap(res) as unknown as MatchOverviewRow[]
 }
 
@@ -393,7 +395,7 @@ export async function addRosterMember(tournamentId: string, name: string): Promi
  * 지우면 지난 경기에서도 조용히 사라지기 때문이다.
  */
 export async function removeMember(memberId: string): Promise<void> {
-  unwrap(await supabase.rpc('remove_member', { p_member_id: memberId }))
+  unwrapVoid(await supabase.rpc('remove_member', { p_member_id: memberId }))
 }
 
 /**
@@ -494,6 +496,26 @@ export async function renameGroup(groupId: string, name: string): Promise<void> 
     .select('id')
     .single()
   unwrap(res)
+}
+
+/**
+ * 코트 하나의 대기열을 통째로 다시 쓴다.
+ *
+ * 옮기기와 순서 바꾸기가 같은 일이라(다른 코트에서 끌어와 3번째에 놓기)
+ * 한 번에 보낸다. courtId 가 null 이면 '코트 미배정' 줄이다.
+ */
+export async function setCourtQueue(
+  tournamentId: string,
+  courtId: string | null,
+  matchIds: string[],
+): Promise<void> {
+  unwrapVoid(
+    await supabase.rpc('set_court_queue', {
+      p_tournament_id: tournamentId,
+      p_court_id: courtId,
+      p_match_ids: matchIds,
+    }),
+  )
 }
 
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {

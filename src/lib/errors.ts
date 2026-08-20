@@ -55,3 +55,14 @@ export function unwrap<T>(result: { data: T | null; error: PostgrestError | null
   if (result.data === null) throw new Error('데이터를 받지 못했습니다')
   return result.data
 }
+
+/**
+ * 돌려줄 값이 없는 RPC 용 (returns void).
+ *
+ * PostgREST 는 이런 함수에 204 No Content 를 준다. 그래서 data 가 null 인데,
+ * unwrap 을 쓰면 그걸 '데이터를 받지 못했습니다' 오류로 착각한다.
+ * 실제로 서버에서는 잘 처리됐는데 화면만 실패로 보이고, 목록도 갱신되지 않는다.
+ */
+export function unwrapVoid(result: { error: PostgrestError | null }): void {
+  if (result.error) throw result.error
+}

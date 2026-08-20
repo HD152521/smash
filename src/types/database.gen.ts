@@ -62,6 +62,7 @@ export type MatchOverviewRow = {
   score_a: number | null
   score_b: number | null
   winner_side: TeamSide | null
+  queue_order: number | null
   started_at: string | null
   finished_at: string | null
   edited_at: string | null
@@ -116,6 +117,7 @@ export type MatchesRow = {
   edited_at: string | null
   created_at: string
   updated_at: string
+  queue_order: number
 }
 
 export type NotificationOutboxRow = {
@@ -162,7 +164,7 @@ export type ScoreEventsRow = {
 export type TournamentMembersRow = {
   id: string
   tournament_id: string
-  user_id: string
+  user_id: string | null
   group_id: string | null
   role: MemberRole
   display_name: string
@@ -198,7 +200,7 @@ export type Database = {
       profiles: { Row: ProfilesRow; Insert: Partial<ProfilesRow> & Pick<ProfilesRow, 'id'>; Update: Partial<ProfilesRow>; Relationships: [] }
       push_subscriptions: { Row: PushSubscriptionsRow; Insert: Partial<PushSubscriptionsRow> & Pick<PushSubscriptionsRow, 'user_id' | 'endpoint' | 'p256dh' | 'auth'>; Update: Partial<PushSubscriptionsRow>; Relationships: [] }
       score_events: { Row: ScoreEventsRow; Insert: Partial<ScoreEventsRow> & Pick<ScoreEventsRow, 'match_id' | 'side' | 'delta' | 'client_event_id'>; Update: Partial<ScoreEventsRow>; Relationships: [] }
-      tournament_members: { Row: TournamentMembersRow; Insert: Partial<TournamentMembersRow> & Pick<TournamentMembersRow, 'tournament_id' | 'user_id' | 'display_name'>; Update: Partial<TournamentMembersRow>; Relationships: [] }
+      tournament_members: { Row: TournamentMembersRow; Insert: Partial<TournamentMembersRow> & Pick<TournamentMembersRow, 'tournament_id' | 'display_name'>; Update: Partial<TournamentMembersRow>; Relationships: [] }
       tournaments: { Row: TournamentsRow; Insert: Partial<TournamentsRow> & Pick<TournamentsRow, 'name' | 'invite_code' | 'owner_id'>; Update: Partial<TournamentsRow>; Relationships: [] }
     }
     Views: {

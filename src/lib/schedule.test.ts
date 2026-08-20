@@ -11,6 +11,7 @@ function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
   return {
     id: 'm1', tournament_id: 't1', court_id: null, court_name: null, label: null,
     status: 'scheduled', source: 'live', score_a: 0, score_b: 0, winner_side: null,
+    queue_order: 0,
     started_at: null, finished_at: null, edited_at: null, created_at: null,
     group_a_id: 'g1', group_a_name: '1조', group_a_joker: true, target_a: 11,
     group_b_id: 'g2', group_b_name: '2조', group_b_joker: false, target_b: 21,
