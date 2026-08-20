@@ -13,17 +13,25 @@ import {
   useSetMemberRole,
 } from '@/features/tournament/queries'
 import type { MemberSummary } from '@/features/tournament/api'
-import type { GroupRow } from '@/types/database'
+import type { GroupRow, MatchOverviewRow } from '@/types/database'
 
 interface MemberManagerProps {
   tournamentId: string
   members: MemberSummary[]
+  /** 누가 이미 경기에 나갔는지 판단하는 데 쓴다 (제외 가능 여부) */
+  matches: MatchOverviewRow[]
   groups: GroupRow[]
   /** 본인 행에는 권한 버튼을 띄우지 않는다 (스스로 강등해 잠기는 걸 막는다) */
   myMemberId: string | undefined
 }
 
-export function MemberManager({ tournamentId, members, groups, myMemberId }: MemberManagerProps) {
+export function MemberManager({
+  tournamentId,
+  members,
+  matches,
+  groups,
+  myMemberId,
+}: MemberManagerProps) {
   const setRole = useSetMemberRole(tournamentId)
   const setGroup = useSetMemberGroup(tournamentId)
   const addMember = useAddRosterMember(tournamentId)
@@ -42,6 +50,23 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
    * 조를 이미 고른 사람도 후보로 두는 게 맞다 (그 조를 물려받는다).
    */
   const linkable = members.filter((m) => m.userId && m.role !== 'owner')
+
+  /*
+   * 경기에 한 번이라도 나간 사람은 서버가 삭제를 막는다 — 지우면 그 경기에서도
+   * 사라지기 때문이다. 그런데 오류는 이 목록 맨 위에 뜬다. 20명짜리 목록에서
+   * 아래쪽 버튼을 누르면 화면 밖이라 왜 안 되는지 보이지 않는다.
+   * 눌러보고 실패하게 두지 말고 애초에 못 누르게 한다.
+   *
+   * 이름으로 맞춘다 — match_overview 는 선수를 이름으로 준다.
+   * 대회 안에서 표시 이름은 유일하다(서버가 중복을 막는다).
+   */
+  const playedNames = new Set<string>()
+  for (const mt of matches) {
+    if (mt.status === 'void') continue
+    for (const n of [...(mt.players_a ?? []), ...(mt.players_b ?? []), ...(mt.referees ?? [])]) {
+      playedNames.add(n)
+    }
+  }
 
   async function add() {
     const name = newName.trim()
@@ -66,6 +91,7 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
       {pending.length > 0 && (
         <p className="mt-1 text-xs text-ink-3">
           미가입 {pending.length}명 — 조 배정과 경기는 되지만 심판은 맡을 수 없습니다.
+          {' '}이미 경기에 나간 사람은 뺄 수 없습니다.
         </p>
       )}
 
@@ -204,20 +230,31 @@ export function MemberManager({ tournamentId, members, groups, myMemberId }: Mem
                 </button>
               )}
 
-              {/* 경기에 나간 사람은 서버가 막는다 — 지우면 그 경기 기록에서도 사라진다 */}
+              {/* 경기에 나간 사람은 지울 수 없다 — 지우면 그 경기 기록에서도 사라진다 */}
               {!isOwner && !isSelf && (
                 <button
                   type="button"
-                  disabled={removeMember.isPending}
+                  disabled={removeMember.isPending || playedNames.has(m.displayName)}
+                  title={
+                    playedNames.has(m.displayName)
+                      ? '이미 경기에 나가 뺄 수 없습니다 (지우면 그 경기 기록에서도 사라집니다)'
+                      : undefined
+                  }
                   onClick={() => {
                     if (confirm(`${m.displayName}님을 이 대회에서 뺄까요?`)) {
                       removeMember.mutate(m.id)
                     }
                   }}
-                  aria-label={`${m.displayName} 제외`}
+                  aria-label={
+                    playedNames.has(m.displayName)
+                      ? `${m.displayName} 제외 불가 — 이미 경기에 나갔습니다`
+                      : `${m.displayName} 제외`
+                  }
                   className="grid size-10 shrink-0 place-items-center rounded-lg border
                              border-border-subtle text-ink-3 transition-colors
                              hover:border-team-b/40 hover:bg-team-b/10 hover:text-team-b-fg
+                             disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-border-subtle
+                             disabled:hover:bg-transparent disabled:hover:text-ink-3
                              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
                 >
                   <UserMinus className="size-4" aria-hidden />

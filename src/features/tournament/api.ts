@@ -461,6 +461,41 @@ export async function linkMemberAccount(
   )
 }
 
+/**
+ * 아직 시작 안 한 경기 지우기.
+ *
+ * 끝난 경기는 서버가 막는다 — 그건 무효 처리가 맞다.
+ * PostgREST 는 RLS 로 0행이 걸러져도 성공을 주므로 지워진 행을 세어 확인한다.
+ */
+export async function deleteMatch(matchId: string): Promise<void> {
+  const res = await supabase.from('matches').delete().eq('id', matchId).select('id')
+  const rows = unwrap(res) as { id: string }[]
+  if (rows.length === 0) throw new Error('경기를 지우지 못했습니다')
+}
+
+/** 대회 이름 (가드가 owner_id·초대코드·상태·설정만 막으므로 이름은 직접 고친다) */
+export async function renameTournament(tournamentId: string, name: string): Promise<void> {
+  const res = await supabase
+    .from('tournaments')
+    .update({ name })
+    .eq('id', tournamentId)
+    .select('id')
+    .single()
+  unwrap(res)
+}
+
+/** 조 이름 ('1조' 를 '초급A' 처럼). 조커 지정은 건드리지 않는다 —
+ *  이미 치른 경기의 목표 점수 스냅샷과 어긋난다. */
+export async function renameGroup(groupId: string, name: string): Promise<void> {
+  const res = await supabase
+    .from('groups')
+    .update({ name })
+    .eq('id', groupId)
+    .select('id')
+    .single()
+  unwrap(res)
+}
+
 export async function assignCourt(matchId: string, courtId: string | null): Promise<MatchRow> {
   const res = await supabase
     .from('matches')

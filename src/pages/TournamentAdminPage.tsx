@@ -3,12 +3,15 @@ import { BackLink } from '@/components/ui/BackLink'
 import { Monitor, Play, RefreshCw, ScrollText, Square } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { InlineEdit } from '@/components/ui/InlineEdit'
 import { MemberManager } from '@/features/admin/MemberManager'
 import { CourtManager } from '@/features/admin/CourtManager'
 import { useAuth } from '@/features/auth/useAuth'
 import {
   useCourts,
   useGroups,
+  useRenameGroup,
+  useRenameTournament,
   useMatches,
   useMembers,
   useRegenerateInviteCode,
@@ -23,6 +26,8 @@ export function TournamentAdminPage() {
 
   const tournament = useTournament(id)
   const groups = useGroups(id)
+  const renameT = useRenameTournament(id ?? '')
+  const renameG = useRenameGroup(id ?? '')
   const members = useMembers(id)
   const courts = useCourts(id)
   const matches = useMatches(id)
@@ -53,7 +58,55 @@ export function TournamentAdminPage() {
       </BackLink>
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">관리</h1>
-      <p className="mt-1 text-sm text-ink-2">{t.name}</p>
+      {/* 오타는 대회가 끝날 때까지 남는다. 여기서 바로 고친다. */}
+      <div className="mt-1 flex items-center">
+        <InlineEdit
+          value={t.name}
+          label="대회"
+          maxLength={40}
+          pending={renameT.isPending}
+          error={renameT.error ? toUserMessage(renameT.error, '이름을 바꾸지 못했습니다') : null}
+          onSave={async (next) => {
+            await renameT.mutateAsync(next)
+          }}
+        />
+      </div>
+
+      {/* ── 조 ─────────────────────────────────────────────────────── */}
+      <section className="mt-8">
+        <h2 className="text-lg font-bold text-ink-1">조 {groups.data?.length ?? 0}개</h2>
+        <p className="mt-1 text-sm text-ink-2">
+          이름만 바꿉니다. 조커 지정과 개수는 대회를 만들 때 정해집니다 — 이미 치른 경기의 목표
+          점수가 그 설정으로 굳어 있어서 나중에 바꾸면 어긋납니다.
+        </p>
+        {renameG.error && (
+          <p role="alert" className="mt-2 text-sm font-medium text-team-b-fg">
+            {toUserMessage(renameG.error, '조 이름을 바꾸지 못했습니다')}
+          </p>
+        )}
+        <ul className="mt-3 flex flex-col gap-2">
+          {(groups.data ?? []).map((g) => (
+            <li
+              key={g.id}
+              className="flex items-center gap-2 rounded-xl border border-border-subtle
+                         bg-surface-1 py-2 pr-3 pl-3"
+            >
+              <span className="min-w-0 flex-1">
+                <InlineEdit
+                  value={g.name}
+                  label={g.name}
+                  compact
+                  pending={renameG.isPending}
+                  onSave={async (next) => {
+                    await renameG.mutateAsync({ groupId: g.id, name: next })
+                  }}
+                />
+              </span>
+              {g.is_joker && <Badge tone="joker">🃏 조커</Badge>}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* ── 대회 상태 ─────────────────────────────────────────────── */}
       <section className="mt-8 rounded-2xl border border-border-subtle bg-surface-1 p-5">
@@ -185,6 +238,7 @@ export function TournamentAdminPage() {
         <MemberManager
           tournamentId={id!}
           members={members.data}
+          matches={matches.data ?? []}
           groups={groups.data}
           myMemberId={me?.id}
         />

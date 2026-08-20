@@ -1,7 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
-import { CircleDot, Pencil } from 'lucide-react'
+import { CircleDot, Pencil, Trash2 } from 'lucide-react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
-import { useAssignCourt, useCourts, useMatches } from '@/features/tournament/queries'
+import {
+  useAssignCourt,
+  useCourts,
+  useDeleteMatch,
+  useMatches,
+} from '@/features/tournament/queries'
 import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { buildSchedule, matchTitle } from '@/lib/schedule'
 import { toUserMessage } from '@/lib/errors'
@@ -20,6 +25,7 @@ export function SchedulePage() {
   const matches = useMatches(id)
   const courts = useCourts(id)
   const assign = useAssignCourt(id ?? '')
+  const removeMatch = useDeleteMatch(id ?? '')
   const nav = useTournamentNav(id)
   const isAdmin = nav.isAdmin
 
@@ -40,6 +46,11 @@ export function SchedulePage() {
       {assign.error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(assign.error, '코트를 배정하지 못했습니다')}
+        </p>
+      )}
+      {removeMatch.error && (
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
+          {toUserMessage(removeMatch.error, '경기를 지우지 못했습니다')}
         </p>
       )}
 
@@ -80,6 +91,8 @@ export function SchedulePage() {
                         tournamentId={id!}
                         canOpen={isAdmin}
                         canEdit={isAdmin}
+                        onDelete={() => m.id && removeMatch.mutate(m.id)}
+                        pendingDelete={removeMatch.isPending}
                         order={i + 1}
                         courts={isAdmin ? (courts.data ?? []) : []}
                         currentCourtId={q.court.id}
@@ -109,6 +122,8 @@ export function SchedulePage() {
                       tournamentId={id!}
                       canOpen={false}
                       canEdit={isAdmin}
+                      onDelete={() => m.id && removeMatch.mutate(m.id)}
+                      pendingDelete={removeMatch.isPending}
                       courts={isAdmin ? (courts.data ?? []) : []}
                       onAssign={(courtId) => m.id && assign.mutate({ matchId: m.id, courtId })}
                       pending={assign.isPending}
@@ -130,6 +145,8 @@ function MatchCard({
   tournamentId,
   canOpen,
   canEdit,
+  onDelete,
+  pendingDelete,
   order,
   courts,
   currentCourtId,
@@ -150,6 +167,8 @@ function MatchCard({
   courts: CourtRow[]
   /** 관리자만 편성을 고칠 수 있다 */
   canEdit: boolean
+  onDelete?: () => void
+  pendingDelete?: boolean
   currentCourtId?: string
   onAssign: (courtId: string | null) => void
   pending: boolean
@@ -197,6 +216,22 @@ function MatchCard({
 
         {/* 아직 시작 안 한 경기만 고친다. 사람이 안 왔거나 조를 잘못 골랐을 때
             지우고 다시 만들면 코트 배정과 심판 지정이 함께 날아간다. */}
+        {canEdit && m.id && (
+          <button
+            type="button"
+            disabled={pendingDelete}
+            onClick={() => {
+              if (confirm(`${matchTitle(m)} 경기를 지울까요?`)) onDelete?.()
+            }}
+            aria-label={`${matchTitle(m)} 삭제`}
+            className="grid size-10 shrink-0 place-items-center rounded-lg text-ink-3
+                       transition-colors hover:bg-team-b/10 hover:text-team-b-fg
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <Trash2 className="size-4" aria-hidden />
+          </button>
+        )}
+
         {canEdit && m.id && (
           <Link
             to={`/t/${tournamentId}/matches/new?edit=${m.id}`}

@@ -22,7 +22,10 @@ import {
   addRosterMember,
   removeMember,
   linkMemberAccount,
+  deleteMatch,
   renameCourt,
+  renameGroup,
+  renameTournament,
   updateMatch,
   moveCourt,
   fetchMatches,
@@ -334,6 +337,39 @@ export function useUpdateMatch(tournamentId: string) {
     onSuccess: () => {
       void kickPushSender()
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+    },
+  })
+}
+
+export function useDeleteMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (matchId: string) => deleteMatch(matchId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
+  })
+}
+
+export function useRenameTournament(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => renameTournament(tournamentId, name),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId] })
+      void qc.invalidateQueries({ queryKey: tournamentKeys.mine })
+    },
+  })
+}
+
+export function useRenameGroup(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ groupId, name }: { groupId: string; name: string }) =>
+      renameGroup(groupId, name),
+    onSuccess: () => {
+      // 조 이름은 순위·대진표·참가자 화면에 모두 박혀 나온다
+      void qc.invalidateQueries({ queryKey: tournamentKeys.groups(tournamentId) })
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'standings'] })
     },
   })
 }

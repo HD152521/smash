@@ -567,6 +567,67 @@ try {
   const byRef = await rpc(ref.token, 'void_match', { p_match_id: matchId, p_reason: null })
   check('심판은 무효 처리할 수 없다', byRef.status >= 400, `status=${byRef.status}`)
 
+
+  // ── 예정 경기 삭제 ──────────────────────────────────────────────
+  console.log('\n── 예정 경기 삭제 ──')
+  const doomed = await rpc(admin.token, 'create_match', {
+    p_tournament_id: t.id, p_court_id: null, p_label: null,
+    p_group_a: jokerGroup.id, p_players_a: [memberOf('선수1'), memberOf('선수2')],
+    p_group_b: normalGroup.id, p_players_b: [memberOf('선수3'), memberOf('선수4')],
+    p_referees: [],
+  })
+  const doomedId = (doomed.body as unknown as { id: string }).id
+
+  const delOk = await fetch(`${URL_BASE}/rest/v1/matches?id=eq.${doomedId}`, {
+    method: 'DELETE',
+    headers: {
+      apikey: ANON,
+      Authorization: `Bearer ${admin.token}`,
+      Prefer: 'return=representation',
+    },
+  })
+  const { rows: goneRows } = await db.query(`select 1 from matches where id=$1`, [doomedId])
+  check(
+    '아직 시작 안 한 경기는 지운다',
+    delOk.status < 300 && goneRows.length === 0,
+    `status=${delOk.status}`,
+  )
+
+  // 이미 끝난 경기(matchId)는 못 지운다 — 무효 처리가 맞다
+  const delFinished = await fetch(`${URL_BASE}/rest/v1/matches?id=eq.${matchId}`, {
+    method: 'DELETE',
+    headers: {
+      apikey: ANON,
+      Authorization: `Bearer ${admin.token}`,
+      Prefer: 'return=representation',
+    },
+  })
+  const { rows: stillRows } = await db.query(`select 1 from matches where id=$1`, [matchId])
+  check(
+    '끝난 경기는 지울 수 없다',
+    stillRows.length === 1,
+    `status=${delFinished.status} — 순위에 반영된 결과가 흔적 없이 사라지면 안 된다`,
+  )
+
+  // 수동 기록은 score_events 가 없다. 예전 가드는 이걸 그냥 지웠다.
+  const manualDoomed = await rpc(admin.token, 'record_manual_match', {
+    p_tournament_id: t.id,
+    p_group_a: jokerGroup.id, p_players_a: [memberOf('선수1'), memberOf('선수2')], p_score_a: 11,
+    p_group_b: normalGroup.id, p_players_b: [memberOf('선수3'), memberOf('선수4')], p_score_b: 5,
+    p_label: null,
+  })
+  const manualId = (manualDoomed.body as unknown as { id: string } | null)?.id
+  await fetch(`${URL_BASE}/rest/v1/matches?id=eq.${manualId}`, {
+    method: 'DELETE',
+    headers: { apikey: ANON, Authorization: `Bearer ${admin.token}` },
+  })
+  const { rows: manualLeft } = await db.query(`select 1 from matches where id=$1`, [manualId])
+  check(
+    '수동 기록도 지울 수 없다 (점수 이벤트가 없어도)',
+    manualLeft.length === 1,
+    '예전 가드는 score_events 만 봐서 이게 그냥 지워졌다',
+  )
+
 } finally {
   await db.query(
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,
