@@ -7,6 +7,8 @@ export interface TournamentNavState {
   status: TournamentStatus | undefined
   isAdmin: boolean
   isOwner: boolean
+  /** 대회 안에서 쓰는 내 이름. 대진표가 '내 경기' 를 가려내는 데 쓴다 */
+  myName: string | undefined
   myGroupName: string | undefined
   myGroupIsJoker: boolean
   /** 내가 심판으로 걸린, 아직 안 끝난 경기 수 */
@@ -35,6 +37,7 @@ export function useTournamentNav(id: string | undefined): TournamentNavState {
     status: tournament.data?.status,
     isAdmin: me?.role === 'owner' || me?.role === 'admin',
     isOwner: me?.role === 'owner',
+    myName,
     myGroupName: myGroup?.name,
     myGroupIsJoker: Boolean(myGroup?.is_joker),
     // 끝난 경기는 셀 이유가 없다 — 심판이 지금 할 일만 배지에 뜬다

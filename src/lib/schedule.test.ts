@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
-import { buildSchedule, matchTitle } from './schedule'
+import { buildSchedule, matchTitle, myMatchRole } from './schedule'
 
 const courts = [
   { id: 'c1', name: '1번 코트' },
@@ -83,5 +83,26 @@ describe('buildSchedule', () => {
 describe('matchTitle', () => {
   it('조 이름을 한 줄로 만든다', () => {
     expect(matchTitle(match({}))).toBe('1조 vs 2조')
+  })
+})
+
+describe('myMatchRole', () => {
+  it('뛰는 경기를 골라낸다 (양쪽 팀 모두)', () => {
+    expect(myMatchRole(match({ players_a: ['장용식', '김코트'] }), '장용식')).toBe('player')
+    expect(myMatchRole(match({ players_b: ['장용식'] }), '장용식')).toBe('player')
+  })
+
+  it('심판으로 걸린 경기도 골라낸다', () => {
+    expect(myMatchRole(match({ referees: ['장용식'] }), '장용식')).toBe('referee')
+  })
+
+  it('겸하면 뛰는 쪽이 이긴다 — 그때 있어야 할 곳은 코트 안이다', () => {
+    const m = match({ players_a: ['장용식'], referees: ['장용식'] })
+    expect(myMatchRole(m, '장용식')).toBe('player')
+  })
+
+  it('상관없는 경기와 이름을 모를 때는 null', () => {
+    expect(myMatchRole(match({ players_a: ['남'] }), '장용식')).toBeNull()
+    expect(myMatchRole(match({ players_a: ['장용식'] }), undefined)).toBeNull()
   })
 })

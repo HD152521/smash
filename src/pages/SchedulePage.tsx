@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CircleDot, GripVertical, Pencil, Trash2 } from 'lucide-react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
@@ -9,7 +10,7 @@ import {
 } from '@/features/tournament/queries'
 import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { useDragQueue, type DropTarget } from '@/features/schedule/useDragQueue'
-import { buildSchedule, matchTitle } from '@/lib/schedule'
+import { buildSchedule, matchTitle, myMatchRole, type MyMatchRole } from '@/lib/schedule'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import type { MatchOverviewRow } from '@/types/database'
@@ -32,6 +33,10 @@ export function SchedulePage() {
   const setQueue = useSetCourtQueue(id ?? '')
   const nav = useTournamentNav(id)
   const isAdmin = nav.isAdmin
+  const myName = nav.myName
+
+  // 코트에 나가야 할 사람은 자기 경기만 보면 된다. 기본은 전체 — 운영자가 더 오래 본다.
+  const [onlyMine, setOnlyMine] = useState(false)
 
   const s = buildSchedule(matches.data ?? [], courts.data ?? [])
   const loading = matches.isPending || courts.isPending
@@ -42,6 +47,26 @@ export function SchedulePage() {
     if (courtId === null) return s.unassigned
     return s.courts.find((c) => c.court.id === courtId)?.waiting ?? []
   }
+
+  /**
+   * 화면에 뿌릴 줄. 순번은 거르기 전에 매긴다 —
+   * 필터를 걸었다고 '세 번째로 뛴다' 가 1번으로 바뀌면 안 된다.
+   */
+  function rowsOf(list: readonly MatchOverviewRow[], numbered: boolean): QueueRow[] {
+    return list
+      .map((m, i) => ({ m, order: numbered ? i + 1 : undefined, mine: myMatchRole(m, myName) }))
+      .filter((r) => !onlyMine || r.mine !== null)
+  }
+
+  const mineCount = myName
+    ? [...s.unassigned, ...s.courts.flatMap((c) => c.waiting)].filter(
+        (m) => myMatchRole(m, myName) !== null,
+      ).length
+    : 0
+
+  // 걸러 놓은 목록 위에서 끌면 안 보이는 경기 사이에 끼워 넣게 된다.
+  // 순서가 조용히 망가지느니 필터를 켜는 동안은 정렬을 잠근다.
+  const canDrag = isAdmin && !onlyMine
 
   function handleDrop(matchId: string, t: DropTarget) {
     const next = listOf(t.courtId)
@@ -88,54 +113,99 @@ export function SchedulePage() {
             예정 {s.scheduledCount}경기
             {s.liveCount > 0 && <span className="ml-2 text-live-fg">· 진행 중 {s.liveCount}</span>}
           </p>
-          {isAdmin && (
+          {canDrag && (
             <p className="mt-1 text-xs text-ink-3">
               손잡이를 끌어 코트와 순서를 바꿉니다. 위에 있을수록 먼저 뜁니다.
             </p>
           )}
 
-          {/* 코트별 줄 — 지금 돌아가는 판 */}
-          {s.courts.map((q) => (
-            <section key={q.court.id} className="mt-5">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-ink-2">
-                <CircleDot
-                  className={cn('size-4', q.live ? 'text-live-fg' : 'text-ink-3')}
-                  aria-hidden
-                />
-                {q.court.name}
-                <span className="text-ink-3">대기 {q.waiting.length}</span>
-                {q.live && <span className="text-xs font-black text-live-fg">진행 중</span>}
-              </h3>
-              <Queue
-                courtId={q.court.id}
-                items={q.waiting}
-                emptyText="대기 중인 경기가 없습니다."
-                tournamentId={id!}
-                isAdmin={isAdmin}
-                drag={drag}
-                onDelete={(mid) => removeMatch.mutate(mid)}
-                pendingDelete={removeMatch.isPending}
-                numbered
+          {myName && (
+            <label
+              className="mt-3 flex w-fit cursor-pointer items-center gap-2 rounded-xl border
+                         border-border-subtle bg-surface-1 py-2 pr-3 pl-2.5 text-sm font-bold text-ink-1
+                         focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600"
+            >
+              <input
+                type="checkbox"
+                checked={onlyMine}
+                onChange={(e) => setOnlyMine(e.target.checked)}
+                className="size-4 accent-brand-600"
               />
-            </section>
-          ))}
+              내 경기만 보기
+              <span className="tabular text-xs font-black text-ink-3">{mineCount}</span>
+            </label>
+          )}
+
+          {isAdmin && onlyMine && (
+            <p className="mt-1 text-xs text-ink-3">필터를 켜는 동안에는 순서를 바꿀 수 없습니다.</p>
+          )}
+
+          {onlyMine && mineCount === 0 && (
+            <p className="mt-4 rounded-2xl border border-dashed border-border-subtle p-6 text-center text-sm text-ink-2">
+              예정된 내 경기가 없습니다.
+            </p>
+          )}
+
+          {/* 코트별 줄 — 지금 돌아가는 판 */}
+          {s.courts.map((q) => {
+            const rows = rowsOf(q.waiting, true)
+            const liveMine = q.live ? myMatchRole(q.live, myName) : null
+            // 걸러서 아무것도 안 남은 코트는 통째로 접는다. 빈 줄만 늘어놓으면 못 읽는다.
+            if (onlyMine && rows.length === 0 && liveMine === null) return null
+
+            return (
+              <section key={q.court.id} className="mt-5">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-ink-2">
+                  <CircleDot
+                    className={cn('size-4', q.live ? 'text-live-fg' : 'text-ink-3')}
+                    aria-hidden
+                  />
+                  {q.court.name}
+                  <span className="text-ink-3">대기 {rows.length}</span>
+                  {q.live && <span className="text-xs font-black text-live-fg">진행 중</span>}
+                  {liveMine && <MineTag mine={liveMine} />}
+                </h3>
+                <Queue
+                  courtId={q.court.id}
+                  rows={rows}
+                  emptyText={
+                    onlyMine ? '이 코트에 내 경기가 없습니다.' : '대기 중인 경기가 없습니다.'
+                  }
+                  tournamentId={id!}
+                  isAdmin={isAdmin}
+                  canDrag={canDrag}
+                  drag={drag}
+                  onDelete={(mid) => removeMatch.mutate(mid)}
+                  pendingDelete={removeMatch.isPending}
+                />
+              </section>
+            )
+          })}
 
           {/* 코트에 아직 안 올린 경기는 맨 아래 */}
-          <section className="mt-8">
-            <h3 className="text-sm font-bold text-ink-2">
-              코트 미배정 <span className="text-ink-3">{s.unassigned.length}</span>
-            </h3>
-            <Queue
-              courtId={null}
-              items={s.unassigned}
-              emptyText="모든 경기가 코트에 배정됐습니다."
-              tournamentId={id!}
-              isAdmin={isAdmin}
-              drag={drag}
-              onDelete={(mid) => removeMatch.mutate(mid)}
-              pendingDelete={removeMatch.isPending}
-            />
-          </section>
+          {(() => {
+            const rows = rowsOf(s.unassigned, false)
+            if (onlyMine && rows.length === 0) return null
+
+            return (
+              <section className="mt-8">
+                <h3 className="text-sm font-bold text-ink-2">
+                  코트 미배정 <span className="text-ink-3">{rows.length}</span>
+                </h3>
+                <Queue
+                  courtId={null}
+                  rows={rows}
+                  emptyText="모든 경기가 코트에 배정됐습니다."
+                  tournamentId={id!}
+                  isAdmin={isAdmin}
+                  canDrag={canDrag}
+                  drag={drag}
+                  onDelete={(mid) => removeMatch.mutate(mid)}
+                  pendingDelete={removeMatch.isPending}
+                />
+              </section>
+            )
+          })()}
         </>
       )}
 
@@ -158,35 +228,52 @@ export function SchedulePage() {
   )
 }
 
+/** 대진표 한 줄 — 경기 + 대기 순번 + 나와의 관계 */
+interface QueueRow {
+  m: MatchOverviewRow
+  order?: number
+  mine: MyMatchRole
+}
+
 function Queue({
   courtId,
-  items,
+  rows,
   emptyText,
   tournamentId,
   isAdmin,
+  canDrag,
   drag,
   onDelete,
   pendingDelete,
-  numbered = false,
 }: {
   courtId: string | null
-  items: MatchOverviewRow[]
+  rows: QueueRow[]
   emptyText: string
   tournamentId: string
   isAdmin: boolean
+  /** 끌어서 옮길 수 있나. 관리자여도 필터를 켜면 잠긴다 */
+  canDrag: boolean
   drag: ReturnType<typeof useDragQueue>
   onDelete: (matchId: string) => void
   pendingDelete: boolean
-  numbered?: boolean
 }) {
-  if (!isAdmin) {
-    return items.length === 0 ? (
+  // 놓을 자리를 만들 수 없는 경우다. 관리자면 시작·수정·삭제는 그대로 두고 손잡이만 뺀다.
+  if (!canDrag) {
+    return rows.length === 0 ? (
       <p className="mt-2 text-sm text-ink-3">{emptyText}</p>
     ) : (
       <ul className="mt-2 flex flex-col gap-2">
-        {items.map((m, i) => (
-          <li key={m.id}>
-            <MatchCard m={m} tournamentId={tournamentId} order={numbered ? i + 1 : undefined} />
+        {rows.map((r) => (
+          <li key={r.m.id}>
+            <MatchCard
+              m={r.m}
+              tournamentId={tournamentId}
+              order={r.order}
+              mine={r.mine}
+              admin={isAdmin}
+              onDelete={() => r.m.id && onDelete(r.m.id)}
+              pendingDelete={pendingDelete}
+            />
           </li>
         ))}
       </ul>
@@ -197,29 +284,49 @@ function Queue({
 
   return (
     <ul className="mt-2 flex flex-col">
-      {items.map((m, i) => (
-        <li key={m.id}>
+      {rows.map((r, i) => (
+        <li key={r.m.id}>
           <Slot {...drag.slotProps(courtId, i)} active={active(i)} />
           <MatchCard
-            m={m}
+            m={r.m}
             tournamentId={tournamentId}
-            order={numbered ? i + 1 : undefined}
+            order={r.order}
+            mine={r.mine}
             admin
-            onDelete={() => m.id && onDelete(m.id)}
+            onDelete={() => r.m.id && onDelete(r.m.id)}
             pendingDelete={pendingDelete}
-            handleProps={m.id ? drag.handleProps(m.id, courtId) : undefined}
-            dimmed={drag.dragging?.matchId === m.id}
+            handleProps={r.m.id ? drag.handleProps(r.m.id, courtId) : undefined}
+            dimmed={drag.dragging?.matchId === r.m.id}
           />
         </li>
       ))}
       {/* 맨 끝 자리 — 빈 줄에도 놓을 수 있어야 한다 */}
       <li>
-        <Slot {...drag.slotProps(courtId, items.length)} active={active(items.length)} last />
+        <Slot {...drag.slotProps(courtId, rows.length)} active={active(rows.length)} last />
       </li>
-      {items.length === 0 && !drag.dragging && (
+      {rows.length === 0 && !drag.dragging && (
         <li className="mt-1 text-sm text-ink-3">{emptyText}</li>
       )}
     </ul>
+  )
+}
+
+/**
+ * 내 경기 표시.
+ *
+ * 뛰는 경기는 브랜드색, 심판은 주황이다. 둘을 같은 색으로 두면
+ * 라켓을 들고 갈지 호루라기를 들고 갈지 카드를 열어봐야 안다.
+ */
+function MineTag({ mine }: { mine: Exclude<MyMatchRole, null> }) {
+  return (
+    <span
+      className={cn(
+        'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black text-white',
+        mine === 'player' ? 'bg-brand-600' : 'bg-warn',
+      )}
+    >
+      {mine === 'player' ? '내 경기' : '내 심판'}
+    </span>
   )
 }
 
@@ -242,6 +349,7 @@ function MatchCard({
   m,
   tournamentId,
   order,
+  mine = null,
   admin = false,
   onDelete,
   pendingDelete,
@@ -251,6 +359,8 @@ function MatchCard({
   m: MatchOverviewRow
   tournamentId: string
   order?: number
+  /** 내가 뛰거나 심판인 경기면 색으로 튀어나오게 한다 */
+  mine?: MyMatchRole
   /** 관리자만 손잡이·수정·삭제를 본다 */
   admin?: boolean
   onDelete?: () => void
@@ -266,7 +376,12 @@ function MatchCard({
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-xl border border-border-subtle bg-surface-1 py-2 pr-1 pl-2',
+        'flex items-center gap-1 rounded-xl border py-2 pr-1 pl-2',
+        mine === 'player'
+          ? 'border-brand-600 bg-brand-600/10'
+          : mine === 'referee'
+            ? 'border-warn bg-warn/10'
+            : 'border-border-subtle bg-surface-1',
         dimmed && 'opacity-40',
       )}
     >
@@ -293,6 +408,7 @@ function MatchCard({
             {matchTitle(m)}
             {m.group_b_joker && <span aria-hidden> 🃏</span>}
           </span>
+          {mine && <MineTag mine={mine} />}
         </p>
         {hasPlayers && (
           <p className="mt-0.5 truncate text-xs text-ink-3">

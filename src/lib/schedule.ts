@@ -47,6 +47,25 @@ export function buildSchedule(
   }
 }
 
+/** 이 경기에서 내 자리 — 뛰거나, 심판을 보거나, 상관없거나 */
+export type MyMatchRole = 'player' | 'referee' | null
+
+/**
+ * 대진표에서 내 경기를 골라내는 기준.
+ *
+ * 이름으로 맞춘다. match_overview 가 내려주는 건 display_name 뿐이고,
+ * 머리말의 심판 배지도 이미 같은 기준을 쓴다 (useTournamentNav).
+ *
+ * 뛰는 것과 심판을 겸하는 편성은 없지만, 겹치면 뛰는 쪽을 앞세운다 —
+ * 그때 몸이 있어야 할 곳은 코트 안이다.
+ */
+export function myMatchRole(m: MatchOverviewRow, myName: string | undefined): MyMatchRole {
+  if (!myName) return null
+  if (m.players_a?.includes(myName) || m.players_b?.includes(myName)) return 'player'
+  if (m.referees?.includes(myName)) return 'referee'
+  return null
+}
+
 /** "1조 vs 3조" 처럼 한 줄로 읽히게 */
 export function matchTitle(m: MatchOverviewRow): string {
   return `${m.group_a_name ?? '—'} vs ${m.group_b_name ?? '—'}`
