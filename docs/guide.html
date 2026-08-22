@@ -1,0 +1,426 @@
+<title>SMASH 사용 안내</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+
+<style>
+  /* ── 토큰: 밝은 테마가 기본 ─────────────────────────────── */
+  :root {
+    --paper:   #F6F8F4;
+    --card:    #FFFFFF;
+    --ink:     #161D18;
+    --ink-2:   #4B5751;
+    --ink-3:   #77837C;
+    --line:    #DCE3DA;
+    --court:   #1B7A4B;  /* 앱의 브랜드 초록 — 내가 뛰는 경기 */
+    --court-w: #E4F2E9;
+    --whistle: #A9660F;  /* 앱의 경고 주황 — 내가 심판인 경기 */
+    --whistle-w: #FAEEDC;
+    --shadow:  0 1px 2px rgba(22,29,24,.06), 0 8px 24px -16px rgba(22,29,24,.30);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #11150F;
+      --card:    #1A201B;
+      --ink:     #E9EEE6;
+      --ink-2:   #A9B4AC;
+      --ink-3:   #7E8A83;
+      --line:    #2C342E;
+      --court:   #5FCB8D;
+      --court-w: #1B2A21;
+      --whistle: #E6A44E;
+      --whistle-w: #2C2318;
+      --shadow:  0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:   #11150F;
+    --card:    #1A201B;
+    --ink:     #E9EEE6;
+    --ink-2:   #A9B4AC;
+    --ink-3:   #7E8A83;
+    --line:    #2C342E;
+    --court:   #5FCB8D;
+    --court-w: #1B2A21;
+    --whistle: #E6A44E;
+    --whistle-w: #2C2318;
+    --shadow:  0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  /* ── 바탕 ────────────────────────────────────────────────── */
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans KR', system-ui, -apple-system, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.72;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  /* ── 머리말 ──────────────────────────────────────────────── */
+  .eyebrow {
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .16em;
+    color: var(--court);
+    margin-bottom: .5rem;
+  }
+
+  h1 {
+    font-family: 'Black Han Sans', 'IBM Plex Sans KR', sans-serif;
+    font-size: clamp(2.6rem, 11vw, 3.6rem);
+    line-height: 1.02;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+
+  .lede {
+    margin-top: .85rem;
+    color: var(--ink-2);
+    font-size: 1.02rem;
+  }
+
+  /* 코트 라인 — 머리말 아래 굵은 선 하나, 안쪽 선 하나 */
+  .courtline {
+    margin-top: 1.6rem;
+    border-top: 3px solid var(--ink);
+    padding-top: .3rem;
+  }
+  .courtline::after {
+    content: "";
+    display: block;
+    border-top: 1px solid var(--line);
+  }
+
+  /* ── 섹션 ────────────────────────────────────────────────── */
+  section { display: flex; flex-direction: column; gap: 1.15rem; }
+
+  h2 {
+    font-family: 'Black Han Sans', 'IBM Plex Sans KR', sans-serif;
+    font-size: 1.5rem;
+    line-height: 1.25;
+    letter-spacing: .005em;
+  }
+  h2 .h2sub {
+    display: block;
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--ink-3);
+    letter-spacing: 0;
+    margin-top: .3rem;
+  }
+
+  /* ── 순서가 있는 단계 (실제로 순서대로 해야 하는 것만) ──── */
+  ol.steps {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    counter-reset: step;
+  }
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 2.2rem 1fr;
+    gap: .9rem;
+    align-items: start;
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    font-family: 'Black Han Sans', 'IBM Plex Sans KR', sans-serif;
+    font-size: 1.75rem;
+    line-height: 1.05;
+    color: var(--court);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .steps b { font-weight: 700; display: block; }
+  .steps p { color: var(--ink-2); font-size: .95rem; margin-top: .1rem; }
+
+  /* ── 카드 ────────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.25rem 1.3rem;
+    box-shadow: var(--shadow);
+  }
+  /* 서비스 라인처럼 왼쪽에 색 띠 */
+  .card.role { border-left: 5px solid var(--court); }
+  .card.role.ref { border-left-color: var(--whistle); }
+
+  .role h3 {
+    font-family: 'Black Han Sans', 'IBM Plex Sans KR', sans-serif;
+    font-size: 1.2rem;
+    margin-bottom: .15rem;
+  }
+  .role .who { font-size: .85rem; color: var(--ink-3); margin-bottom: .95rem; }
+
+  ol.flow {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    counter-reset: f;
+  }
+  ol.flow > li {
+    counter-increment: f;
+    display: grid;
+    grid-template-columns: 1.35rem 1fr;
+    gap: .55rem;
+    font-size: .96rem;
+  }
+  ol.flow > li::before {
+    content: counter(f) ".";
+    color: var(--ink-3);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  ul.plain {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+  }
+  ul.plain > li {
+    display: grid;
+    grid-template-columns: .6rem 1fr;
+    gap: .7rem;
+    font-size: .96rem;
+  }
+  ul.plain > li::before {
+    content: "";
+    width: .4rem; height: .4rem;
+    border-radius: 50%;
+    background: var(--ink-3);
+    margin-top: .62rem;
+  }
+
+  /* ── 앱 버튼을 흉내 낸 인라인 칩 ────────────────────────── */
+  .btn {
+    font-size: .84rem;
+    font-weight: 700;
+    padding: .1rem .5rem;
+    border-radius: 6px;
+    background: var(--court);
+    color: var(--card);
+    white-space: nowrap;
+  }
+  .btn.quiet {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .tab {
+    font-size: .84rem;
+    font-weight: 700;
+    color: var(--ink);
+    border-bottom: 2px solid var(--court);
+    padding-bottom: 1px;
+    white-space: nowrap;
+  }
+
+  /* ── 색 범례 ─────────────────────────────────────────────── */
+  .legend { display: flex; flex-direction: column; gap: .6rem; }
+  .swatch {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: .8rem;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: .7rem .9rem;
+  }
+  .swatch.mine  { border-color: var(--court);   background: var(--court-w); }
+  .swatch.ref   { border-color: var(--whistle); background: var(--whistle-w); }
+  .tag {
+    font-size: .75rem;
+    font-weight: 700;
+    padding: .16rem .55rem;
+    border-radius: 999px;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .tag.mine { background: var(--court); }
+  .tag.ref  { background: var(--whistle); }
+  :root[data-theme="dark"] .tag, :root:not([data-theme="light"]) .tag { color: #11150F; }
+  .swatch span:last-child { font-size: .93rem; }
+
+  /* ── 점수 규칙 표 ────────────────────────────────────────── */
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td {
+    text-align: left;
+    padding: .6rem .5rem;
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    color: var(--ink-3);
+    border-bottom: 2px solid var(--ink);
+  }
+  td:first-child { font-weight: 600; }
+  td.num { text-align: right; white-space: nowrap; }
+
+  /* ── 강조 한 줄 ──────────────────────────────────────────── */
+  .note {
+    border-left: 3px solid var(--court);
+    padding: .1rem 0 .1rem 1rem;
+    color: var(--ink-2);
+    font-size: .95rem;
+  }
+  .note b { color: var(--ink); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.2rem;
+    color: var(--ink-3);
+    font-size: .85rem;
+  }
+
+  strong { font-weight: 700; }
+  em { font-style: normal; color: var(--court); font-weight: 600; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">배드민턴 대회 앱</p>
+    <h1>SMASH<br>사용 안내</h1>
+    <p class="lede">폰으로 내 경기를 확인하고, 심판을 맡은 경기는 점수까지 여기서 찍습니다. 처음 한 번만 읽으면 됩니다.</p>
+    <div class="courtline"></div>
+  </header>
+
+  <!-- 실제로 순서대로 해야 하는 일이라 번호를 붙인다 -->
+  <section>
+    <h2>처음 한 번<span class="h2sub">4단계, 2분이면 끝납니다</span></h2>
+    <ol class="steps">
+      <li>
+        <div>
+          <b>로그인</b>
+          <p>이메일로 가입하거나 카카오·구글로 들어옵니다. 가입할 때 적는 <em>이름</em>이 대회에서 다른 사람에게 보이는 이름입니다.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>초대 코드로 참가</b>
+          <p>메인에서 <span class="btn">대회 참가</span>를 누르고 운영자가 알려준 6자리 코드를 넣습니다. <strong>I·L·O·0·1</strong>은 서로 헷갈리기 쉬우니 잘 보세요.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>내 조 고르기</b>
+          <p>참가하면 바로 조를 고르는 화면이 뜹니다. 대회가 시작되기 전까지는 <span class="tab">설정</span>에서 바꿀 수 있습니다.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>알림 켜기</b>
+          <p><span class="tab">설정</span> → <span class="btn">알림 켜기</span>. 내 경기가 편성되면 폰으로 알려줍니다. <strong>아이폰은 홈 화면에 추가해야만</strong> 알림이 옵니다 — 설정 화면이 방법을 안내해 줍니다.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 순서가 아니라 색 구분이라 번호를 붙이지 않는다 -->
+  <section>
+    <h2>내 경기 찾기<span class="h2sub">대진표 탭 · 색으로 구분됩니다</span></h2>
+    <div class="legend">
+      <div class="swatch mine">
+        <span class="tag mine">내 경기</span>
+        <span>초록 — 내가 <strong>뛰는</strong> 경기</span>
+      </div>
+      <div class="swatch ref">
+        <span class="tag ref">내 심판</span>
+        <span>주황 — 내가 <strong>심판</strong>인 경기</span>
+      </div>
+    </div>
+    <ul class="plain">
+      <li>위쪽 <strong>내 경기만 보기</strong>를 체크하면 내 것만 남습니다.</li>
+      <li>경기 앞의 숫자가 그 코트의 <strong>대기 순번</strong>입니다. 위에 있을수록 먼저 뜁니다.</li>
+      <li>코트가 아직 안 정해진 경기는 맨 아래 <strong>코트 미배정</strong>에 모여 있습니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>내 차례가 오면</h2>
+
+    <div class="card role">
+      <h3>뛸 때</h3>
+      <p class="who">선수로 편성된 경기</p>
+      <ul class="plain">
+        <li>대진표에서 내 경기가 걸린 코트를 확인하고 그 코트로 갑니다.</li>
+        <li>점수는 그 경기의 <strong>심판이 찍습니다</strong>. 선수는 따로 할 일이 없습니다.</li>
+        <li>점수는 <span class="tab">코트</span> 화면에서 실시간으로 올라갑니다.</li>
+      </ul>
+    </div>
+
+    <div class="card role ref">
+      <h3>심판 볼 때</h3>
+      <p class="who">운영자가 나를 심판으로 지정한 경기</p>
+      <ol class="flow">
+        <li><span class="tab">심판</span> 탭에 내가 맡은 경기가 모여 있습니다. 누르고 <span class="btn">경기 시작</span>.</li>
+        <li>화면의 <strong>큰 A·B 판을 눌러 1점씩</strong> 올립니다.</li>
+        <li>잘못 눌렀으면 <span class="btn quiet">취소</span> — 마지막 한 점이 지워집니다.</li>
+        <li>목표 점수에 닿으면 <strong>자동으로 끝납니다.</strong> 그 전에 끝내야 하면 <span class="btn">경기 종료</span>.</li>
+        <li>끝난 뒤에도 <strong>2분 안에는</strong> <span class="btn quiet">마지막 점수 취소</span>로 되돌릴 수 있습니다. 그 뒤엔 운영자에게 말씀해 주세요.</li>
+      </ol>
+    </div>
+
+    <p class="note"><b>와이파이가 끊겨도 그냥 누르세요.</b> 점수가 폰에 저장됐다가 연결이 돌아오면 알아서 전송됩니다. 화면에 <strong>“N개 전송 대기”</strong>가 떠 있으면 아직 안 갔다는 뜻이니, 그 상태로 경기를 끝내지 말고 연결부터 확인해 주세요.</p>
+
+    <p class="note"><b>채점 중에는 화면이 꺼지지 않습니다.</b> 중간에 <span class="btn quiet">나가기</span>를 눌러도 점수는 그대로 남습니다.</p>
+  </section>
+
+  <section>
+    <h2>점수 규칙<span class="h2sub">듀스가 없습니다 — 목표에 닿는 순간 끝</span></h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>조</th><th class="num">목표 점수</th><th class="num">이기면 승점</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>일반조</td><td class="num">21점</td><td class="num">1점</td></tr>
+          <tr><td>조커조 <span aria-hidden="true">🃏</span></td><td class="num">11점</td><td class="num">0.5점</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="plain">
+      <li>조커조는 <strong>적은 점수로 이기는 대신 승점이 절반</strong>입니다. 순위표에서 균형이 맞도록 만든 규칙입니다.</li>
+      <li>대진표와 순위에서 조커조 옆에는 <span aria-hidden="true">🃏</span> 표시가 붙습니다.</li>
+      <li>경기는 <strong>조 대 조 복식</strong>입니다. 각 조에서 두 명씩 나옵니다.</li>
+      <li>진 팀은 승점이 없습니다. 순위는 <span class="tab">순위</span> 탭에서 실시간으로 확인합니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>자주 헷갈리는 것</h2>
+    <ul class="plain">
+      <li><strong>남의 경기 점수는 못 건드립니다.</strong> 심판으로 지정된 경기만 채점 화면이 열립니다.</li>
+      <li><strong>한 코트에서는 한 경기만</strong> 진행됩니다. 앞 경기가 끝나야 다음 경기를 시작할 수 있습니다.</li>
+      <li><strong>대회가 시작되면 조를 바꿀 수 없습니다.</strong> 시작 전에 <span class="tab">설정</span>에서 확인해 주세요.</li>
+      <li>알림이 안 온다면 — 아이폰은 홈 화면에 추가했는지, 안드로이드는 <span class="tab">설정</span>에서 알림이 켜져 있는지 확인해 주세요.</li>
+    </ul>
+  </section>
+
+  <footer>
+    막히는 게 있으면 운영자에게 말씀해 주세요. 점수를 잘못 넣었거나 2분이 지난 경기도 운영자가 고칠 수 있습니다.
+  </footer>
+
+</div>
