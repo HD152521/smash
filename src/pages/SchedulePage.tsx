@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CircleDot, GripVertical, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, CircleDot, GripVertical, Pencil, Trash2 } from 'lucide-react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import {
   useCourts,
@@ -37,6 +37,13 @@ export function SchedulePage() {
 
   // 코트에 나가야 할 사람은 자기 경기만 보면 된다. 기본은 전체 — 운영자가 더 오래 본다.
   const [onlyMine, setOnlyMine] = useState(false)
+
+  // 접어 둔 코트. 기본은 전부 펼침 — 처음 들어온 사람이 빈 화면을 보면 안 된다.
+  const [closed, setClosed] = useState<Record<string, boolean>>({})
+
+  function toggleCourt(courtId: string) {
+    setClosed((prev) => ({ ...prev, [courtId]: !prev[courtId] }))
+  }
 
   const s = buildSchedule(matches.data ?? [], courts.data ?? [])
   const loading = matches.isPending || courts.isPending
@@ -153,31 +160,59 @@ export function SchedulePage() {
             // 걸러서 아무것도 안 남은 코트는 통째로 접는다. 빈 줄만 늘어놓으면 못 읽는다.
             if (onlyMine && rows.length === 0 && liveMine === null) return null
 
+            /*
+             * 끌고 있는 동안에는 접어 둔 코트도 편다.
+             * 놓을 자리를 화면에서 찾는 방식이라(elementFromPoint), 접혀 있으면
+             * 그 코트로는 아예 옮길 수 없게 된다.
+             */
+            const open = !closed[q.court.id] || Boolean(drag.dragging)
+            const panelId = `court-panel-${q.court.id}`
+
             return (
               <section key={q.court.id} className="mt-5">
-                <h3 className="flex items-center gap-2 text-sm font-bold text-ink-2">
-                  <CircleDot
-                    className={cn('size-4', q.live ? 'text-live-fg' : 'text-ink-3')}
-                    aria-hidden
-                  />
-                  {q.court.name}
-                  <span className="text-ink-3">대기 {rows.length}</span>
-                  {q.live && <span className="text-xs font-black text-live-fg">진행 중</span>}
-                  {liveMine && <MineTag mine={liveMine} />}
+                <h3>
+                  <button
+                    type="button"
+                    onClick={() => toggleCourt(q.court.id)}
+                    aria-expanded={open}
+                    aria-controls={panelId}
+                    className="flex w-full items-center gap-2 rounded-lg py-1 text-left text-sm
+                               font-bold text-ink-2 transition-colors hover:text-ink-1
+                               focus-visible:outline-2 focus-visible:outline-offset-2
+                               focus-visible:outline-brand-600"
+                  >
+                    <CircleDot
+                      className={cn('size-4 shrink-0', q.live ? 'text-live-fg' : 'text-ink-3')}
+                      aria-hidden
+                    />
+                    {q.court.name}
+                    <span className="text-ink-3">대기 {rows.length}</span>
+                    {q.live && <span className="text-xs font-black text-live-fg">진행 중</span>}
+                    {liveMine && <MineTag mine={liveMine} />}
+                    <ChevronDown
+                      className={cn(
+                        'ml-auto size-4 shrink-0 text-ink-3 transition-transform',
+                        !open && '-rotate-90',
+                      )}
+                      aria-hidden
+                    />
+                  </button>
                 </h3>
-                <Queue
-                  courtId={q.court.id}
-                  rows={rows}
-                  emptyText={
-                    onlyMine ? '이 코트에 내 경기가 없습니다.' : '대기 중인 경기가 없습니다.'
-                  }
-                  tournamentId={id!}
-                  isAdmin={isAdmin}
-                  canDrag={canDrag}
-                  drag={drag}
-                  onDelete={(mid) => removeMatch.mutate(mid)}
-                  pendingDelete={removeMatch.isPending}
-                />
+                <div id={panelId} hidden={!open}>
+                  <Queue
+                    courtId={q.court.id}
+                    rows={rows}
+                    emptyText={
+                      onlyMine ? '이 코트에 내 경기가 없습니다.' : '대기 중인 경기가 없습니다.'
+                    }
+                    tournamentId={id!}
+                    isAdmin={isAdmin}
+                    canDrag={canDrag}
+                    drag={drag}
+                    onDelete={(mid) => removeMatch.mutate(mid)}
+                    pendingDelete={removeMatch.isPending}
+                  />
+                </div>
               </section>
             )
           })}
