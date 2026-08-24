@@ -10,6 +10,7 @@ import type {
   ScoreEventRow,
   StandingRow,
   TournamentConfigPatch,
+  TournamentKind,
   TournamentRow,
   TournamentStatus,
 } from '@/types/database'
@@ -54,6 +55,41 @@ export async function updateTournamentConfig(
 }
 
 /**
+ * 모임 열기.
+ *
+ * 조가 없어서 create_tournament 과 다른 함수를 쓴다. 코트를 함께 만든다 —
+ * 모임은 코트가 곧 화면이라, 코트 없이 만들면 빈 화면부터 보게 된다.
+ */
+export async function createSession(input: {
+  name: string
+  displayName: string
+  courtCount: number
+}): Promise<TournamentRow> {
+  const res = await supabase.rpc('create_session', {
+    p_name: input.name,
+    p_display_name: input.displayName,
+    p_court_count: input.courtCount,
+  })
+  return unwrap(res) as TournamentRow
+}
+
+/** 모임 경기 편성 — 조 대신 사람을 직접 고른다 */
+export async function createSessionMatch(input: {
+  tournamentId: string
+  courtId: string | null
+  playersA: string[]
+  playersB: string[]
+}): Promise<MatchRow> {
+  const res = await supabase.rpc('create_session_match', {
+    p_tournament_id: input.tournamentId,
+    p_court_id: input.courtId,
+    p_players_a: input.playersA,
+    p_players_b: input.playersB,
+  })
+  return unwrap(res) as MatchRow
+}
+
+/**
  * 참가. 서버가 예외 대신 결과 객체를 돌려주므로 여기서 예외로 바꿔 준다.
  * (예외를 던지면 브루트포스 시도 기록이 롤백되어 차단이 무력화된다)
  */
@@ -72,6 +108,7 @@ export interface MyTournament {
   id: string
   name: string
   description: string | null
+  kind: TournamentKind
   status: TournamentStatus
   inviteCode: string
   role: MemberRole
@@ -88,6 +125,8 @@ interface MembershipRow {
     name: string
     description: string | null
     status: TournamentStatus
+    // kind 가 없던 시절 행이 섞여 있을 수 있다
+    kind: TournamentKind | null
     invite_code: string
   } | null
 }
@@ -95,7 +134,9 @@ interface MembershipRow {
 export async function fetchMyTournaments(userId: string): Promise<MyTournament[]> {
   const res = await supabase
     .from('tournament_members')
-    .select('role, group_id, joined_at, tournaments(id, name, description, status, invite_code)')
+    .select(
+      'role, group_id, joined_at, tournaments(id, name, description, status, kind, invite_code)',
+    )
     .eq('user_id', userId)
     .order('joined_at', { ascending: false })
 
@@ -109,6 +150,8 @@ export async function fetchMyTournaments(userId: string): Promise<MyTournament[]
       id: r.tournaments.id,
       name: r.tournaments.name,
       description: r.tournaments.description,
+      // kind 가 없던 시절 행은 대회다 (isSession 과 같은 판단)
+      kind: r.tournaments.kind ?? 'tournament',
       status: r.tournaments.status,
       inviteCode: r.tournaments.invite_code,
       role: r.role,

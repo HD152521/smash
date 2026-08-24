@@ -19,6 +19,7 @@ function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
     score_a: 0,
     score_b: 0,
     winner_side: null,
+    scored: true,
     queue_order: 0,
     started_at: null,
     finished_at: null,
@@ -106,6 +107,16 @@ describe('buildSchedule', () => {
 describe('matchTitle', () => {
   it('조 이름을 한 줄로 만든다', () => {
     expect(matchTitle(match({}))).toBe('1조 vs 2조')
+  })
+
+  it('조가 없는 모임 경기는 사람 이름으로 부른다', () => {
+    const m = match({
+      group_a_name: null,
+      group_b_name: null,
+      players_a: ['가나다', '라마바'],
+      players_b: ['사아자', '차카타'],
+    })
+    expect(matchTitle(m)).toBe('가나다 · 라마바 vs 사아자 · 차카타')
   })
 })
 

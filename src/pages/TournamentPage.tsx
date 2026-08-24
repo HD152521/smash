@@ -1,10 +1,12 @@
-import { Navigate, useParams } from 'react-router-dom'
+import { Plus } from 'lucide-react'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
 import { useCourts, useMatches, useMembers, useTournament } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
+import { isSession } from '@/lib/session'
 
 
 /**
@@ -46,19 +48,44 @@ export function TournamentPage() {
 
   // 아직 조를 안 고른 참가자는 온보딩으로 보낸다.
   // 대회가 시작된 뒤라면 스스로 고칠 수 없으므로 보내지 않는다 (관리자 몫).
-  if (me && !me.groupId && tournament.data.status === 'draft') {
+  // 모임에는 조가 없다 — 여기로 보내면 고를 게 없는 화면에 갇힌다.
+  if (
+    !isSession(tournament.data.kind) &&
+    me &&
+    !me.groupId &&
+    tournament.data.status === 'draft'
+  ) {
     return <Navigate to={`/t/${id}/setup`} replace />
   }
 
   const t = tournament.data
+  const session = isSession(t.kind)
 
   return (
     <Shell id={id}>
-
-      {me && !me.groupId && t.status !== 'draft' && (
+      {/* 조 안내는 대회에서만 뜻이 있다. 모임에는 조가 없다. */}
+      {!session && me && !me.groupId && t.status !== 'draft' && (
         <p className="mt-5 rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm font-semibold text-ink-1">
           조가 정해지지 않았습니다. 대회가 시작돼서 스스로 바꿀 수 없으니 관리자에게 요청해 주세요.
         </p>
+      )}
+
+      {/*
+        모임에서 가장 자주 누르는 버튼. 관리 화면 안에 두지 않는다 —
+        모임장이 아닌 사람도 비는 코트를 보고 자기들끼리 들어가기 때문이다
+        (create_session_match 가 '뛰는 사람 본인' 을 허용한다).
+      */}
+      {session && me && (
+        <Link
+          to={`/t/${id}/matches/new-session`}
+          className="mt-5 flex min-h-14 items-center justify-center gap-2 rounded-2xl
+                     bg-brand-600 px-5 font-black text-white shadow-sm transition-colors
+                     hover:bg-brand-700
+                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        >
+          <Plus className="size-5" aria-hidden />
+          경기 짜기
+        </Link>
       )}
 
       {/* ── 코트별 현황 (이 화면의 본론) ─────────────────────────── */}
@@ -75,7 +102,12 @@ export function TournamentPage() {
             courts={courts.data ?? []}
             matches={matches.data ?? []}
             myDisplayName={me?.displayName}
-            canScore={isAdmin}
+            /*
+             * 모임에는 지정 심판이 없다. 뛰는 사람이 자기 경기를 시작하고
+             * 끝낸다(can_run_match). 여기서 admin 만 열어 두면 화살표가 안 보여
+             * 아무도 코트에 못 들어간다.
+             */
+            canScore={isAdmin || session}
           />
         )}
       </section>

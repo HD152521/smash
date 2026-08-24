@@ -31,6 +31,7 @@ export type {
   MatchTeamPlayersRow,
   MemberRole,
   TeamSide,
+  TournamentKind,
   TournamentStatus,
 } from './database.gen'
 
@@ -146,6 +147,25 @@ export type Database = {
       update_tournament_config: {
         Args: { p_tournament_id: string; p_config: TournamentConfigPatch }
         Returns: TournamentRow
+      }
+      /**
+       * 모임 열기. 조가 없으므로 create_tournament 과 다른 함수다.
+       * 코트를 함께 만든다 — 모임은 코트가 곧 화면이다.
+       */
+      create_session: {
+        Args: { p_name: string; p_display_name: string; p_court_count?: number }
+        Returns: TournamentRow
+      }
+      /** 모임 경기 편성. 조 대신 사람을 직접 고른다. */
+      create_session_match: {
+        Args: {
+          p_tournament_id: string
+          p_court_id: string | null
+          p_players_a: string[]
+          p_players_b: string[]
+          p_label?: string | null
+        }
+        Returns: MatchRow
       }
       join_tournament: {
         Args: { p_code: string; p_display_name?: string | null }

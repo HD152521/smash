@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BackLink } from '@/components/ui/BackLink'
 import { ChevronRight } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useMyTournaments } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
-import type { MemberRole, TournamentStatus } from '@/types/database'
+import { cn } from '@/lib/utils'
+import type { MemberRole, TournamentKind, TournamentStatus } from '@/types/database'
 
 const ROLE_LABEL: Record<MemberRole, string> = {
   owner: '주최자',
@@ -21,11 +23,63 @@ const STATUS_LABEL: Record<TournamentStatus, string> = {
 export function MyTournamentsPage() {
   const { data, isPending, error } = useMyTournaments()
 
+  /*
+   * 어느 쪽을 먼저 보여줄까.
+   *
+   * 모임이 하나라도 있으면 모임이다 — 모임을 쓰는 사람은 매주 여기 온다.
+   * 대회만 있는 사람에게 빈 '모임' 칸을 먼저 보여줄 이유는 없다.
+   */
+  const hasSession = (data ?? []).some((t) => t.kind === 'session')
+  const [picked, setPicked] = useState<TournamentKind | null>(null)
+  const kind: TournamentKind = picked ?? (hasSession ? 'session' : 'tournament')
+  const setKind = setPicked
+
+  const shown = (data ?? []).filter((t) => t.kind === kind)
+
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
       <BackLink to="/">메인으로</BackLink>
 
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 대회 모음</h1>
+      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 목록</h1>
+
+      {/*
+        대회와 모임을 섞어 놓으면 '지난 3월 정기전' 과 '지난 화요일 모임' 이
+        같은 줄에 서서, 매주 열리는 모임이 목록을 밀어내 버린다.
+        모임을 위에 둔다 — 다시 여는 쪽은 늘 최근 모임이다.
+      */}
+      {data && data.length > 0 && (
+        <div className="mt-3 flex gap-1.5">
+          {(['session', 'tournament'] as const).map((k) => {
+            const n = data.filter((t) => t.kind === k).length
+            if (n === 0) return null
+            return (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={kind === k}
+                onClick={() => setKind(k)}
+                className={cn(
+                  'inline-flex min-h-10 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+                  kind === k
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-surface-2 text-ink-2 transition-colors hover:text-ink-1',
+                )}
+              >
+                {k === 'session' ? '모임' : '대회'}
+                <span
+                  className={cn(
+                    'tabular rounded-full px-1.5 text-xs font-black',
+                    kind === k ? 'bg-white/25' : 'bg-surface-1 text-ink-3',
+                  )}
+                >
+                  {n}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {isPending && (
         <div className="mt-8 flex flex-col gap-3" aria-busy>
@@ -43,9 +97,9 @@ export function MyTournamentsPage() {
 
       {data && data.length === 0 && (
         <div className="mt-10 rounded-3xl border border-dashed border-border-subtle px-6 py-12 text-center">
-          <p className="text-lg font-bold text-ink-1">아직 참가한 대회가 없습니다</p>
+          <p className="text-lg font-bold text-ink-1">아직 참가한 대회나 모임이 없습니다</p>
           <p className="mt-1.5 text-sm text-ink-2">
-            초대 코드를 받으셨다면 참가하고, 직접 열려면 대회를 만드세요.
+            초대 코드를 받으셨다면 참가하고, 오늘 모여서 치는 날이면 모임을 여세요.
           </p>
           <div className="mt-6 flex flex-col justify-center gap-2.5 sm:flex-row">
             <Link
@@ -57,20 +111,20 @@ export function MyTournamentsPage() {
               대회 참가하기
             </Link>
             <Link
-              to="/new"
+              to="/new/session"
               className="inline-flex h-11 items-center justify-center rounded-xl border
                          border-border-subtle px-4 text-[0.95rem] font-semibold text-ink-1
                          transition-colors hover:bg-surface-2"
             >
-              대회 만들기
+              모임 열기
             </Link>
           </div>
         </div>
       )}
 
       {data && data.length > 0 && (
-        <ul className="mt-8 flex flex-col gap-3">
-          {data.map((t) => (
+        <ul className="mt-6 flex flex-col gap-3">
+          {shown.map((t) => (
             <li key={t.id}>
               <Link
                 to={`/t/${t.id}`}
@@ -103,7 +157,10 @@ export function MyTournamentsPage() {
                     </p>
                   )}
 
-                  {t.role === 'member' && !t.groupId && t.status === 'draft' && (
+                  {t.kind !== 'session' &&
+                    t.role === 'member' &&
+                    !t.groupId &&
+                    t.status === 'draft' && (
                     <p className="mt-2 text-xs font-semibold text-warn-fg">
                       조를 아직 고르지 않았습니다
                     </p>

@@ -1,10 +1,13 @@
 import { useAuth } from '@/features/auth/useAuth'
 import { useGroups, useMatches, useMembers, useTournament } from './queries'
+import { isSession } from '@/lib/session'
 import type { TournamentStatus } from '@/types/database'
 
 export interface TournamentNavState {
   name: string | undefined
   status: TournamentStatus | undefined
+  /** 모임인가 — 조 · 순위 · 심판을 숨길지 정한다 */
+  isSession: boolean
   isAdmin: boolean
   isOwner: boolean
   /** 대회 안에서 쓰는 내 이름. 대진표가 '내 경기' 를 가려내는 데 쓴다 */
@@ -35,6 +38,7 @@ export function useTournamentNav(id: string | undefined): TournamentNavState {
   return {
     name: tournament.data?.name,
     status: tournament.data?.status,
+    isSession: isSession(tournament.data?.kind),
     isAdmin: me?.role === 'owner' || me?.role === 'admin',
     isOwner: me?.role === 'owner',
     myName,

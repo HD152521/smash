@@ -46,6 +46,14 @@ const AdminMembersPage = lazyPage(() =>
 const AdminRulesPage = lazyPage(() =>
   import('@/pages/AdminRulesPage').then((m) => ({ default: m.AdminRulesPage })),
 )
+const CreateSessionPage = lazyPage(() =>
+  import('@/pages/CreateSessionPage').then((m) => ({ default: m.CreateSessionPage })),
+)
+const SessionMatchCreatePage = lazyPage(() =>
+  import('@/pages/SessionMatchCreatePage').then((m) => ({
+    default: m.SessionMatchCreatePage,
+  })),
+)
 const MatchCreatePage = lazyPage(() =>
   import('@/pages/MatchCreatePage').then((m) => ({ default: m.MatchCreatePage })),
 )
@@ -131,6 +139,14 @@ export function AppRoutes() {
         }
       />
       <Route
+        path="/new/session"
+        element={
+          <Protected>
+            <CreateSessionPage />
+          </Protected>
+        }
+      />
+      <Route
         path="/join"
         element={
           <Protected>
@@ -212,6 +228,14 @@ export function AppRoutes() {
         element={
           <Protected>
             <AdminRulesPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/matches/new-session"
+        element={
+          <Protected>
+            <SessionMatchCreatePage />
           </Protected>
         }
       />
