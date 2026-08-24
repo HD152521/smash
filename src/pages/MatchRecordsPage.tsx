@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react'
 import { useAdminGate } from '@/features/admin/useAdminGate'
 import { useGroups, useMatches, useVoidMatch } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
+import { matchHasPlayer, orderRecords } from '@/lib/records'
 import { cn } from '@/lib/utils'
 import type { MatchOverviewRow } from '@/types/database'
 
@@ -14,8 +15,8 @@ import type { MatchOverviewRow } from '@/types/database'
  * 대회가 끝난 뒤 가장 많이 열리는 화면이다. "그때 그 경기 몇 대 몇이었지"
  * 를 찾으려면 조나 사람으로 걸러야 한다.
  *
- * 순서는 목록을 받아온 순서(fetchMatches)를 그대로 따르고, 무효 경기만
- * 맨 아래로 내린다.
+ * 순서와 검색 기준은 lib/records.ts 에 있다 — 최근에 끝난 것이 위, 무효는
+ * 맨 아래, 검색은 뛴 사람만.
  */
 export function MatchRecordsPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,27 +32,12 @@ export function MatchRecordsPage() {
     (m) => m.status === 'finished' || m.status === 'void',
   )
 
-  const q = query.trim().toLowerCase()
   const filtered = finished.filter((m) => {
     if (groupFilter && m.group_a_id !== groupFilter && m.group_b_id !== groupFilter) return false
-    if (!q) return true
-    const names = [...(m.players_a ?? []), ...(m.players_b ?? []), ...(m.referees ?? [])]
-    return names.some((n) => n.toLowerCase().includes(q))
+    return matchHasPlayer(m, query)
   })
 
-  /*
-   * 무효는 맨 아래로 가라앉힌다.
-   *
-   * 순위에 안 들어가는 경기가 목록 한가운데 흐릿하게 끼어 있으면 훑어
-   * 내려가는 눈이 매번 거기서 한 번씩 걸린다. 지운 것도 아니라서 찾으려면
-   * 찾을 수 있어야 하고, 그러면 자리는 맨 아래가 맞다.
-   *
-   * sort 는 안정 정렬이라 무효끼리도 · 아닌 것끼리도 원래 순서가 유지된다.
-   * 원본을 건드리지 않도록 복사본을 정렬한다.
-   */
-  const ordered = [...filtered].sort(
-    (a, b) => Number(a.status === 'void') - Number(b.status === 'void'),
-  )
+  const ordered = orderRecords(filtered)
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
@@ -61,7 +47,7 @@ export function MatchRecordsPage() {
       {/* 필터 */}
       <div className="mt-6 flex flex-col gap-3">
         <label className="relative">
-          <span className="sr-only">선수 또는 심판 이름으로 찾기</span>
+          <span className="sr-only">선수 이름으로 찾기</span>
           <Search
             className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-3"
             aria-hidden
@@ -69,7 +55,7 @@ export function MatchRecordsPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="선수 · 심판 이름"
+            placeholder="선수 이름"
             className="h-11 w-full rounded-xl border border-border-subtle bg-surface-1 pr-3.5 pl-10
                        text-ink-1 outline-none placeholder:text-ink-3
                        focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
@@ -121,14 +107,26 @@ export function MatchRecordsPage() {
             {filtered.length !== finished.length && ` (전체 ${finished.length})`}
           </p>
           <ul className="mt-2 flex flex-col gap-2.5">
-            {ordered.map((m) => {
+            {ordered.map((m, i) => {
               // 뷰 컬럼은 NOT NULL 이 보존되지 않아 생성 타입이 전부 nullable 이다.
               // 지역 const 로 받아야 콜백 안까지 좁혀진 타입이 살아남는다.
               const matchId = m.id
               const isAdmin = !gate.denied && !gate.loading
+              /*
+               * 날짜가 바뀌는 자리에 머리말을 넣는다.
+               * 이틀짜리 대회에서 시각만 보이면 어제 경기와 오늘 경기가
+               * 구분되지 않는다. 무효 구간은 시각순이 아니므로 넣지 않는다.
+               */
+              const day = m.status === 'void' ? null : dayLabel(m)
+              const prev = i === 0 ? null : ordered[i - 1]
+              const showDay =
+                day !== null && (prev == null || prev.status === 'void' || dayLabel(prev) !== day)
 
               return (
                 <li key={matchId}>
+                  {showDay && (
+                    <h3 className="mt-3 mb-1.5 text-xs font-black text-ink-3 first:mt-0">{day}</h3>
+                  )}
                   <RecordCard
                     m={m}
                     tournamentId={id!}
@@ -147,6 +145,15 @@ export function MatchRecordsPage() {
       )}
     </main>
   )
+}
+
+/** 목록을 끊어 읽는 기준이 되는 날짜 — "8월 24일 (월)" */
+function dayLabel(m: MatchOverviewRow): string | null {
+  const when = m.finished_at ?? m.created_at
+  if (!when) return null
+  const d = new Date(when)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
 }
 
 function RecordCard({

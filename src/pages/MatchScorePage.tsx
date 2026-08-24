@@ -1,13 +1,22 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { CloudOff, Loader2, Play, RotateCcw, Zap } from 'lucide-react'
+import { ArrowLeftRight, CloudOff, Loader2, Play, RotateCcw, RotateCw, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useMatchScoring } from '@/features/scoring/useMatchScoring'
 import { finishMatch, startMatch, undoScore } from '@/features/scoring/api'
+import { useTournament } from '@/features/tournament/queries'
 import { useWakeLock } from '@/hooks/useWakeLock'
+import { useScreenRotation } from '@/hooks/useScreenRotation'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
-import { decideWinner, isMatchPoint, pointsToWin } from '@/lib/rules'
+import {
+  courtChangeScore,
+  decideWinner,
+  isMatchPoint,
+  pointsToWin,
+  sideRuleFrom,
+  type SideRule,
+} from '@/lib/rules'
 import { toUserMessage } from '@/lib/errors'
 import { BackLink } from '@/components/ui/BackLink'
 import { cn } from '@/lib/utils'
@@ -21,18 +30,23 @@ import type { TeamSide } from '@/types/database'
  *  - 잘못 누르는 건 상수다 → 취소가 항상 한 번에 닿는 자리에 있다
  *  - 목표 점수가 팀마다 다르다 → 양쪽에 항상 목표를 띄운다
  *  - 네트워크가 끊긴다 → 대기 중인 점수 개수를 숨기지 않는다
+ *  - 가로로 들면 코트 배치와 좌우가 맞는다 → 화면 돌리기 버튼을 둔다
  */
 export function MatchScorePage() {
   const { id, matchId } = useParams<{ id: string; matchId: string }>()
   const navigate = useNavigate()
   const scoring = useMatchScoring(matchId)
+  const tournament = useTournament(id)
   const m = scoring.match
   const isLive = m?.status === 'live'
   useWakeLock(isLive)
+  const rotation = useScreenRotation()
   // 관리자가 다른 기기에서 경기를 무효 처리하거나 재개할 수 있다
   useRealtimeMatches(id)
 
   const [actionError, setActionError] = useState<string | null>(null)
+  const [courtChanged, setCourtChanged] = useState(false)
+  const [wasChangeDue, setWasChangeDue] = useState(false)
 
   const start = useMutation({
     mutationFn: () => startMatch(matchId!),
@@ -65,9 +79,33 @@ export function MatchScorePage() {
     onError: (e) => setActionError(toUserMessage(e, '종료하지 못했습니다')),
   })
 
+  // 규칙은 편성 시점 스냅샷에서 온다. 대회 설정을 도중에 바꿔도 이미 잡힌
+  // 경기의 판정 근거는 그대로다.
+  const ruleA = sideRuleFrom(m?.target_a ?? null, m?.deuce_a ?? null, m?.max_a ?? null)
+  const ruleB = sideRuleFrom(m?.target_b ?? null, m?.deuce_b ?? null, m?.max_b ?? null)
+  const s = scoring.displayScore
+
+  const config = tournament.data?.config
+  const changeA = config ? courtChangeScore(ruleA, config) : null
+  const changeB = config ? courtChangeScore(ruleB, config) : null
+  const changeDue = (changeA !== null && s.a >= changeA) || (changeB !== null && s.b >= changeB)
+
+  /*
+   * '바꿨어요' 를 누르면 안내를 내린다. 점수가 다시 내려가면(취소) 아직 안 바꾼
+   * 상태로 돌아가므로 같이 초기화한다.
+   *
+   * 이걸 useEffect 로 하면 렌더가 한 번 더 돈다 — 득점 버튼을 누르는 화면에서
+   * 렌더가 겹치면 숫자가 한 박자 늦게 바뀐다. 렌더 중에 직접 맞추면 그 한 번이
+   * 없다 (React 가 권하는 '이전 렌더 값과 비교하기' 패턴).
+   */
+  if (wasChangeDue !== changeDue) {
+    setWasChangeDue(changeDue)
+    if (!changeDue) setCourtChanged(false)
+  }
+
   if (scoring.error) {
     return (
-      <Wrap>
+      <Wrap rotated={false}>
         <p role="alert" className="p-6 text-center text-sm text-team-b-fg">
           {toUserMessage(scoring.error, '경기를 불러오지 못했습니다')}
         </p>
@@ -77,7 +115,7 @@ export function MatchScorePage() {
 
   if (!m) {
     return (
-      <Wrap>
+      <Wrap rotated={false}>
         <div className="grid h-dvh place-items-center">
           <Loader2 className="size-8 animate-spin text-ink-3" aria-hidden />
         </div>
@@ -85,16 +123,16 @@ export function MatchScorePage() {
     )
   }
 
-  const targetA = m.target_a ?? 21
-  const targetB = m.target_b ?? 21
-  const s = scoring.displayScore
-  const winner = m.winner_side ?? decideWinner(s, targetA, targetB)
-  const matchPoint = isLive && isMatchPoint(s, targetA, targetB)
+  const winner = m.winner_side ?? decideWinner(s, ruleA, ruleB)
+  const matchPoint = isLive && isMatchPoint(s, ruleA, ruleB)
+  const wide = rotation.landscape
 
   return (
-    <Wrap>
+    <Wrap rotated={rotation.rotated}>
       {/* 상단 바 */}
-      <header className="flex items-center justify-between gap-3 px-4 py-3">
+      <header
+        className={cn('flex items-center justify-between gap-3 px-4', wide ? 'py-1.5' : 'py-3')}
+      >
         {/* 대진표에서 들어왔으면 대진표로, 코트에서 들어왔으면 코트로 */}
         <BackLink to={`/t/${id}`}>나가기</BackLink>
 
@@ -112,6 +150,20 @@ export function MatchScorePage() {
               매치포인트
             </span>
           )}
+          <button
+            type="button"
+            onClick={rotation.toggle}
+            aria-pressed={wide}
+            aria-label={wide ? '세로로 되돌리기' : '화면 가로로 돌리기'}
+            className="grid size-11 shrink-0 place-items-center rounded-xl text-ink-2
+                       transition-colors hover:bg-surface-2 hover:text-ink-1
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <RotateCw
+              className={cn('size-5 transition-transform', wide && 'rotate-90')}
+              aria-hidden
+            />
+          </button>
         </div>
       </header>
 
@@ -131,15 +183,40 @@ export function MatchScorePage() {
         </p>
       )}
 
-      {/* 점수 패널 — 세로 분할. 심판이 코트 옆에서 폰을 세워 든다. */}
-      <div className="grid flex-1 grid-rows-2 gap-2 p-2">
+      {/*
+        코트 체인지 안내.
+        점수판을 덮지 않고 위에 한 줄로 끼운다 — 가리면 다음 랠리 점수를 못 누른다.
+      */}
+      {isLive && changeDue && !courtChanged && (
+        <div className="mx-2 mb-1 flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2.5 text-white">
+          <ArrowLeftRight className="size-5 shrink-0" aria-hidden />
+          <p className="flex-1 text-sm font-black">코트를 바꿀 시간입니다</p>
+          <button
+            type="button"
+            onClick={() => setCourtChanged(true)}
+            className="h-9 shrink-0 rounded-lg bg-white/20 px-3 text-sm font-bold
+                       transition-colors hover:bg-white/30
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            바꿨어요
+          </button>
+        </div>
+      )}
+
+      {/*
+        점수 패널.
+        세로면 위아래, 가로면 좌우로 나눈다 — 가로일 때 위아래로 나누면
+        한 칸이 손가락 두 개 높이가 된다.
+      */}
+      <div className={cn('grid flex-1 gap-2 p-2', wide ? 'grid-cols-2' : 'grid-rows-2')}>
         <ScorePanel
           side="A"
           groupName={m.group_a_name ?? 'A팀'}
           isJoker={Boolean(m.group_a_joker)}
           players={m.players_a ?? []}
           score={s.a}
-          target={targetA}
+          opponentScore={s.b}
+          rule={ruleA}
           isWinner={winner === 'A'}
           disabled={!isLive}
           onScore={() => scoring.score('A')}
@@ -150,7 +227,8 @@ export function MatchScorePage() {
           isJoker={Boolean(m.group_b_joker)}
           players={m.players_b ?? []}
           score={s.b}
-          target={targetB}
+          opponentScore={s.a}
+          rule={ruleB}
           isWinner={winner === 'B'}
           disabled={!isLive}
           onScore={() => scoring.score('B')}
@@ -158,10 +236,15 @@ export function MatchScorePage() {
       </div>
 
       {/* 하단 조작 */}
-      <footer className="flex items-center gap-2 border-t border-border-subtle px-4 py-3">
+      <footer
+        className={cn(
+          'flex items-center gap-2 border-t border-border-subtle px-4',
+          wide ? 'py-2' : 'py-3',
+        )}
+      >
         {m.status === 'scheduled' && (
           <Button
-            size="xl"
+            size={wide ? 'lg' : 'xl'}
             className="w-full"
             loading={start.isPending}
             onClick={() => start.mutate()}
@@ -220,7 +303,7 @@ export function MatchScorePage() {
         )}
       </footer>
 
-      {m.status === 'finished' && (
+      {m.status === 'finished' && !wide && (
         <div className="px-4 pb-4">
           <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate(`/t/${id}`)}>
             대회로 돌아가기
@@ -231,11 +314,27 @@ export function MatchScorePage() {
   )
 }
 
-function Wrap({ children }: { children: React.ReactNode }) {
+/**
+ * 심판 화면 바깥 껍데기.
+ *
+ * rotated 는 브라우저가 화면을 안 돌려줄 때(회전 잠금이 켜진 아이폰)
+ * CSS 로 90도 돌리는 경로다. 그때는 세로 화면 한가운데에 가로 크기의 상자를
+ * 놓고 통째로 돌린다 — 폭과 높이를 서로 바꿔 줘야 화면을 꽉 채운다.
+ */
+function Wrap({ children, rotated }: { children: React.ReactNode; rotated: boolean }) {
   // 심판 화면은 어두운 배경으로 고정한다 — 체육관 조명 아래에서 점수가 가장 잘 읽힌다
   return (
-    <div data-theme="dark" className="no-touch-callout flex min-h-dvh flex-col bg-surface-0">
-      {children}
+    <div data-theme="dark" className="no-touch-callout bg-surface-0">
+      <div
+        className={cn(
+          'flex flex-col bg-surface-0',
+          rotated
+            ? 'fixed top-1/2 left-1/2 h-[100vw] w-[100dvh] origin-center -translate-x-1/2 -translate-y-1/2 rotate-90'
+            : 'min-h-dvh',
+        )}
+      >
+        {children}
+      </div>
     </div>
   )
 }
@@ -246,7 +345,9 @@ interface ScorePanelProps {
   isJoker: boolean
   players: string[]
   score: number
-  target: number
+  /** 듀스에서는 상대 점수가 '몇 점 남았나' 를 바꾼다 */
+  opponentScore: number
+  rule: SideRule
   isWinner: boolean
   disabled: boolean
   onScore: () => void
@@ -258,21 +359,22 @@ function ScorePanel({
   isJoker,
   players,
   score,
-  target,
+  opponentScore,
+  rule,
   isWinner,
   disabled,
   onScore,
 }: ScorePanelProps) {
-  const remaining = pointsToWin({ a: score, b: 0 }, 'A', target)
+  const remaining = pointsToWin({ a: score, b: opponentScore }, 'A', rule)
 
   return (
     <button
       type="button"
       onClick={onScore}
       disabled={disabled}
-      aria-label={`${groupName} 득점, 현재 ${score}점, 목표 ${target}점`}
+      aria-label={`${groupName} 득점, 현재 ${score}점, 목표 ${rule.target}점`}
       className={cn(
-        'relative flex flex-col items-center justify-center rounded-3xl px-4 py-6',
+        'relative flex flex-col items-center justify-center rounded-3xl px-4 py-4',
         'transition-[transform,background-color] duration-100 active:scale-[0.99]',
         'focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-white/40',
         'disabled:active:scale-100',
@@ -295,12 +397,13 @@ function ScorePanel({
         </span>
       )}
 
-      <output className="tabular mt-2 text-[clamp(4rem,22vw,9rem)] leading-none font-black text-ink-1">
+      {/* 세로로 반, 가로로 반 — 어느 쪽이든 칸을 꽉 채우도록 두 축을 다 본다 */}
+      <output className="tabular mt-2 text-[clamp(3.5rem,min(22vw,28vh),9rem)] leading-none font-black text-ink-1">
         {score}
       </output>
 
       <span className="tabular mt-1 block text-sm font-bold text-ink-3">
-        목표 {target}점
+        목표 {rule.target}점{rule.deuce && <span className="ml-1.5 text-ink-2">듀스</span>}
         {!isWinner && remaining > 0 && remaining <= 3 && (
           <span className="ml-2 text-live-fg">{remaining}점 남음</span>
         )}

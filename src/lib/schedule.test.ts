@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
-import { buildSchedule, matchTitle, myMatchRole } from './schedule'
+import { buildSchedule, isUpNext, matchTitle, myMatchRole, queuePosition } from './schedule'
 
 const courts = [
   { id: 'c1', name: '1번 코트' },
@@ -9,23 +9,43 @@ const courts = [
 
 function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
   return {
-    id: 'm1', tournament_id: 't1', court_id: null, court_name: null, label: null,
-    status: 'scheduled', source: 'live', score_a: 0, score_b: 0, winner_side: null,
+    id: 'm1',
+    tournament_id: 't1',
+    court_id: null,
+    court_name: null,
+    label: null,
+    status: 'scheduled',
+    source: 'live',
+    score_a: 0,
+    score_b: 0,
+    winner_side: null,
     queue_order: 0,
-    started_at: null, finished_at: null, edited_at: null, created_at: null,
-    group_a_id: 'g1', group_a_name: '1조', group_a_joker: true, target_a: 11,
-    group_b_id: 'g2', group_b_name: '2조', group_b_joker: false, target_b: 21,
-    players_a: null, players_b: null, referees: null,
+    started_at: null,
+    finished_at: null,
+    edited_at: null,
+    created_at: null,
+    group_a_id: 'g1',
+    group_a_name: '1조',
+    group_a_joker: true,
+    target_a: 11,
+    deuce_a: false,
+    max_a: null,
+    group_b_id: 'g2',
+    group_b_name: '2조',
+    group_b_joker: false,
+    target_b: 21,
+    deuce_b: false,
+    max_b: null,
+    players_a: null,
+    players_b: null,
+    referees: null,
     ...over,
   }
 }
 
 describe('buildSchedule', () => {
   it('코트를 안 정한 예정 경기를 따로 모은다', () => {
-    const s = buildSchedule(
-      [match({ id: 'a' }), match({ id: 'b', court_id: 'c1' })],
-      courts,
-    )
+    const s = buildSchedule([match({ id: 'a' }), match({ id: 'b', court_id: 'c1' })], courts)
     expect(s.unassigned.map((m) => m.id)).toEqual(['a'])
     expect(s.courts[0]!.waiting.map((m) => m.id)).toEqual(['b'])
     expect(s.courts[1]!.waiting).toEqual([])
@@ -33,7 +53,10 @@ describe('buildSchedule', () => {
 
   it('코트마다 진행 중인 경기는 하나만 잡는다', () => {
     const s = buildSchedule(
-      [match({ id: 'live', status: 'live', court_id: 'c1' }), match({ id: 'wait', court_id: 'c1' })],
+      [
+        match({ id: 'live', status: 'live', court_id: 'c1' }),
+        match({ id: 'wait', court_id: 'c1' }),
+      ],
       courts,
     )
     expect(s.courts[0]!.live?.id).toBe('live')
@@ -104,5 +127,37 @@ describe('myMatchRole', () => {
   it('상관없는 경기와 이름을 모를 때는 null', () => {
     expect(myMatchRole(match({ players_a: ['남'] }), '장용식')).toBeNull()
     expect(myMatchRole(match({ players_a: ['장용식'] }), undefined)).toBeNull()
+  })
+})
+
+describe('queuePosition — 알림이 나가는 자리와 같은 정의', () => {
+  const waiting = [match({ id: 'a' }), match({ id: 'b' }), match({ id: 'c' })]
+
+  it('맨 앞이 1번이다', () => {
+    expect(queuePosition(waiting, 'a')).toBe(1)
+    expect(queuePosition(waiting, 'c')).toBe(3)
+  })
+
+  it('줄에 없으면 null', () => {
+    expect(queuePosition(waiting, 'zzz')).toBeNull()
+    expect(queuePosition(waiting, null)).toBeNull()
+  })
+
+  it('진행 중인 경기는 줄에 없다 — 기다리는 게 아니라 뛰는 중이다', () => {
+    const s = buildSchedule(
+      [
+        match({ id: 'live', status: 'live', court_id: 'c1' }),
+        match({ id: 'next', court_id: 'c1' }),
+      ],
+      courts,
+    )
+    expect(queuePosition(s.courts[0]!.waiting, 'next')).toBe(1)
+    expect(queuePosition(s.courts[0]!.waiting, 'live')).toBeNull()
+  })
+
+  it('임계값 이하면 곧 차례다', () => {
+    expect(isUpNext(2, 2)).toBe(true)
+    expect(isUpNext(3, 2)).toBe(false)
+    expect(isUpNext(null, 2)).toBe(false)
   })
 })

@@ -60,18 +60,20 @@ beforeEach(() => {
 })
 
 describe('관리 허브', () => {
-  test('구성 메뉴가 조 · 코트 · 참가자 세 화면으로 간다', () => {
+  test('구성 메뉴가 조 · 코트 · 참가자 · 규칙 네 화면으로 간다', () => {
     renderAdmin()
     const nav = screen.getByRole('navigation', { name: '대회 구성' })
     const hrefs = within(nav)
       .getAllByRole('link')
       .map((a) => a.getAttribute('href'))
 
-    // 순서까지 본다 — 조를 짜고 코트를 놓고 사람을 배정하는 순서다
+    // 순서까지 본다 — 조를 짜고 코트를 놓고 사람을 배정하는 순서다.
+    // 경기 규칙은 한 번 정해 두면 다시 안 여는 화면이라 맨 뒤다.
     expect(hrefs).toEqual([
       `/t/${TOURNAMENT_ID}/admin/groups`,
       `/t/${TOURNAMENT_ID}/admin/courts`,
       `/t/${TOURNAMENT_ID}/admin/members`,
+      `/t/${TOURNAMENT_ID}/admin/rules`,
     ])
   })
 

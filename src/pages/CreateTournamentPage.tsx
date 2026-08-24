@@ -1,16 +1,16 @@
 import { useState, type FormEvent } from 'react'
 import { BackLink } from '@/components/ui/BackLink'
 import { useNavigate } from 'react-router-dom'
-import { Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { Stepper } from '@/components/ui/Stepper'
+import { RuleFields } from '@/features/tournament/RuleFields'
+import { DEFAULT_RULES, ruleSummary, type RuleSettings } from '@/lib/ruleSettings'
 import { useCreateTournament, useProfileName } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 const MIN_GROUPS = 2
 const MAX_GROUPS = 20
-const DEFAULT_NORMAL_POINTS = 21
-const DEFAULT_JOKER_POINTS = 11
 
 export function CreateTournamentPage() {
   const navigate = useNavigate()
@@ -20,8 +20,7 @@ export function CreateTournamentPage() {
   const [name, setName] = useState('')
   const [groupCount, setGroupCount] = useState(4)
   const [jokerCount, setJokerCount] = useState(0)
-  const [normalPoints, setNormalPoints] = useState(DEFAULT_NORMAL_POINTS)
-  const [jokerPoints, setJokerPoints] = useState(DEFAULT_JOKER_POINTS)
+  const [rules, setRules] = useState<RuleSettings>(DEFAULT_RULES)
 
   // 조를 줄였는데 조커 수가 그대로면 말이 안 된다. 같이 줄인다.
   function changeGroupCount(next: number) {
@@ -38,8 +37,7 @@ export function CreateTournamentPage() {
         groupCount,
         jokerGroupCount: jokerCount,
         displayName: profileName ?? '주최자',
-        normalPoints,
-        jokerPoints,
+        config: rules,
       })
       navigate(`/t/${tournament.id}`, { replace: true })
     } catch {
@@ -53,7 +51,7 @@ export function CreateTournamentPage() {
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">대회 만들기</h1>
       <p className="mt-2 text-sm text-ink-2">
-        조 구성은 만든 뒤에도 바꿀 수 있지만, 경기를 시작하면 결과에 영향을 줍니다.
+        조 구성과 경기 규칙은 만든 뒤에도 바꿀 수 있지만, 경기를 시작하면 결과에 영향을 줍니다.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-7">
@@ -83,7 +81,7 @@ export function CreateTournamentPage() {
 
         <Stepper
           label="조커조 개수"
-          hint={`1조부터 순서대로 지정됩니다 · 조커조는 ${jokerPoints}점만 내면 이기지만 승점은 0.5점`}
+          hint={`1조부터 순서대로 지정됩니다 · 조커조는 ${rules.jokerPoints}점만 내면 이기지만 승점은 ${rules.jokerWinPoints}점`}
           value={jokerCount}
           min={0}
           max={groupCount}
@@ -108,9 +106,11 @@ export function CreateTournamentPage() {
                 >
                   {i + 1}조
                   {isJoker ? (
-                    <span className="tabular text-xs font-black">🃏 {jokerPoints}점</span>
+                    <span className="tabular text-xs font-black">🃏 {rules.jokerPoints}점</span>
                   ) : (
-                    <span className="tabular text-xs font-medium text-ink-3">{normalPoints}점</span>
+                    <span className="tabular text-xs font-medium text-ink-3">
+                      {rules.normalPoints}점
+                    </span>
                   )}
                 </span>
               )
@@ -123,33 +123,18 @@ export function CreateTournamentPage() {
           )}
         </section>
 
+        {/*
+          접어 둔다. 기본값(복식 21점)으로 여는 대회가 대부분인데 설정을 전부
+          펼쳐 두면 이름만 쓰고 만들려던 사람이 읽을 게 늘어난다.
+          접힌 채로도 뭐가 들었는지는 요약으로 보인다.
+        */}
         <details className="rounded-2xl border border-border-subtle p-4">
           <summary className="cursor-pointer list-none text-sm font-semibold text-ink-2">
             경기 규칙 바꾸기
-            <span className="ml-2 font-normal text-ink-3">
-              복식 · {normalPoints}점 단판 · 듀스 없음
-            </span>
+            <span className="ml-2 font-normal text-ink-3">{ruleSummary(rules)}</span>
           </summary>
-          <div className="mt-4 flex flex-col gap-5">
-            <Stepper
-              label="일반조 목표 점수"
-              value={normalPoints}
-              min={1}
-              max={99}
-              onChange={setNormalPoints}
-            />
-            <Stepper
-              label="조커조 목표 점수"
-              value={jokerPoints}
-              min={1}
-              max={99}
-              onChange={setJokerPoints}
-            />
-            {jokerPoints >= normalPoints && jokerCount > 0 && (
-              <p className="text-xs text-warn-fg">
-                조커조 목표가 일반조보다 낮지 않으면 핸디캡이 되지 않습니다.
-              </p>
-            )}
+          <div className="mt-5">
+            <RuleFields value={rules} onChange={setRules} jokerCount={jokerCount} />
           </div>
         </details>
 
@@ -170,52 +155,5 @@ export function CreateTournamentPage() {
         </Button>
       </form>
     </main>
-  )
-}
-
-interface StepperProps {
-  label: string
-  hint?: string
-  value: number
-  min: number
-  max: number
-  onChange: (v: number) => void
-}
-
-function Stepper({ label, hint, value, min, max, onChange }: StepperProps) {
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-ink-2">{label}</p>
-          {hint && <p className="mt-0.5 text-xs text-ink-3">{hint}</p>}
-        </div>
-        <div className="flex shrink-0 items-center gap-1 rounded-xl border border-border-subtle bg-surface-1 p-1">
-          <button
-            type="button"
-            onClick={() => onChange(value - 1)}
-            disabled={value <= min}
-            aria-label={`${label} 줄이기`}
-            className="grid size-11 place-items-center rounded-lg text-ink-2 transition-colors
-                       hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
-                       disabled:opacity-30 disabled:hover:bg-transparent"
-          >
-            <Minus className="size-4" aria-hidden />
-          </button>
-          <output className="tabular w-9 text-center text-lg font-black text-ink-1">{value}</output>
-          <button
-            type="button"
-            onClick={() => onChange(value + 1)}
-            disabled={value >= max}
-            aria-label={`${label} 늘리기`}
-            className="grid size-11 place-items-center rounded-lg text-ink-2 transition-colors
-                       hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
-                       disabled:opacity-30 disabled:hover:bg-transparent"
-          >
-            <Plus className="size-4" aria-hidden />
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }

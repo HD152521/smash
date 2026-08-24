@@ -47,6 +47,30 @@ export function buildSchedule(
   }
 }
 
+/**
+ * 코트 대기열에서 몇 번째인가 (1부터). 없으면 null.
+ *
+ * ⚠ 이 정의가 '곧 차례' 알림이 나가는 자리를 정한다.
+ *   supabase/migrations/20260824000001_notify_when_up_next.sql 의 notify_up_next 가
+ *   같은 순서(queue_order, created_at)로 같은 줄을 센다. 한쪽만 바꾸면 화면에
+ *   3번으로 보이는 사람에게 알림이 가거나 그 반대가 된다.
+ *
+ * 진행 중인 경기는 줄에서 뺀다 — 이미 코트 안에 있는 사람은 기다리는 게 아니다.
+ */
+export function queuePosition(
+  waiting: readonly MatchOverviewRow[],
+  matchId: string | null,
+): number | null {
+  if (!matchId) return null
+  const i = waiting.findIndex((m) => m.id === matchId)
+  return i < 0 ? null : i + 1
+}
+
+/** 이 순번이면 '곧 차례' 알림이 이미 나갔다 */
+export function isUpNext(position: number | null, readyPosition: number): boolean {
+  return position !== null && position <= readyPosition
+}
+
 /** 이 경기에서 내 자리 — 뛰거나, 심판을 보거나, 상관없거나 */
 export type MyMatchRole = 'player' | 'referee' | null
 

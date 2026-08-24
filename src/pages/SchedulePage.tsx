@@ -7,10 +7,11 @@ import {
   useDeleteMatch,
   useMatches,
   useSetCourtQueue,
+  useTournament,
 } from '@/features/tournament/queries'
 import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { useDragQueue, type DropTarget } from '@/features/schedule/useDragQueue'
-import { buildSchedule, matchTitle, myMatchRole, type MyMatchRole } from '@/lib/schedule'
+import { buildSchedule, isUpNext, matchTitle, myMatchRole, type MyMatchRole } from '@/lib/schedule'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import type { MatchOverviewRow } from '@/types/database'
@@ -31,6 +32,7 @@ export function SchedulePage() {
   const courts = useCourts(id)
   const removeMatch = useDeleteMatch(id ?? '')
   const setQueue = useSetCourtQueue(id ?? '')
+  const tournament = useTournament(id)
   const nav = useTournamentNav(id)
   const isAdmin = nav.isAdmin
   const myName = nav.myName
@@ -44,6 +46,10 @@ export function SchedulePage() {
   function toggleCourt(courtId: string) {
     setClosed((prev) => ({ ...prev, [courtId]: !prev[courtId] }))
   }
+
+  // '곧 차례' 알림이 나간 자리를 화면에도 똑같이 표시한다. 폰을 못 본 사람도
+  // 대진표만 보면 준비할 때가 됐는지 안다.
+  const readyPosition = tournament.data?.config.readyQueuePosition ?? 2
 
   const s = buildSchedule(matches.data ?? [], courts.data ?? [])
   const loading = matches.isPending || courts.isPending
@@ -61,7 +67,13 @@ export function SchedulePage() {
    */
   function rowsOf(list: readonly MatchOverviewRow[], numbered: boolean): QueueRow[] {
     return list
-      .map((m, i) => ({ m, order: numbered ? i + 1 : undefined, mine: myMatchRole(m, myName) }))
+      .map((m, i) => ({
+        m,
+        order: numbered ? i + 1 : undefined,
+        // 코트에 올라간 줄에만 순번이 있다. 미배정은 아직 차례라는 게 없다.
+        upNext: numbered && isUpNext(i + 1, readyPosition),
+        mine: myMatchRole(m, myName),
+      }))
       .filter((r) => !onlyMine || r.mine !== null)
   }
 
@@ -267,6 +279,8 @@ export function SchedulePage() {
 interface QueueRow {
   m: MatchOverviewRow
   order?: number
+  /** '곧 차례' 알림이 나간 자리인가 */
+  upNext: boolean
   mine: MyMatchRole
 }
 
@@ -304,6 +318,7 @@ function Queue({
               m={r.m}
               tournamentId={tournamentId}
               order={r.order}
+              upNext={r.upNext}
               mine={r.mine}
               admin={isAdmin}
               onDelete={() => r.m.id && onDelete(r.m.id)}
@@ -326,6 +341,7 @@ function Queue({
             m={r.m}
             tournamentId={tournamentId}
             order={r.order}
+            upNext={r.upNext}
             mine={r.mine}
             admin
             onDelete={() => r.m.id && onDelete(r.m.id)}
@@ -384,6 +400,7 @@ function MatchCard({
   m,
   tournamentId,
   order,
+  upNext = false,
   mine = null,
   admin = false,
   onDelete,
@@ -394,6 +411,8 @@ function MatchCard({
   m: MatchOverviewRow
   tournamentId: string
   order?: number
+  /** 대기 앞줄이라 '곧 차례' 알림이 나간 경기 */
+  upNext?: boolean
   /** 내가 뛰거나 심판인 경기면 색으로 튀어나오게 한다 */
   mine?: MyMatchRole
   /** 관리자만 손잡이·수정·삭제를 본다 */
@@ -436,7 +455,11 @@ function MatchCard({
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 font-bold text-ink-1">
           {order !== undefined && (
-            <span className="tabular text-xs font-black text-ink-3">{order}</span>
+            <span
+              className={cn('tabular text-xs font-black', upNext ? 'text-live-fg' : 'text-ink-3')}
+            >
+              {order}
+            </span>
           )}
           <span className="truncate">
             {m.group_a_joker && <span aria-hidden>🃏 </span>}
@@ -444,6 +467,11 @@ function MatchCard({
             {m.group_b_joker && <span aria-hidden> 🃏</span>}
           </span>
           {mine && <MineTag mine={mine} />}
+          {upNext && (
+            <span className="shrink-0 rounded-full bg-live/15 px-2 py-0.5 text-[11px] font-black text-live-fg">
+              곧 차례
+            </span>
+          )}
         </p>
         {hasPlayers && (
           <p className="mt-0.5 truncate text-xs text-ink-3">

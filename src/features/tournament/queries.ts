@@ -37,12 +37,13 @@ import {
   setMemberGroup,
   setMemberRole,
   setTournamentStatus,
+  updateTournamentConfig,
   type CreateMatchInput,
   type UpdateMatchInput,
   type ManualMatchInput,
   type CreateTournamentInput,
 } from './api'
-import type { TournamentStatus } from '@/types/database'
+import type { TournamentConfigPatch, TournamentStatus } from '@/types/database'
 
 const tournamentKeys = {
   mine: ['tournaments', 'mine'] as const,
@@ -158,6 +159,23 @@ export function useSetTournamentStatus(tournamentId: string) {
   })
 }
 
+/**
+ * 대회 설정 바꾸기.
+ *
+ * 아직 시작 안 한 경기의 목표 점수·듀스가 서버에서 다시 굳는다. 대진표와
+ * 코트 현황이 그 값을 그려 쓰므로 경기 목록도 함께 무효화한다.
+ */
+export function useUpdateTournamentConfig(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (patch: TournamentConfigPatch) => updateTournamentConfig(tournamentId, patch),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId] })
+      void qc.invalidateQueries({ queryKey: tournamentKeys.mine })
+    },
+  })
+}
+
 export function useRegenerateInviteCode(tournamentId: string) {
   const invalidate = useTournamentInvalidator(tournamentId)
   return useMutation({
@@ -181,8 +199,7 @@ export function useCreateCourt(tournamentId: string) {
   return useMutation({
     mutationFn: ({ name, sortOrder }: { name: string; sortOrder: number }) =>
       createCourt(tournamentId, name, sortOrder),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
   })
 }
 
@@ -190,8 +207,7 @@ export function useDeleteCourt(tournamentId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (courtId: string) => deleteCourt(courtId),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'courts'] }),
   })
 }
 
@@ -223,9 +239,9 @@ export function useCreateMatch(tournamentId: string) {
 export function useVoidMatch(tournamentId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ matchId, reason }: { matchId: string; reason?: string }) => voidMatch(matchId, reason),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
+    mutationFn: ({ matchId, reason }: { matchId: string; reason?: string }) =>
+      voidMatch(matchId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
   })
 }
 
