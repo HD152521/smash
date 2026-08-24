@@ -8,6 +8,7 @@ import {
   Play,
   RefreshCw,
   ScrollText,
+  SlidersHorizontal,
   Square,
   Users,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { InlineEdit } from '@/components/ui/InlineEdit'
 import { useAdminGate } from '@/features/admin/useAdminGate'
+import { ruleSummary } from '@/lib/ruleSettings'
 import {
   useCourts,
   useGroups,
@@ -217,6 +219,12 @@ export function TournamentAdminPage() {
             count={members.length}
             hint="조 배정 · 권한 · 명단"
             warn={ungrouped > 0 ? `조 없음 ${ungrouped}` : undefined}
+          />
+          <AdminMenuItem
+            to={`/t/${id}/admin/rules`}
+            icon={<SlidersHorizontal className="size-4" aria-hidden />}
+            label="경기 규칙"
+            hint={ruleSummary(t.config)}
           />
         </ul>
       </nav>

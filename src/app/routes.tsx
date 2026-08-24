@@ -43,6 +43,9 @@ const AdminCourtsPage = lazyPage(() =>
 const AdminMembersPage = lazyPage(() =>
   import('@/pages/AdminMembersPage').then((m) => ({ default: m.AdminMembersPage })),
 )
+const AdminRulesPage = lazyPage(() =>
+  import('@/pages/AdminRulesPage').then((m) => ({ default: m.AdminRulesPage })),
+)
 const MatchCreatePage = lazyPage(() =>
   import('@/pages/MatchCreatePage').then((m) => ({ default: m.MatchCreatePage })),
 )
@@ -201,6 +204,14 @@ export function AppRoutes() {
         element={
           <Protected>
             <AdminMembersPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/admin/rules"
+        element={
+          <Protected>
+            <AdminRulesPage />
           </Protected>
         }
       />

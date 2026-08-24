@@ -9,6 +9,7 @@ import type {
   MemberRole,
   ScoreEventRow,
   StandingRow,
+  TournamentConfigPatch,
   TournamentRow,
   TournamentStatus,
 } from '@/types/database'
@@ -19,8 +20,8 @@ export interface CreateTournamentInput {
   groupCount: number
   jokerGroupCount: number
   displayName: string
-  normalPoints?: number
-  jokerPoints?: number
+  /** 경기 규칙. 보내지 않은 키는 서버 기본값으로 채워진다 */
+  config?: TournamentConfigPatch
 }
 
 export async function createTournament(input: CreateTournamentInput): Promise<TournamentRow> {
@@ -30,8 +31,24 @@ export async function createTournament(input: CreateTournamentInput): Promise<To
     p_group_count: input.groupCount,
     p_joker_group_count: input.jokerGroupCount,
     p_display_name: input.displayName,
-    p_normal_points: input.normalPoints ?? 21,
-    p_joker_points: input.jokerPoints ?? 11,
+    p_config: input.config ?? {},
+  })
+  return unwrap(res) as TournamentRow
+}
+
+/**
+ * 대회 설정 바꾸기.
+ *
+ * 보낸 키만 바뀐다 — 화면이 설정 전체를 들고 있지 않아도 되게. 아직 시작하지
+ * 않은 경기는 서버가 새 규칙으로 다시 굳히고, 진행 중·끝난 경기는 그대로 둔다.
+ */
+export async function updateTournamentConfig(
+  tournamentId: string,
+  patch: TournamentConfigPatch,
+): Promise<TournamentRow> {
+  const res = await supabase.rpc('update_tournament_config', {
+    p_tournament_id: tournamentId,
+    p_config: patch,
   })
   return unwrap(res) as TournamentRow
 }
@@ -382,10 +399,12 @@ export async function setDisplayName(memberId: string, name: string): Promise<vo
 
 /** 관리자가 명단에 사람을 미리 넣는다 (계정 없이) */
 export async function addRosterMember(tournamentId: string, name: string): Promise<void> {
-  unwrap(await supabase.rpc('add_roster_member', {
-    p_tournament_id: tournamentId,
-    p_name: name,
-  }))
+  unwrap(
+    await supabase.rpc('add_roster_member', {
+      p_tournament_id: tournamentId,
+      p_name: name,
+    }),
+  )
 }
 
 /**
@@ -405,12 +424,7 @@ export async function removeMember(memberId: string): Promise<void> {
  * 0행이 바뀌어도 PostgREST 는 성공을 주므로 single() 로 받아 오류로 잡는다.
  */
 export async function renameCourt(courtId: string, name: string): Promise<CourtRow> {
-  const res = await supabase
-    .from('courts')
-    .update({ name })
-    .eq('id', courtId)
-    .select()
-    .single()
+  const res = await supabase.from('courts').update({ name }).eq('id', courtId).select().single()
   return unwrap(res) as unknown as CourtRow
 }
 
@@ -489,12 +503,7 @@ export async function renameTournament(tournamentId: string, name: string): Prom
 /** 조 이름 ('1조' 를 '초급A' 처럼). 조커 지정은 건드리지 않는다 —
  *  이미 치른 경기의 목표 점수 스냅샷과 어긋난다. */
 export async function renameGroup(groupId: string, name: string): Promise<void> {
-  const res = await supabase
-    .from('groups')
-    .update({ name })
-    .eq('id', groupId)
-    .select('id')
-    .single()
+  const res = await supabase.from('groups').update({ name }).eq('id', groupId).select('id').single()
   unwrap(res)
 }
 

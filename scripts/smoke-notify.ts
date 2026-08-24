@@ -134,7 +134,7 @@ try {
   )
   check('코트 미배정 상태에서는 알림이 안 쌓인다', beforeCourt.length === 0, `${beforeCourt.length}건`)
 
-  console.log('\n── 코트를 배정하면 관련된 사람에게만 쌓인다 ──')
+  console.log('\n── 코트에 배정돼 앞줄에 서면 관련된 사람에게만 쌓인다 ──')
   const { rows: courtRows } = await db.query<{ id: string }>(
     `insert into courts (tournament_id,name,sort_order) values ($1,'1번 코트',1) returning id`,
     [t.id],
@@ -162,8 +162,8 @@ try {
   check('배정한 본인에게는 안 쌓인다', !notified.has(admin.uid), '자기가 배정한 걸 자기 폰이 알릴 이유가 없다')
   check('사람 수만큼만 쌓인다 (중복 없음)', box.length === 5, `${box.length}건`)
   check(
-    "종류가 'court_assigned' 다",
-    box.length > 0 && box.every((r) => r.kind === 'court_assigned'),
+    "종류가 'up_next' 다",
+    box.length > 0 && box.every((r) => r.kind === 'up_next'),
     box[0]?.kind ?? '(없음)',
   )
 
@@ -190,6 +190,67 @@ try {
     withCourt.status === 200 && box2.length === 4,
     `status=${withCourt.status} / ${box2.length}건 (선수 4명)`,
   )
+
+  console.log('\n── 뒷줄은 아직 알리지 않는다 ──')
+  /*
+   * 알림의 요점이 여기 있다. 코트에 걸리기만 하면 알리던 예전 방식은
+   * 앞에 다섯 경기가 밀려 있어도 똑같이 울렸다. 지금은 순번이 앞으로
+   * 당겨질 때 울린다.
+   *
+   * 이 시점의 1번 코트 대기열: [첫 경기, 코트지정 경기] ← 둘 다 이미 알림이 나갔다
+   * 여기에 하나 더 넣으면 3번째라 아직 알릴 때가 아니다.
+   */
+  const third = await rpc(admin.token, 'create_match', {
+    p_tournament_id: t.id,
+    p_court_id: courtRows[0]!.id,
+    p_label: null,
+    p_group_a: groups[0]!.id,
+    p_players_a: [memberOf('선수1').id, memberOf('선수2').id],
+    p_group_b: groups[1]!.id,
+    p_players_b: [memberOf('선수3').id, memberOf('선수4').id],
+    p_referees: [],
+  })
+  const thirdId = (third.body as unknown as { id: string } | null)?.id
+  const NO_MATCH = '00000000-0000-0000-0000-000000000000'
+  check('세 번째 경기 편성', third.status === 200 && Boolean(thirdId), `status=${third.status}`)
+
+  const { rows: thirdBox } = await db.query(
+    `select 1 from notification_outbox where match_id=$1`,
+    [thirdId ?? NO_MATCH],
+  )
+  check('대기 3번째에게는 아직 안 쌓인다', thirdBox.length === 0, `${thirdBox.length}건`)
+
+  console.log('\n── 앞 경기가 시작되면 한 칸씩 당겨지고, 그때 알린다 ──')
+  /*
+   * 바뀐 행은 '첫 경기' 하나뿐인데 알림은 '세 번째 경기' 사람들에게 가야 한다.
+   * 트리거가 바뀐 행이 아니라 그 코트의 줄 전체를 다시 세지 않으면 여기서 걸린다.
+   */
+  const started = await rpc(admin.token, 'start_match', { p_match_id: matchId })
+  check('첫 경기를 시작한다', started.status === 200, `status=${started.status}`)
+
+  const { rows: thirdBox2 } = await db.query<{ user_id: string; kind: string }>(
+    `select user_id, kind from notification_outbox where match_id=$1`,
+    [thirdId ?? NO_MATCH],
+  )
+  check(
+    '2번째로 올라온 경기의 선수들에게 쌓인다',
+    thirdBox2.length === 4 && thirdBox2.every((r) => r.kind === 'up_next'),
+    `${thirdBox2.length}건 / ${thirdBox2[0]?.kind ?? '(없음)'}`,
+  )
+
+  console.log('\n── 같은 경기로 두 번 울리지 않는다 ──')
+  // 관리자가 대진표를 정리하는 동안 순번이 몇 번씩 흔들린다.
+  // 그때마다 전원의 폰이 울리면 아무도 알림을 안 보게 된다.
+  await rpc(admin.token, 'set_court_queue', {
+    p_tournament_id: t.id,
+    p_court_id: courtRows[0]!.id,
+    p_match_ids: [thirdId, withCourtId],
+  })
+  const { rows: thirdBox3 } = await db.query(
+    `select 1 from notification_outbox where match_id=$1`,
+    [thirdId ?? NO_MATCH],
+  )
+  check('순서를 바꿔도 다시 쌓이지 않는다', thirdBox3.length === 4, `${thirdBox3.length}건`)
 
   console.log('\n── 수동 기록은 알리지 않는다 ──')
   // 이미 끝난 경기를 장부에만 남기는 것이라 알릴 대상이 없다

@@ -18,6 +18,9 @@ interface Banner {
   url: string
 }
 
+/** notification_outbox.kind — 문구가 갈린다 */
+type NotificationKind = 'up_next' | 'court_assigned' | 'match_scheduled'
+
 export function useInAppNotifications() {
   const { user } = useAuth()
   const [banner, setBanner] = useState<Banner | null>(null)
@@ -37,8 +40,8 @@ export function useInAppNotifications() {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const row = payload.new as { id: string; match_id: string }
-          void hydrate(row.id, row.match_id).then((b) => {
+          const row = payload.new as { id: string; match_id: string; kind: NotificationKind }
+          void hydrate(row.id, row.match_id, row.kind).then((b) => {
             if (b) setBanner(b)
           })
         },
@@ -54,11 +57,18 @@ export function useInAppNotifications() {
 }
 
 /**
- * 알림 행에는 match_id 만 있다. 배너에 보여줄 문구는 경기에서 만든다.
+ * 알림 행에는 match_id 와 kind 만 있다. 배너에 보여줄 문구는 경기에서 만든다.
  * (발송기가 쓰는 pending_notifications 는 남의 구독까지 들고 있어서
  *  일반 사용자에게 열 수 없다. 그래서 화면용은 따로 조회한다.)
+ *
+ * ⚠ 문구는 pending_notifications 의 case 와 맞춰 둔다. 푸시로 받은 사람과
+ *   앱을 켜 둔 사람이 서로 다른 말을 들으면 안 된다.
  */
-async function hydrate(id: string, matchId: string): Promise<Banner | null> {
+async function hydrate(
+  id: string,
+  matchId: string,
+  kind: NotificationKind,
+): Promise<Banner | null> {
   const { data, error } = await supabase
     .from('match_overview')
     .select('id, tournament_id, group_a_name, group_b_name, court_name')
@@ -66,11 +76,14 @@ async function hydrate(id: string, matchId: string): Promise<Banner | null> {
     .single()
   if (error || !data) return null
 
+  const court = data.court_name ?? '코트'
+  const teams = `${data.group_a_name ?? '—'} vs ${data.group_b_name ?? '—'}`
+
   return {
     id,
-    // 받는 사람이 알아야 할 것은 '어느 코트로 가라' 다
-    title: `${data.court_name ?? '코트'} 배정`,
-    body: `${data.group_a_name ?? '—'} vs ${data.group_b_name ?? '—'}`,
+    // 받는 사람이 알아야 할 것은 '언제 어느 코트로 가나' 다
+    title: kind === 'up_next' ? `${court} 곧 차례입니다` : `${court} 배정`,
+    body: kind === 'up_next' ? `${teams} · 준비해 주세요` : teams,
     url: `/t/${data.tournament_id}/matches/${data.id}`,
   }
 }

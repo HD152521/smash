@@ -43,15 +43,30 @@ export type TournamentConfig = {
   normalPoints: number
   /** 조커조 목표 점수 */
   jokerPoints: number
+  /** 목표 점수에 닿아도 2점 차가 나야 끝난다 */
   deuce: boolean
+  /** 일반조 듀스 상한 — 여기 닿으면 2점 차 없이 끝. null 이면 상한 없음 */
+  deuceCap: number | null
+  /** 조커조 듀스 상한 */
+  jokerDeuceCap: number | null
   /** 일반조 승리 시 승점 */
   winPoints: number
   /** 조커조 승리 시 승점 — 적은 점수로 이기는 대신 절반만 받는다 */
   jokerWinPoints: number
+  /** 순위 계산이 쓰지 않는다. 호환용으로만 남아 있다. */
   lossPoints: number
-  /** 1조부터 몇 개 조가 조커조인지 */
+  /** 1조부터 몇 개 조가 조커조인지 — groups.is_joker 의 사본이라 직접 못 바꾼다 */
   jokerGroupCount: number
+  /** 코트 체인지 안내를 심판 화면에 띄운다 */
+  courtChange: boolean
+  /** 몇 점에 바꾸나. null 이면 목표 점수의 절반(올림) */
+  courtChangeAt: number | null
+  /** 코트 대기 몇 번째부터 '곧 차례' 알림을 보낼지 */
+  readyQueuePosition: number
 }
+
+/** update_tournament_config 에 보내는 값 — 보낸 키만 바뀐다 */
+export type TournamentConfigPatch = Partial<Omit<TournamentConfig, 'jokerGroupCount'>>
 
 // ── 2. 짧은 별칭 ─────────────────────────────────────────────────────
 export type TournamentRow = Omit<TournamentsRow, 'config'> & { config: TournamentConfig }
@@ -123,9 +138,13 @@ export type Database = {
           p_group_count: number
           p_joker_group_count: number
           p_display_name: string
-          p_normal_points?: number
-          p_joker_points?: number
+          /** 경기 규칙. 보내지 않은 키는 서버 기본값으로 채워진다 */
+          p_config?: TournamentConfigPatch
         }
+        Returns: TournamentRow
+      }
+      update_tournament_config: {
+        Args: { p_tournament_id: string; p_config: TournamentConfigPatch }
         Returns: TournamentRow
       }
       join_tournament: {

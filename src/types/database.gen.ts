@@ -71,10 +71,14 @@ export type MatchOverviewRow = {
   group_a_name: string | null
   group_a_joker: boolean | null
   target_a: number | null
+  deuce_a: boolean | null
+  max_a: number | null
   group_b_id: string | null
   group_b_name: string | null
   group_b_joker: boolean | null
   target_b: number | null
+  deuce_b: boolean | null
+  max_b: number | null
   players_a: string[] | null
   players_b: string[] | null
   referees: string[] | null
@@ -98,6 +102,8 @@ export type MatchTeamsRow = {
   target_score: number
   win_points: number
   is_joker: boolean
+  deuce: boolean
+  max_score: number | null
 }
 
 export type MatchesRow = {
