@@ -64,8 +64,9 @@
 -- 가른다 — 화면 배지와 게스트 상한 계산에만 쓰고, 권한 판단에는
 -- 절대 쓰지 않는다.
 --
--- 실행 순서: 컬럼 → 코드 생성 함수 → backfill → 인덱스 → 가드 교체
--- (guard_club_update · guard_member_update) → RPC → revoke/grant.
+-- 실행 순서: 컬럼 → 코드 생성 함수 → backfill → 인덱스 → create_club
+-- 재정의 → 가드 교체(guard_club_update · guard_member_update) → RPC →
+-- revoke/grant.
 --
 -- ── 리뷰 반영 (적용 전, 같은 파일 안에서 고침) ──────────────────────
 -- 1) join_as_guest 의 게스트 상한 카운트-삽입 구간에 advisory lock 추가
@@ -74,6 +75,14 @@
 --    이유 — 자매 컬럼만 열려 있으면 상한 우회 경로가 남는다)
 -- 3) p_name 에서 제어문자·제로폭·방향재정렬 문자를 정리 후 길이 검사
 -- 4) anon 이 무제한 호출하는 두 쿼리에 방어적 인덱스 추가
+--
+-- ── 차단 버그 수정 (적용 전, 같은 파일 안에서 고침) ─────────────────
+-- 5) guest_code 를 default 없는 not null 로 만들었으면서 그걸 채우는
+--    책임을 안 지면 create_club 의 기존 INSERT 가 그대로 NOT NULL
+--    위반으로 깨진다. create_club 을 이 파일 안에서 재정의해 guest_code
+--    도 같은 트랜잭션에서 채운다("기존 함수는 안 건드린다" 원칙의
+--    예외 — 이 컬럼을 not null 로 만든 쪽이 채우는 책임도 진다).
+--    clubs 에 INSERT 하는 다른 경로는 없다(grep 확인, create_club 뿐).
 -- ════════════════════════════════════════════════════════════════════
 
 -- ════════════════════════════════════════════════════════════════════
@@ -178,6 +187,86 @@ create index if not exists tournaments_guest_candidates_idx
 create index if not exists tm_guest_count_idx
   on tournament_members (tournament_id)
   where is_guest;
+
+-- ════════════════════════════════════════════════════════════════════
+-- 차단 버그 수정(계획 밖, 필수) — create_club 재정의
+--
+-- clubs.guest_code 를 default 없는 not null 로 만들었다. 채우는 책임도
+-- 이 마이그레이션이 져야 한다. create_club(20260826000001_club_layer.sql)
+-- 의 INSERT 는 여전히 (name, description, invite_code, owner_id) 뿐이라,
+-- 이 마이그레이션이 적용되는 순간 동아리 생성이 전부 NOT NULL 위반으로
+-- 깨진다 — "기존 함수는 안 건드린다" 원칙의 명시적 예외다.
+--
+-- clubs 에 INSERT 하는 경로는 create_club 하나뿐이다(grep -rn
+-- "insert into clubs" supabase/migrations/ 로 확인).
+--
+-- 시그니처(create_club(text, text, text))는 그대로 둔다 — 바뀌면
+-- drop/재생성과 revoke/grant, 프론트 타입까지 어긋난다. 본문은 원본
+-- (20260826000001_club_layer.sql:242-288)을 그대로 옮기고, guest_code
+-- 생성만 더한다 — invite_code 와 같은 트랜잭션에서, 같은 10회 재시도 +
+-- 40001 패턴을 그대로 반복한다. 검증 · owner 멤버 심기 · 반환값 등
+-- 원본에 있던 동작은 하나도 빼지 않았다(원본에 log_audit_club 호출은
+-- 없다 — create_club 은 원래도 감사로그를 안 남긴다. 새로 추가하지
+-- 않는다, 이 수정의 범위는 guest_code 채우기뿐이다).
+-- ════════════════════════════════════════════════════════════════════
+create or replace function create_club(
+  p_name         text,
+  p_display_name text,
+  p_description  text default null
+) returns clubs
+language plpgsql security definer set search_path = public, pg_temp as $fn$
+declare
+  v_club       clubs;
+  v_code       text;
+  v_guest_code text;
+  v_uid        uuid := auth.uid();
+  v_profile    profiles;
+begin
+  if v_uid is null then
+    raise exception '로그인이 필요합니다' using errcode = '42501';
+  end if;
+  if length(btrim(coalesce(p_name, ''))) = 0 then
+    raise exception '동아리 이름을 입력해 주세요' using errcode = '22023';
+  end if;
+
+  v_profile := ensure_profile(v_uid);
+
+  for attempt in 1..10 loop
+    v_code := gen_invite_code();
+    exit when not exists (select 1 from clubs where invite_code = v_code);
+    if attempt = 10 then
+      raise exception '초대 코드 생성에 실패했습니다. 다시 시도해 주세요' using errcode = '40001';
+    end if;
+  end loop;
+
+  for attempt in 1..10 loop
+    v_guest_code := gen_guest_code();
+    exit when not exists (select 1 from clubs where guest_code = v_guest_code);
+    if attempt = 10 then
+      raise exception '게스트 코드 생성에 실패했습니다. 다시 시도해 주세요' using errcode = '40001';
+    end if;
+  end loop;
+
+  insert into clubs (name, description, invite_code, owner_id, guest_code)
+  values (
+    btrim(p_name),
+    nullif(btrim(coalesce(p_description, '')), ''),
+    v_code,
+    v_uid,
+    v_guest_code
+  )
+  returning * into v_club;
+
+  insert into club_members (club_id, user_id, role, display_name, avatar_url)
+  values (
+    v_club.id, v_uid, 'owner',
+    coalesce(nullif(btrim(p_display_name), ''), v_profile.name, '이름없음'),
+    v_profile.avatar_url
+  );
+
+  return v_club;
+end;
+$fn$;
 
 -- ════════════════════════════════════════════════════════════════════
 -- Task 4 (가드 교체) — guard_club_update 본문만 교체
@@ -491,15 +580,23 @@ $fn$;
 -- anon 이 실행할 수 있는 함수는 정확히 둘 — guest_sessions ·
 -- join_as_guest. rotate_guest_code 는 authenticated 만. gen_guest_code
 -- 는 내부 전용(gen_invite_code 와 같은 취급)이라 아무에게도 안 연다.
+--
+-- create_club 도 여기서 다시 세운다 — create or replace 는 권한을
+-- 보존하지만(원본 권한은 public/anon 에서만 걷어낸 채였다), 이
+-- 저장소 관례(20260818000005_function_lockdown.sql)대로 authenticated
+-- 까지 포함해 명시적으로 다시 쓴다. anon 에는 절대 열지 않는다 —
+-- 동아리 생성은 로그인이 있어야 한다(원본 그대로).
 -- ════════════════════════════════════════════════════════════════════
 revoke all on function gen_guest_code()                    from public, anon, authenticated;
 revoke all on function guest_sessions(text)                 from public, anon, authenticated;
 revoke all on function join_as_guest(text, uuid, text)      from public, anon, authenticated;
 revoke all on function rotate_guest_code(uuid)               from public, anon, authenticated;
+revoke all on function create_club(text, text, text)        from public, anon, authenticated;
 
 grant execute on function guest_sessions(text)            to anon;
 grant execute on function join_as_guest(text, uuid, text) to anon;
 grant execute on function rotate_guest_code(uuid)         to authenticated;
+grant execute on function create_club(text, text, text)   to authenticated;
 
 -- ════════════════════════════════════════════════════════════════════
 -- 이 마이그레이션이 만든 것
@@ -526,6 +623,11 @@ grant execute on function rotate_guest_code(uuid)         to authenticated;
 --  - RPC(authenticated 전용, anon 아님): rotate_guest_code(uuid) —
 --    is_club_admin 검사 + for update 락, 10회 재시도 + 40001,
 --    log_audit_club
+--  - create_club 재정의(계획 밖, 차단 버그 수정) — 시그니처 불변
+--    (text, text, text). 원본 검증·owner 멤버 심기·반환값은 그대로,
+--    guest_code 생성만 추가(invite_code 와 같은 10회 재시도 + 40001
+--    패턴, 같은 트랜잭션). clubs 에 INSERT 하는 경로는 이 함수 하나뿐
+--    (grep 확인). revoke/grant 재적용 — anon 에는 안 엶(원본과 동일)
 --  - guard_club_update 본문 교체(트리거 재생성 없음) — guest_code 직접
 --    PATCH 를 invite_code 와 같은 방식으로 잠금
 --  - guard_member_update 본문 교체(트리거 재생성 없음, 코드리뷰 반영 —
