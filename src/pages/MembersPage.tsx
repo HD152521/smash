@@ -137,6 +137,12 @@ function MemberRows({
           {m.id === myMemberId && <span className="text-xs font-bold text-brand-fg">나</span>}
           {m.role === 'owner' && <Badge>주최자</Badge>}
           {m.role === 'admin' && <Badge tone="ok">관리자</Badge>}
+          {/*
+            `is_guest` 로만 가른다. `userId === null` 로 그리면 운영진이 손으로
+            올린 미가입 회원 전원에게 '게스트' 딱지가 붙는다 — 그 사람들은 매주
+            오는 회원이다.
+          */}
+          {m.isGuest && <Badge tone="neutral">게스트</Badge>}
         </li>
       ))}
     </ul>

@@ -260,12 +260,20 @@ export interface MemberSummary {
    * 맞추므로 대회 화면에서 이 값을 읽어도 아무것도 갈리지 않는다.
    */
   rsvp: RsvpStatus
+  /**
+   * 게스트 등록으로 들어왔는가. **화면 배지에만 쓴다, 권한 판단에는 쓰지 않는다.**
+   *
+   * `userId === null` 로 대신 판별하면 안 된다 — 운영진이 `add_roster_member`
+   * 로 손수 올린 미가입 회원도 `userId` 가 null 이라, 그 기준으로는 매주 오는
+   * 회원 전원에게 '게스트' 딱지가 붙는다(`is_guest` 컬럼 주석 참고).
+   */
+  isGuest: boolean
 }
 
 export async function fetchMembers(tournamentId: string): Promise<MemberSummary[]> {
   const res = await supabase
     .from('tournament_members')
-    .select('id, user_id, display_name, role, group_id, rsvp')
+    .select('id, user_id, display_name, role, group_id, rsvp, is_guest')
     .eq('tournament_id', tournamentId)
     .order('display_name')
 
@@ -276,6 +284,7 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
     role: MemberRole
     group_id: string | null
     rsvp: RsvpStatus
+    is_guest: boolean
   }[]
 
   return rows.map((r) => ({
@@ -285,6 +294,7 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
     role: r.role,
     groupId: r.group_id,
     rsvp: r.rsvp,
+    isGuest: r.is_guest,
   }))
 }
 

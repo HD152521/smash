@@ -100,6 +100,15 @@ const JoinClubPage = lazyPage(() =>
 )
 const ClubPage = lazyPage(() => import('@/pages/ClubPage').then((m) => ({ default: m.ClubPage })))
 
+/*
+ * 게스트 등록은 이 앱에서 유일하게 **로그인 가드 밖**에 있는 화면이다.
+ * 계정 없는 사람이 링크로 바로 여는 화면이라, 다른 코드 스플릿 화면처럼
+ * `Protected` 로 감싸면(RequireAuth 가 안에 있다) 정작 게스트가 못 연다.
+ */
+const GuestJoinPage = lazyPage(() =>
+  import('@/pages/GuestJoinPage').then((m) => ({ default: m.GuestJoinPage })),
+)
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
   const location = useLocation()
@@ -131,11 +140,29 @@ function Protected({ children }: { children: ReactNode }) {
   )
 }
 
+/** 로그인 확인 없이 청크 로딩만 감싼다 — 가드 밖 화면(`/login` 등)과 같은 자리 */
+function Public({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<FullPageSpinner />}>{children}</Suspense>
+}
+
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      {/*
+        게스트 등록 — 계정 없는 사람이 그날 명단에 스스로 들어오는 유일한 문.
+        `/login` 과 같은 자리에 둔다. `Protected` 안에 넣으면 `RequireAuth` 가
+        먼저 `/login` 으로 돌려보내 게스트가 영영 못 연다.
+      */}
+      <Route
+        path="/g/:guestCode"
+        element={
+          <Public>
+            <GuestJoinPage />
+          </Public>
+        }
+      />
 
       <Route
         path="/"

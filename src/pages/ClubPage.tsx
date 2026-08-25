@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { LogOut, Trash2 } from 'lucide-react'
+import { Copy, LogOut, RefreshCw, Trash2 } from 'lucide-react'
 import { BackLink } from '@/components/ui/BackLink'
 import { Button } from '@/components/ui/Button'
 import { InlineEdit } from '@/components/ui/InlineEdit'
@@ -13,9 +14,11 @@ import {
   useDeleteClub,
   useRemoveClubMember,
   useRenameClub,
+  useRotateGuestCode,
 } from '@/features/club/queries'
 import { CLUB_NAME_MAX, isClubStaff } from '@/lib/club'
 import { toUserMessage } from '@/lib/errors'
+import { guestLinkUrl } from '@/lib/guest'
 
 /**
  * 동아리 화면 — 이름 · 동아리 코드 · 명단 · 산하 대회.
@@ -39,6 +42,8 @@ export function ClubPage() {
   const rename = useRenameClub(clubId ?? '')
   const leave = useRemoveClubMember(clubId ?? '')
   const remove = useDeleteClub()
+  const rotateGuestCode = useRotateGuestCode(clubId ?? '')
+  const [copied, setCopied] = useState(false)
 
   /*
    * 내 역할은 명단에서 찾는다. 목록 화면(`useMyClubs`)이 이미 역할을 들고
@@ -68,6 +73,30 @@ export function ClubPage() {
       navigate('/clubs', { replace: true })
     } catch {
       // remove.error 로 화면에 뿌린다
+    }
+  }
+
+  async function handleCopyGuestLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // 클립보드 접근이 막힌 브라우저 — 링크는 이미 화면에 보이므로 손으로 복사할 수 있다
+    }
+  }
+
+  /**
+   * 재발급은 확인을 한 번 더 받는다 — 누르는 순간 옛 링크가 즉시 죽어서,
+   * 방금 카톡으로 그 링크를 뿌린 사람이 있으면 그 사람들은 다시 못 들어온다.
+   * 이미 등록된 게스트는 건드리지 않는다(`rotate_guest_code` 주석 참고).
+   */
+  async function handleRotateGuestCode() {
+    if (!confirm('게스트 링크를 다시 만들까요? 지금 링크는 바로 꺼집니다.')) return
+    try {
+      await rotateGuestCode.mutateAsync()
+    } catch {
+      // rotateGuestCode.error 로 화면에 뿌린다
     }
   }
 
@@ -103,6 +132,7 @@ export function ClubPage() {
   }
 
   const c = club.data
+  const guestUrl = guestLinkUrl(window.location.origin, c.guest_code)
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
@@ -145,6 +175,58 @@ export function ClubPage() {
           <p className="mt-1.5 text-xs text-ink-3">
             대회 초대 코드와 다릅니다. 회원은 <b>동아리 들어가기</b> 화면에서 이 코드를 넣습니다.
           </p>
+        </section>
+      )}
+
+      {/* ── 게스트 링크 ───────────────────────────────────────────── */}
+      {/*
+        운영진에게만 보인다. 계정 없는 사람도 이 링크로 오늘 모임에 이름을
+        적고 들어온다 — 로그인을 유도하지 않는 이 앱 유일한 문이다.
+        동아리 코드와 달리 재발급이 있다(`guest_code` 는 매번 다른 사람에게
+        보여주는 상시 링크라, 재발급으로 아직 안 온 회원의 코드가 죽는 문제가
+        없다).
+      */}
+      {canManage && (
+        <section className="mt-4 rounded-2xl border border-border-subtle bg-surface-1 p-5">
+          <h2 className="text-sm font-semibold text-ink-2">게스트 링크</h2>
+          <p className="mt-1.5 text-xs text-ink-3">
+            계정이 없는 사람도 이 링크로 오늘 열린 모임에 이름을 적고 들어옵니다.
+          </p>
+          <p className="tabular mt-2 truncate rounded-lg bg-surface-2 px-3 py-2 text-sm font-semibold text-ink-1">
+            {guestUrl}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleCopyGuestLink(guestUrl)}
+            >
+              <Copy className="size-4" aria-hidden />
+              {copied ? '복사했습니다' : '링크 복사'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={rotateGuestCode.isPending}
+              onClick={() => void handleRotateGuestCode()}
+            >
+              <RefreshCw className="size-4" aria-hidden />
+              다시 만들기
+            </Button>
+          </div>
+
+          <p className="mt-2 text-xs text-ink-3">
+            다시 만들면 지금 링크는 바로 꺼집니다. 이미 등록된 게스트는 그대로 남습니다.
+          </p>
+
+          {rotateGuestCode.error && (
+            <p role="alert" className="mt-2 text-sm font-medium text-team-b-fg">
+              {toUserMessage(rotateGuestCode.error, '게스트 링크를 다시 만들지 못했습니다')}
+            </p>
+          )}
         </section>
       )}
 

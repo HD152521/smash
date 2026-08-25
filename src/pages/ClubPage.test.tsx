@@ -38,6 +38,8 @@ vi.mock('@/features/auth/useAuth', () => ({
 
 const idle = { isPending: false, error: null, mutate: vi.fn(), mutateAsync: vi.fn() }
 
+const GUEST_CODE = 'ABCDEFGHJKMNPQRSTUVWX2'
+
 vi.mock('@/features/club/queries', () => ({
   useClub: () => ({
     data: {
@@ -45,6 +47,7 @@ vi.mock('@/features/club/queries', () => ({
       name: '수요 배드민턴',
       description: null,
       invite_code: 'ABC123',
+      guest_code: GUEST_CODE,
     },
     error: null,
   }),
@@ -54,6 +57,7 @@ vi.mock('@/features/club/queries', () => ({
   useRemoveClubMember: () => idle,
   useSetClubMemberRole: () => idle,
   useDeleteClub: () => idle,
+  useRotateGuestCode: () => idle,
 }))
 
 function renderClub() {
@@ -100,5 +104,21 @@ describe('동아리 화면', () => {
     expect(screen.queryByRole('button', { name: '둘 내보내기' })).toBeNull()
     // 명단 자체는 회원에게도 보인다 (cm_select 가 is_club_member 다)
     expect(screen.getByText('둘')).toBeInTheDocument()
+  })
+
+  test('운영진에게는 게스트 링크와 재발급 버튼이 보인다', () => {
+    renderClub()
+
+    expect(screen.getByText(new RegExp(`/g/${GUEST_CODE}$`))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /링크 복사/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /다시 만들기/ })).toBeInTheDocument()
+  })
+
+  test('회원에게는 게스트 링크가 보이지 않는다', () => {
+    state.myRole = 'member'
+    renderClub()
+
+    expect(screen.queryByText(new RegExp(`/g/${GUEST_CODE}$`))).toBeNull()
+    expect(screen.queryByRole('button', { name: /다시 만들기/ })).toBeNull()
   })
 })
