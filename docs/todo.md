@@ -13,9 +13,9 @@
 
 ```
 배포        smash.juganlab.com (Vercel · main 자동 배포)
-DB          20260827000002 까지 프로덕션 적용 완료
+DB          20260828000002 까지 프로덕션 적용 완료
 웹 푸시     send-push Edge Function 배포됨 (HTTP 401 응답 확인)
-검증        단위 309 · 실DB 9종 전부 통과 (아래 "검증 명령")
+검증        단위 345 · 실DB 9종 전부 통과 (아래 "검증 명령")
 브랜치      feat/session-mode — origin 과 동기 (0ed62b5)
 ```
 
@@ -35,8 +35,8 @@ DB          20260827000002 까지 프로덕션 적용 완료
 ```
 마일스톤 1  동아리 그릇       ✅ 완료
 마일스톤 2  참가 신청          ✅ 완료 — 아래 "마일스톤 2가 실제로 만든 것"
-마일스톤 3  게스트 등록       ⬜ 미착수  ← 다음 차례
-마일스톤 4  게스트 읽기 전용   ⬜ 미착수
+마일스톤 3  게스트 등록       ✅ 완료 — 아래 "마일스톤 3 이 실제로 만든 것"
+마일스톤 4  게스트 읽기 전용   ⬜ 미착수  ← 다음 차례
 ```
 
 > **마일스톤 2의 이름이 바뀌었습니다.** 원래 "회원 명단 재사용" 이었는데,
@@ -57,6 +57,13 @@ DB          20260827000002 까지 프로덕션 적용 완료
 | `30e028b` | **마일스톤 2-A** `starts_at` · `rsvp` · `create_session` 확장 · `set_my_rsvp` |
 | `9adead5` | **마일스톤 2-C** 실DB 검증 61항목 + rsvp 를 모임 전용으로 굳힘 |
 | `0ed62b5` | **마일스톤 2-D** 참가 화면 · 시각 분기 · `lib/rsvp.ts` |
+| `ff352a8` | **마일스톤 3** 계획서 |
+| `d57abbb` | 게스트 등록 마이그레이션 650줄 (Task 1~4, 리뷰 반영 후) |
+| `965750c` | 차단 버그 — `create_club` 이 `guest_code` 를 안 채우던 것 |
+| `a4f1485` | **Task 7** 실DB 검증 25항목 |
+| `26ab02c` | **Task 5** 타입 · 순수 로직 · 데이터 접근 |
+| `f85d287` | **Task 6** 화면 (`/g/:guestCode` · 링크 발급·재발급 · 게스트 배지) |
+| `885a8ca` | `gen_random_bytes` search_path 수정 + DB 적용 · 전 검증 |
 
 ### 마일스톤 1b 가 실제로 만든 것
 
@@ -138,6 +145,61 @@ tm_fill_rsvp        대회 행은 언제나 going (트리거)
   상태코드가 아니라 반환 행 수로 판정할 것
 
 ---
+
+### 마일스톤 3 이 실제로 만든 것
+
+**계정 없는 사람이 동아리 상시 링크로 그날 모임 명단에 스스로 들어온다.**
+운영진 타이핑 0회.
+
+```
+clubs              + guest_code   22자 base32. invite_code 와 다른 코드다
+tournament_members + is_guest     화면 배지·상한 계산 전용. 권한 판단에 안 쓴다
+
+guest_sessions(p_code)                        anon. 후보 모임 목록 (필드 셋만)
+join_as_guest(p_code, p_session_id, p_name)   anon. 등록
+rotate_guest_code(p_club_id)                  운영진. 링크 회수
+```
+
+화면: `/g/:guestCode`(로그인 가드 **밖**) · `ClubPage` 링크 발급·재발급 ·
+`MembersPage` 게스트 배지 · `src/lib/guest.ts`(봉투 파싱)
+
+검증: `db:smoke:guest` **67항목** · 회귀 전량 통과
+(club 89 · security 37 · rsvp 61 · match 44 · session 23 · roster 23)
+
+#### 판단 다섯 — 다시 논하지 말 것
+
+1. **RLS 정책을 하나도 안 만든다.** `is_direct_api_call()` 은
+   `current_user = 'authenticated'` 하나로 정식 경로를 가르는데, anon 은
+   `'anon'` 이라 **거짓**이 된다. 그 순간 `guard_tournament_update` ·
+   `guard_member_update` · `guard_member_delete` 가 전부 "RPC 경로다" 로
+   오판해 통과한다. **anon 에 정책을 하나라도 열면 관리자에게도 막힌
+   `owner_id` · `role` · `user_id` 변경이 anon 에게 열린다.** definer 함수
+   둘에만 grant 하고, 문제가 생기면 `revoke` 한 줄로 닫는다
+2. **레이트리밋을 만들지 않는다.** `join_attempts.user_id` 가
+   `not null references auth.users` 라 계정 없는 사람은 기록할 수 없다.
+   억지로 풀면 카운터가 전 세계 anon 하나로 합쳐져 **열 번 틀린 한 사람이
+   모든 게스트를 잠근다**(전역 차단 DoS). 대신 22자 엔트로피 + 모임당 상한 60
+3. **그 상한이 유일한 방어선이라 카운트-삽입을 직렬화한다.**
+   `pg_advisory_xact_lock(hashtextextended(session_id))`. 코트 앞에서 여럿이
+   동시에 링크를 여는 건 정상이고, 락이 없으면 전부 같은 숫자를 읽고 통과한다.
+   `tournaments` 행을 잠그지 않는 이유는 같은 모임의 다른 쓰기(경기 시작)와
+   경합하기 때문
+4. **게스트를 지우지 않는다.** `guard_member_delete` 가 출전 기록 있는 행을
+   막아서, 자동 삭제를 켜면 뛴 게스트는 남고 안 뛴 게스트만 사라진다 —
+   **결과가 반반인 삭제는 규칙이 아니다.** 그리고 `tournament_members` 는
+   원래 모임 하나에 묶인 테이블이라 다음 주는 새 행 집합이다. 지울 것이 없다
+5. **`user_id is null` 로 게스트를 판별하지 않는다.** `create_session` 이
+   미가입 회원(매주 오는 사람)도 심으므로, 그걸로 배지를 그리면 그 사람들
+   전원에게 게스트 딱지가 붙는다. `is_guest` 가 그 둘을 가른다
+
+#### 게스트가 쓰기를 못 하는 것은 코드 0줄로 이미 관철돼 있다
+
+- **심판 불가** — `guard_referee_has_account`(`roster.sql`)가 `user_id is null`
+  인 멤버의 심판 지정을 이미 거부한다
+- **점수 불가** — `is_match_player` 가 `tm.user_id = auth.uid()` 를 요구한다.
+  NULL 은 매칭되지 않고, `auth.uid()` 도 NULL 이면 `NULL = NULL` 은 true 가
+  아니라 NULL 이라 `exists` 가 거짓이다. 이중으로 안전
+- **나머지 RPC 불가** — anon 에게 grant 가 없다. 정책 이전에 grant 에서 끝난다
 
 ### ⚠ Task 7 검사 항목 번호가 문서마다 어긋나 있었습니다
 
@@ -221,6 +283,42 @@ npm run db:smoke:push     # 서명·암호화해서 푸시 서비스까지 닿�
 
 ---
 
+## 🔴 마일스톤 3 에서 실제로 프로덕션을 깨뜨린 것 두 가지
+
+둘 다 **정적 리뷰(DB·보안) 두 벌이 통과시켰고, 실행이 잡았습니다.**
+리뷰는 "이 코드가 무엇을 깨뜨리나" 를 보고, 실행은 "실제로 되나" 를 봅니다.
+
+### 1. `create_club` 이 `guest_code` 를 안 채웠다
+
+`clubs.guest_code` 를 default 없이 `not null` 로 만들어 놓고 `create_club` 은
+그대로 뒀습니다. backfill 은 **기존 행만** 채웠고 **앞으로 들어올 행**은
+아무도 채우지 않았습니다. 적용했으면 모든 동아리 생성이 죽었습니다.
+
+> **컬럼을 `not null` 로 만든 쪽이 채우는 책임도 진다.**
+> 리뷰 지시에 "이 마이그레이션 이후 **새로 만들어지는 행**이 모든 제약을
+> 만족하는가" 를 항목으로 넣으세요. 두 리뷰어 다 backfill 순서는 봤지만
+> 그 질문을 안 했습니다.
+
+### 2. `gen_random_bytes` 를 search_path 에서 못 찾았다
+
+`gen_guest_code` 가 `set search_path = public, pg_temp` 로 잠근 채
+`gen_random_bytes(22)` 를 불렀습니다. 이건 **pgcrypto** 함수이고 Supabase 는
+확장을 `public` 이 아니라 **`extensions`** 스키마에 설치합니다.
+
+```
+function gen_random_bytes(integer) does not exist
+```
+
+이 함수는 `create_club` 안에서 불립니다. **게스트 기능만이 아니라 동아리
+생성 전체가 막혔고**, `db:smoke:club` 첫 항목이 잡았습니다.
+`20260828000002` 로 `extensions` 를 search_path 에 더해 복구했습니다.
+
+> **확장이 설치돼 있다는 것과 내 search_path 에서 보인다는 것은 다른 말입니다.**
+> `gen_random_uuid()` 가 멀쩡히 돌아 더 늦게 드러났습니다 — 그건 PG13+ 코어
+> 내장이라 pgcrypto 와 무관합니다.
+> **pgcrypto 함수(`gen_random_bytes` · `crypt` · `digest` 등)를 쓸 때는
+> `set search_path` 에 `extensions` 를 반드시 넣으세요.**
+
 ## 확정된 결정 (다시 논하지 말 것)
 
 1. **동아리는 명단의 원천이지 권한 축이 아니다.** 기존 권한 헬퍼
@@ -246,6 +344,12 @@ npm run db:smoke:push     # 서명·암호화해서 푸시 서비스까지 닿�
 9. **동아리 역할 이름을 대회 쪽과 겹치지 않게 둔다.** 동아리장·운영진·회원 /
    주최자·관리자·참가자. 한 사람이 두 축에서 서로 다른 역할을 갖는 일이 정상이라,
    같은 단어를 쓰면 지금 어느 축의 권한인지 흐려진다
+10-1. **게스트 코드는 재발급한다.** 동아리 코드와 반대다. 게스트 코드는
+    그날 온 사람에게 그때 보여주는 링크라, 바꿔도 "아직 안 들어온 회원에게
+    뿌린 코드가 죽는" 문제가 없다. `rotate_guest_code` 가 있다
+10-2. **게스트 코드와 동아리 코드는 다른 코드다.** 게스트에게 `invite_code` 를
+    주면 게스트가 **회원이 되어** `club_members` 에 남는다 — 확정 결정 6 이
+    링크 하나로 깨진다
 10. **동아리 코드 재발급은 만들지 않는다.** 대회와 달리 코드를 바꾸면 아직 안 들어온
     회원에게 뿌린 코드가 한꺼번에 죽는다. 서버에도 재발급 RPC 가 없다
 
