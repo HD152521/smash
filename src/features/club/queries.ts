@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/useAuth'
+import { isClubStaff } from '@/lib/club'
 import {
   createClub,
   deleteClub,
@@ -12,6 +14,7 @@ import {
   renameClub,
   setClubMemberRole,
   type CreateClubInput,
+  type MyClub,
 } from './api'
 import type { ClubRole } from '@/types/database'
 
@@ -29,6 +32,18 @@ export function useMyClubs() {
     queryFn: () => fetchMyClubs(user!.id),
     enabled: Boolean(user),
   })
+}
+
+/**
+ * 대회·모임을 그 밑에 열 수 있는 동아리만.
+ *
+ * 회원으로만 속한 동아리는 뺀다 — `create_tournament` 이 `is_club_admin` 을
+ * 요구하므로, 고를 수 있게 두면 만들기를 누른 뒤에야 "권한이 없습니다" 를 본다.
+ * 고를 수 없는 것을 목록에 올리지 않는 게 오류 문구보다 낫다.
+ */
+export function useStaffClubs(): MyClub[] {
+  const { data } = useMyClubs()
+  return useMemo(() => (data ?? []).filter((c) => isClubStaff(c.role)), [data])
 }
 
 export function useClub(clubId: string | undefined) {

@@ -43,6 +43,7 @@ import {
   type CreateMatchInput,
   type UpdateMatchInput,
   type ManualMatchInput,
+  type CreateSessionInput,
   type CreateTournamentInput,
 } from './api'
 import type { TournamentConfigPatch, TournamentStatus } from '@/types/database'
@@ -93,8 +94,7 @@ export function useCreateTournament() {
 export function useCreateSession() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (input: { name: string; displayName: string; courtCount: number }) =>
-      createSession(input),
+    mutationFn: (input: CreateSessionInput) => createSession(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.mine }),
   })
 }

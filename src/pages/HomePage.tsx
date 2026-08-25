@@ -94,6 +94,26 @@ export function HomePage() {
               <p className="mt-1 text-sm text-ink-2">참가했던 대회와 기록</p>
             </Link>
           </div>
+
+          {/*
+            동아리는 선택 계층이다. 안 쓰는 사람이 대부분이라 위의 네 가지와
+            같은 무게로 두지 않고 한 줄짜리 진입점만 남긴다 — 쓰는 사람은
+            여기가 시작점이고, 안 쓰는 사람에게는 한 줄이면 충분하다.
+          */}
+          <Link
+            to="/clubs"
+            className="flex min-h-14 items-center justify-between rounded-2xl border
+                       border-border-subtle px-5 py-4 transition-colors hover:bg-surface-2
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <span>
+              <span className="block font-bold text-ink-1">내 동아리</span>
+              <span className="mt-0.5 block text-sm text-ink-2">동아리 명단과 그 밑에 연 대회</span>
+            </span>
+            <span aria-hidden className="text-ink-3">
+              →
+            </span>
+          </Link>
         </div>
       </main>
     </div>

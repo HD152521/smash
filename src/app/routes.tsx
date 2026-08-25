@@ -85,6 +85,21 @@ const AuditLogPage = lazyPage(() =>
   import('@/pages/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
 )
 
+/*
+ * 동아리는 선택 계층이라 대부분의 참가자는 이 코드를 한 줄도 안 받는다.
+ * 나눠 받는 이유가 관리 화면과 같다 — 안 쓰는 사람에게 안 보내는 것.
+ */
+const MyClubsPage = lazyPage(() =>
+  import('@/pages/MyClubsPage').then((m) => ({ default: m.MyClubsPage })),
+)
+const CreateClubPage = lazyPage(() =>
+  import('@/pages/CreateClubPage').then((m) => ({ default: m.CreateClubPage })),
+)
+const JoinClubPage = lazyPage(() =>
+  import('@/pages/JoinClubPage').then((m) => ({ default: m.JoinClubPage })),
+)
+const ClubPage = lazyPage(() => import('@/pages/ClubPage').then((m) => ({ default: m.ClubPage })))
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
   const location = useLocation()
@@ -162,6 +177,45 @@ export function AppRoutes() {
           </Protected>
         }
       />
+      {/*
+        동아리는 `/clubs`, 대회는 `/t`. 초대 코드가 두 종류가 됐으므로 들어오는
+        문도 갈라 둔다 — `/join` 은 대회 코드, `/clubs/join` 은 동아리 코드다.
+        한 칸에서 둘 다 받으면 누르기 전에는 어디로 들어가는지 알 수 없다.
+      */}
+      <Route
+        path="/clubs"
+        element={
+          <Protected>
+            <MyClubsPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/clubs/new"
+        element={
+          <Protected>
+            <CreateClubPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/clubs/join"
+        element={
+          <Protected>
+            <JoinClubPage />
+          </Protected>
+        }
+      />
+      {/* 동아리 화면은 짧게 — 코드와 함께 카톡으로 오가는 주소다 */}
+      <Route
+        path="/c/:clubId"
+        element={
+          <Protected>
+            <ClubPage />
+          </Protected>
+        }
+      />
+
       <Route
         path="/t/:id"
         element={

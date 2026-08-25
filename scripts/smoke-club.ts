@@ -146,12 +146,16 @@ try {
     p_display_name: '동아리주인',
     p_description: '실DB 검증용',
   })
-  check('동아리 생성 RPC', createdClub.status === 200, `status=${createdClub.status} ${msg(createdClub)}`)
+  check(
+    '동아리 생성 RPC',
+    createdClub.status === 200,
+    `status=${createdClub.status} ${msg(createdClub)}`,
+  )
   const club = obj(createdClub) as unknown as ClubRow
 
   const ownerRow = await clubMemberRow(club.id, owner.uid)
   check(
-    "만든 사람이 owner 멤버 행으로 함께 들어간다",
+    '만든 사람이 owner 멤버 행으로 함께 들어간다',
     ownerRow?.role === 'owner',
     `role=${ownerRow?.role ?? '(행 없음)'} — 멤버 행이 없으면 만든 사람도 자기 동아리를 못 본다`,
   )
@@ -163,7 +167,10 @@ try {
 
   // 뒤에서 쓸 동아리들을 미리 만들어 둔다
   const clubB = obj(
-    await rpc(owner.token, 'create_club', { p_name: '옮겨갈 동아리', p_display_name: '동아리주인' }),
+    await rpc(owner.token, 'create_club', {
+      p_name: '옮겨갈 동아리',
+      p_display_name: '동아리주인',
+    }),
   ) as unknown as ClubRow
   const clubDel = obj(
     await rpc(owner.token, 'create_club', { p_name: '지울 동아리', p_display_name: '동아리주인' }),
@@ -176,7 +183,10 @@ try {
   console.log('\n── 2. 관리자는 동아리 이름을 바꾸고, 일반 회원은 못 바꾼다 ──')
   // ══════════════════════════════════════════════════════════════════
   for (const u of [staff, member, late]) {
-    const joined = await rpc(u.token, 'join_club', { p_code: club.invite_code, p_display_name: u.name })
+    const joined = await rpc(u.token, 'join_club', {
+      p_code: club.invite_code,
+      p_display_name: u.name,
+    })
     check(`${u.name} 이 코드로 들어온다`, obj(joined)['ok'] === true, msg(joined))
   }
   const staffRow = (await clubMemberRow(club.id, staff.uid))!
@@ -187,7 +197,11 @@ try {
     p_member_id: staffRow.id,
     p_role: 'admin',
   })
-  check('주인이 회원을 운영진으로 올린다', promoteStaff.status === 200, `status=${promoteStaff.status} ${msg(promoteStaff)}`)
+  check(
+    '주인이 회원을 운영진으로 올린다',
+    promoteStaff.status === 200,
+    `status=${promoteStaff.status} ${msg(promoteStaff)}`,
+  )
 
   const renameByAdmin = await api(staff.token, `clubs?id=eq.${club.id}`, {
     method: 'PATCH',
@@ -342,7 +356,11 @@ try {
     p_member_id: staffRow.id,
     p_role: 'owner',
   })
-  check('RPC 로도 owner 를 부여할 수 없다', rpcOwner.status >= 400, `status=${rpcOwner.status} ${msg(rpcOwner)}`)
+  check(
+    'RPC 로도 owner 를 부여할 수 없다',
+    rpcOwner.status >= 400,
+    `status=${rpcOwner.status} ${msg(rpcOwner)}`,
+  )
 
   const rpcDemoteOwner = await rpc(staff.token, 'set_club_member_role', {
     p_member_id: ownerRow!.id,
@@ -391,8 +409,16 @@ try {
     p_display_name: '동아리주인',
     p_club_id: club.id,
   })
-  check('소속 대회 생성 RPC', createdEarly.status === 200, `status=${createdEarly.status} ${msg(createdEarly)}`)
-  const tEarly = obj(createdEarly) as unknown as { id: string; invite_code: string; club_id: string }
+  check(
+    '소속 대회 생성 RPC',
+    createdEarly.status === 200,
+    `status=${createdEarly.status} ${msg(createdEarly)}`,
+  )
+  const tEarly = obj(createdEarly) as unknown as {
+    id: string
+    invite_code: string
+    club_id: string
+  }
 
   check('대회에 소속 동아리가 기록된다', tEarly.club_id === club.id, String(tEarly.club_id))
   check(
@@ -471,7 +497,11 @@ try {
     plainT.status === 200,
     `status=${plainT.status} ${msg(plainT)} — 여기서 깨지면 기존 사용자 전원이 대회를 못 연다`,
   )
-  const tPlain = obj(plainT) as unknown as { id: string; invite_code: string; club_id: string | null }
+  const tPlain = obj(plainT) as unknown as {
+    id: string
+    invite_code: string
+    club_id: string | null
+  }
   check('소속이 NULL 로 남는다', tPlain.club_id === null, String(tPlain.club_id))
 
   const { rows: plainGroups } = await db.query<{ n: string }>(
@@ -486,11 +516,7 @@ try {
   check('조커조 지정도 그대로다', Number(plainJoker[0]!.n) === 1, `${plainJoker[0]!.n}개`)
 
   const plainJoin = await rpc(outsider.token, 'join_tournament', { p_code: tPlain.invite_code })
-  check(
-    '코드로 들어오는 경로가 그대로다',
-    obj(plainJoin)['ok'] === true,
-    msg(plainJoin),
-  )
+  check('코드로 들어오는 경로가 그대로다', obj(plainJoin)['ok'] === true, msg(plainJoin))
   const seenByJoiner = await api(outsider.token, `tournaments?id=eq.${tPlain.id}&select=id,club_id`)
   check(
     '들어온 사람에게 대회가 보인다',
@@ -508,16 +534,27 @@ try {
     plainS.status === 200,
     `status=${plainS.status} ${msg(plainS)}`,
   )
-  const sPlain = obj(plainS) as unknown as { id: string; club_id: string | null; kind: string; status: string }
+  const sPlain = obj(plainS) as unknown as {
+    id: string
+    club_id: string | null
+    kind: string
+    status: string
+  }
   check('모임 소속도 NULL 이다', sPlain.club_id === null, String(sPlain.club_id))
-  check("모임은 여전히 kind='session' · status='live' 로 열린다",
+  check(
+    "모임은 여전히 kind='session' · status='live' 로 열린다",
     sPlain.kind === 'session' && sPlain.status === 'live',
-    `${sPlain.kind} / ${sPlain.status}`)
+    `${sPlain.kind} / ${sPlain.status}`,
+  )
   const { rows: plainCourts } = await db.query<{ n: string }>(
     `select count(*)::int as n from courts where tournament_id=$1`,
     [sPlain.id],
   )
-  check('코트가 예전처럼 함께 만들어진다', Number(plainCourts[0]!.n) === 2, `${plainCourts[0]!.n}개`)
+  check(
+    '코트가 예전처럼 함께 만들어진다',
+    Number(plainCourts[0]!.n) === 2,
+    `${plainCourts[0]!.n}개`,
+  )
 
   // ══════════════════════════════════════════════════════════════════
   console.log('\n── 9. 만들어진 대회의 소속을 나중에 바꾸거나 지울 수 없다 ──')
@@ -564,7 +601,11 @@ try {
     p_member_id: lateRow.id,
     p_role: 'admin',
   })
-  check('늦게 들어온 회원을 운영진으로 올린다', promoteLate.status === 200, `status=${promoteLate.status}`)
+  check(
+    '늦게 들어온 회원을 운영진으로 올린다',
+    promoteLate.status === 200,
+    `status=${promoteLate.status}`,
+  )
   check(
     '12) 명단에 없는 사람은 승격해도 새로 심지 않는다',
     (await tmRole(tEarly.id, late.uid)) === null,
@@ -575,7 +616,11 @@ try {
     p_member_id: staffRow.id,
     p_role: 'member',
   })
-  check('운영진에서 내린다', demoteStaff.status === 200, `status=${demoteStaff.status} ${msg(demoteStaff)}`)
+  check(
+    '운영진에서 내린다',
+    demoteStaff.status === 200,
+    `status=${demoteStaff.status} ${msg(demoteStaff)}`,
+  )
   check(
     '10) 안 끝난 산하 대회의 관리자 권한이 사라진다',
     (await tmRole(tEarly.id, staff.uid)) === 'member',
@@ -713,11 +758,7 @@ try {
   const { rowCount: cmGone } = await db.query(`select 1 from club_members where club_id=$1`, [
     clubDel.id,
   ])
-  check(
-    '동아리 명단은 함께 지워진다 (cascade 는 여기까지)',
-    cmGone === 0,
-    `${cmGone}행`,
-  )
+  check('동아리 명단은 함께 지워진다 (cascade 는 여기까지)', cmGone === 0, `${cmGone}행`)
 
   // ══════════════════════════════════════════════════════════════════
   console.log('\n── 14. 동명이인 운영진이어도 대회 생성이 실패하지 않는다 ──')
@@ -731,7 +772,10 @@ try {
     })
     check(`${t.name} 이 같은 이름으로 동아리에 들어온다`, obj(joined)['ok'] === true, msg(joined))
     const row = (await clubMemberRow(clubTwin.id, t.uid))!
-    const up = await rpc(owner.token, 'set_club_member_role', { p_member_id: row.id, p_role: 'admin' })
+    const up = await rpc(owner.token, 'set_club_member_role', {
+      p_member_id: row.id,
+      p_role: 'admin',
+    })
     check(`${t.name} 을 운영진으로 올린다`, up.status === 200, `status=${up.status} ${msg(up)}`)
   }
 
@@ -910,11 +954,7 @@ try {
     `select count(*)::int as n from audit_logs where club_id=$1 and action='club_member.remove'`,
     [club.id],
   )
-  check(
-    '뺀 것이 감사 로그에 남는다',
-    Number(removeLog[0]!.n) >= 1,
-    `${removeLog[0]!.n}건`,
-  )
+  check('뺀 것이 감사 로그에 남는다', Number(removeLog[0]!.n) >= 1, `${removeLog[0]!.n}건`)
 
   const leaveSelf = await rpc(late.token, 'remove_club_member', { p_member_id: lateRow.id })
   const { rowCount: lateLeft } = await db.query(`select 1 from club_members where id=$1`, [

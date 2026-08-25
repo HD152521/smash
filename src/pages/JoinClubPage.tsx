@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { BackLink } from '@/components/ui/BackLink'
 import { Link, useNavigate } from 'react-router-dom'
+import { BackLink } from '@/components/ui/BackLink'
 import { Button } from '@/components/ui/Button'
-import { useJoinTournament, useProfileName } from '@/features/tournament/queries'
+import { useJoinClub } from '@/features/club/queries'
+import { useProfileName } from '@/features/tournament/queries'
 import {
   CODE_LENGTH,
   hasConfusableChar,
@@ -11,9 +12,18 @@ import {
 } from '@/features/tournament/inviteCode'
 import { toUserMessage } from '@/lib/errors'
 
-export function JoinTournamentPage() {
+/**
+ * 동아리 코드로 들어오기.
+ *
+ * `JoinTournamentPage` 와 화면이 거의 같지만 **일부러 따로 둔다.** 초대 코드가
+ * 동아리·대회 두 종류가 됐고 둘 다 같은 모양의 6자리라, 한 칸에서 둘 다 받으면
+ * 어느 쪽에 들어가는지 누르기 전에 알 수 없다. 들어갈 곳이 다르면 화면도 다르다.
+ *
+ * 대신 잘못 찾아온 사람을 위해 반대쪽으로 가는 길을 아래에 남긴다.
+ */
+export function JoinClubPage() {
   const navigate = useNavigate()
-  const join = useJoinTournament()
+  const join = useJoinClub()
   const { data: profileName } = useProfileName()
 
   const [raw, setRaw] = useState('')
@@ -25,28 +35,28 @@ export function JoinTournamentPage() {
     e.preventDefault()
     if (!isCompleteCode(code)) return
     try {
-      const tournament = await join.mutateAsync({
+      const club = await join.mutateAsync({
         code,
         displayName: displayName.trim() || profileName || undefined,
       })
-      navigate(`/t/${tournament.id}`, { replace: true })
+      navigate(`/c/${club.id}`, { replace: true })
     } catch {
-      // 오류는 mutation.error 로 화면에 뿌린다
+      // 오류는 join.error 로 화면에 뿌린다
     }
   }
 
   return (
     <main className="mx-auto w-full max-w-md px-5 pt-6 pb-16">
-      <BackLink to="/">메인으로</BackLink>
+      <BackLink to="/clubs">내 동아리</BackLink>
 
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">대회 참가</h1>
+      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">동아리 들어가기</h1>
       <p className="mt-2 text-sm text-ink-2">
-        주최자에게 받은 {CODE_LENGTH}자리 코드를 입력하세요.
+        운영진에게 받은 <b>동아리 코드</b> {CODE_LENGTH}자리를 입력하세요.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8">
         <label className="block">
-          <span className="sr-only">초대 코드</span>
+          <span className="sr-only">동아리 코드</span>
           <input
             value={code}
             onChange={(e) => setRaw(e.target.value)}
@@ -55,7 +65,7 @@ export function JoinTournamentPage() {
             autoCorrect="off"
             spellCheck={false}
             inputMode="text"
-            aria-label="초대 코드"
+            aria-label="동아리 코드"
             placeholder="XXXXXX"
             className="tabular w-full rounded-2xl border-2 border-border-subtle bg-surface-1
                        py-5 text-center text-4xl font-black tracking-[0.3em] text-ink-1
@@ -77,7 +87,7 @@ export function JoinTournamentPage() {
 
         <details className="mt-6 group">
           <summary className="cursor-pointer list-none text-sm font-medium text-ink-2 hover:text-ink-1">
-            대회에서 쓸 이름 바꾸기
+            동아리에서 쓸 이름 바꾸기
             {profileName && <span className="ml-1 text-ink-3">(현재: {profileName})</span>}
           </summary>
           <input
@@ -90,13 +100,20 @@ export function JoinTournamentPage() {
                        focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
           />
           <p className="mt-1.5 text-xs text-ink-3">
-            대진표와 순위표에 이 이름으로 표시됩니다. 동명이인이 있으면 구분되게 적어주세요.
+            동아리 밑에 열리는 대회의 명단에 이 이름으로 들어갑니다.
           </p>
         </details>
 
+        {/*
+          문구는 전부 `lib/club.ts` 의 parseJoinResult 에서 온다.
+          여기서 다시 만들지 않는다 — 특히 '너무 많이 입력했습니다' 는 동아리
+          코드만 세는 게 아니라 대회 코드 실패까지 함께 세는 카운터라
+          (`join_attempts` 를 두 코드가 공유한다), '동아리 코드를 10번' 이라고
+          적으면 대회 코드를 틀려서 막힌 사람이 영문을 모르게 된다.
+        */}
         {join.error && (
           <p role="alert" className="mt-5 text-sm font-medium text-team-b-fg">
-            {toUserMessage(join.error, '참가하지 못했습니다')}
+            {toUserMessage(join.error, '동아리에 들어가지 못했습니다')}
           </p>
         )}
 
@@ -107,24 +124,18 @@ export function JoinTournamentPage() {
           loading={join.isPending}
           disabled={!isCompleteCode(code)}
         >
-          참가하기
+          들어가기
         </Button>
       </form>
 
-      {/*
-        초대 코드가 동아리·대회 두 종류가 됐고 둘 다 같은 6자리다.
-        동아리 코드를 여기 넣으면 '찾을 수 없습니다' 만 보고 끝나므로
-        반대쪽으로 가는 길을 남긴다. 한 칸에서 둘 다 받지는 않는다 —
-        누르기 전에 어디로 들어가는지 알 수 없게 된다.
-      */}
       <p className="mt-8 text-center text-sm text-ink-3">
-        동아리 코드를 받으셨다면{' '}
+        대회 초대 코드를 받으셨다면{' '}
         <Link
-          to="/clubs/join"
+          to="/join"
           className="font-semibold text-brand-fg underline underline-offset-2
                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >
-          동아리 들어가기
+          대회 참가
         </Link>
         로 가세요.
       </p>

@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BackLink } from '@/components/ui/BackLink'
+import { ClubPicker } from '@/features/club/ClubPicker'
+import { useStaffClubs } from '@/features/club/queries'
 import { Button } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { useCreateSession, useProfileName } from '@/features/tournament/queries'
@@ -30,6 +32,12 @@ export function CreateSessionPage() {
   const [name, setName] = useState(() => defaultSessionName(new Date()))
   const [courtCount, setCourtCount] = useState(2)
 
+  // 소속 동아리 — 기본값은 '동아리 없음'. 판단은 CreateTournamentPage 와 같다.
+  const [searchParams] = useSearchParams()
+  const staffClubs = useStaffClubs()
+  const [wantedClubId, setWantedClubId] = useState<string | null>(() => searchParams.get('club'))
+  const clubId = staffClubs.some((c) => c.id === wantedClubId) ? wantedClubId : null
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     try {
@@ -37,6 +45,7 @@ export function CreateSessionPage() {
         name: name.trim(),
         displayName: profileName ?? '모임장',
         courtCount,
+        clubId,
       })
       navigate(`/t/${session.id}`, { replace: true })
     } catch {
@@ -67,6 +76,13 @@ export function CreateSessionPage() {
                        focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
           />
         </label>
+
+        <ClubPicker
+          clubs={staffClubs}
+          value={clubId}
+          onChange={setWantedClubId}
+          disabled={create.isPending}
+        />
 
         <Stepper
           label="코트 개수"

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BackLink } from '@/components/ui/BackLink'
 import { ChevronRight } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
+import { useMyClubs } from '@/features/club/queries'
 import { useMyTournaments } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,21 @@ const STATUS_LABEL: Record<TournamentStatus, string> = {
 
 export function MyTournamentsPage() {
   const { data, isPending, error } = useMyTournaments()
+
+  /*
+   * 소속 동아리 이름은 내 동아리 목록에서 찾는다.
+   *
+   * 대회 행에는 `club_id` 만 실려 온다. 이름을 같이 끌어오려면 대회 조회에
+   * 동아리 조인을 하나 더 얹어야 하는데, 그건 앱에서 가장 자주 도는 조회에
+   * 새 테이블을 물리는 일이다. 어차피 `clubs_select` 가 `is_club_member` 라
+   * 내가 회원이 아닌 동아리의 이름은 조인해도 null 로 온다 — 결과가 같다면
+   * 이미 있는 목록에서 찾는 편이 안전하다.
+   *
+   * 그래서 배지는 **내가 회원인 동아리**일 때만 뜬다. 소속이 없거나 이름을
+   * 못 찾으면 아예 그리지 않는다 (빈 배지는 고장으로 읽힌다).
+   */
+  const { data: myClubs } = useMyClubs()
+  const clubNames = useMemo(() => new Map((myClubs ?? []).map((c) => [c.id, c.name])), [myClubs])
 
   /*
    * 어느 쪽을 먼저 보여줄까.
@@ -144,6 +160,9 @@ export function MyTournamentsPage() {
                       </Badge>
                     )}
                     {t.role !== 'member' && <Badge>{ROLE_LABEL[t.role]}</Badge>}
+                    {t.clubId && clubNames.has(t.clubId) && (
+                      <Badge tone="neutral">{clubNames.get(t.clubId)}</Badge>
+                    )}
                   </div>
 
                   {t.description && (
