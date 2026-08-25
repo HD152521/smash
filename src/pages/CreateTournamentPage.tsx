@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { BackLink } from '@/components/ui/BackLink'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ClubPicker } from '@/features/club/ClubPicker'
+import { useStaffClubs } from '@/features/club/queries'
 import { Button } from '@/components/ui/Button'
 import { Stepper } from '@/components/ui/Stepper'
 import { RuleFields } from '@/features/tournament/RuleFields'
@@ -22,6 +24,20 @@ export function CreateTournamentPage() {
   const [jokerCount, setJokerCount] = useState(0)
   const [rules, setRules] = useState<RuleSettings>(DEFAULT_RULES)
 
+  /*
+   * 소속 동아리. 기본값은 '동아리 없음' 이다 — 지금까지의 대회는 전부 소속이
+   * 없고, 동아리는 얹혀 있는 선택 계층이다.
+   *
+   * 동아리 화면에서 들어오면 `?club=` 으로 넘어온다. 그 값을 그대로 믿지 않고
+   * **내가 운영진인 동아리 목록에 있을 때만** 쓴다. 주소는 손으로 고칠 수
+   * 있고, 서버는 `is_club_admin` 이 아니면 만들기 자체를 거절하므로, 못 쓰는
+   * 값을 들고 있으면 화면에는 '동아리 없음' 이 보이는데 요청만 실패한다.
+   */
+  const [searchParams] = useSearchParams()
+  const staffClubs = useStaffClubs()
+  const [wantedClubId, setWantedClubId] = useState<string | null>(() => searchParams.get('club'))
+  const clubId = staffClubs.some((c) => c.id === wantedClubId) ? wantedClubId : null
+
   // 조를 줄였는데 조커 수가 그대로면 말이 안 된다. 같이 줄인다.
   function changeGroupCount(next: number) {
     const clamped = Math.min(MAX_GROUPS, Math.max(MIN_GROUPS, next))
@@ -38,6 +54,7 @@ export function CreateTournamentPage() {
         jokerGroupCount: jokerCount,
         displayName: profileName ?? '주최자',
         config: rules,
+        clubId,
       })
       navigate(`/t/${tournament.id}`, { replace: true })
     } catch {
@@ -69,6 +86,13 @@ export function CreateTournamentPage() {
                        focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
           />
         </label>
+
+        <ClubPicker
+          clubs={staffClubs}
+          value={clubId}
+          onChange={setWantedClubId}
+          disabled={create.isPending}
+        />
 
         <Stepper
           label="조 개수"

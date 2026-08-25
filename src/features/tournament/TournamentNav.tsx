@@ -28,6 +28,14 @@ const TABS = [
   { key: 'members', label: '참가자', path: '/members' },
 ] as const
 
+/**
+ * 모임에 없는 탭.
+ *
+ * 심판은 모임에 지정하지 않고(뛰는 사람이 점수를 넣는다), 순위는 모임의
+ * 목적이 아니다. 빈 화면으로 가는 탭을 남겨 두면 눌러 보고 나서야 안다.
+ */
+const HIDDEN_IN_SESSION: readonly TournamentTab[] = ['referee', 'standings']
+
 export type TournamentTab = (typeof TABS)[number]['key']
 
 const STATUS_LABEL: Record<TournamentStatus, string> = {
@@ -38,12 +46,13 @@ const STATUS_LABEL: Record<TournamentStatus, string> = {
 
 export function TournamentNav({ id, active }: { id: string; active: TournamentTab }) {
   const nav = useTournamentNav(id)
+  const tabs = nav.isSession ? TABS.filter((t) => !HIDDEN_IN_SESSION.includes(t.key)) : TABS
 
   return (
     <header>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <BackLink to="/my">내 대회</BackLink>
+          <BackLink to="/my">{nav.isSession ? '내 모임' : '내 대회'}</BackLink>
           {/*
             뒤로가기만 있으면 대회 안에서 빠져나갈 길이 없다.
             히스토리를 되짚는 것과 '다른 대회로 옮겨 가는 것' 은 다른 일이라
@@ -105,9 +114,12 @@ export function TournamentNav({ id, active }: { id: string; active: TournamentTa
       </div>
 
       {/* 탭이 화면보다 길면 가로로 민다. 본문은 절대 가로로 넘치지 않는다. */}
-      <nav aria-label="대회 메뉴" className="no-scrollbar -mx-5 mt-3 overflow-x-auto px-5">
+      <nav
+        aria-label={nav.isSession ? '모임 메뉴' : '대회 메뉴'}
+        className="no-scrollbar -mx-5 mt-3 overflow-x-auto px-5"
+      >
         <ul className="flex w-max gap-1.5">
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const current = tab.key === active
             return (
               <li key={tab.key}>

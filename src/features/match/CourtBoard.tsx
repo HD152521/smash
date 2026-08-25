@@ -303,6 +303,10 @@ function Team({
 }) {
   return (
     <div className={cn('min-w-0 flex-1', align === 'right' && 'text-right')}>
+      {/*
+        모임 경기는 조가 없다. 그때 '—' 를 머리로 내고 이름을 밑에 작게 두면
+        정작 봐야 할 것이 부차적으로 보인다. 조가 없으면 사람이 머리다.
+      */}
       <p
         className={cn(
           'truncate font-bold',
@@ -311,10 +315,10 @@ function Team({
         )}
       >
         {joker && <span aria-hidden>🃏 </span>}
-        {name ?? '—'}
+        {name ?? players?.join(' · ') ?? '—'}
         {won && ' 승'}
       </p>
-      {players && players.length > 0 && (
+      {name && players && players.length > 0 && (
         <p className="truncate text-xs text-ink-3">{players.join(' · ')}</p>
       )}
     </div>

@@ -10,6 +10,8 @@
  * 스키마를 바꿨으면: npm run db:push && npm run db:types
  */
 import type {
+  ClubMembersRow,
+  ClubsRow,
   CourtsRow,
   Database as GeneratedDatabase,
   GroupsRow,
@@ -24,6 +26,7 @@ import type {
 
 export type {
   AuditLogsRow,
+  ClubRole,
   Json,
   MatchRefereesRow,
   MatchSource,
@@ -31,6 +34,7 @@ export type {
   MatchTeamPlayersRow,
   MemberRole,
   TeamSide,
+  TournamentKind,
   TournamentStatus,
 } from './database.gen'
 
@@ -77,6 +81,9 @@ export type MatchRow = MatchesRow
 export type MatchTeamRow = MatchTeamsRow
 export type ScoreEventRow = ScoreEventsRow
 export type ProfileRow = ProfilesRow
+/** 동아리는 대회 위에 얹힌 선택 계층이다 — 명단의 원천이지 권한 축이 아니다 */
+export type ClubRow = ClubsRow
+export type ClubMemberRow = ClubMembersRow
 export type { MatchOverviewRow }
 
 // ── 3. RPC 반환 타입 (테이블이 아니라 함수 결과) ─────────────────────
@@ -105,6 +112,19 @@ export type JoinTournamentResult =
   | {
       ok: false
       error: 'unauthenticated' | 'rate_limited' | 'bad_format' | 'not_found' | 'finished'
+      message: string
+    }
+
+/**
+ * join_club 도 같은 이유로 예외를 안 던진다 — 실패 기록 뒤에 예외를 던지면
+ * 같은 트랜잭션의 브루트포스 시도 기록까지 롤백되어 차단이 무력화된다.
+ * 봉투를 푸는 곳은 `src/lib/club.ts` 의 parseJoinResult 하나다.
+ */
+export type JoinClubResult =
+  | { ok: true; club: ClubRow }
+  | {
+      ok: false
+      error: 'unauthenticated' | 'rate_limited' | 'bad_format' | 'not_found'
       message: string
     }
 
@@ -140,6 +160,12 @@ export type Database = {
           p_display_name: string
           /** 경기 규칙. 보내지 않은 키는 서버 기본값으로 채워진다 */
           p_config?: TournamentConfigPatch
+          /**
+           * 소속 동아리. 없으면 지금까지와 똑같은 경로로 만들어진다.
+           * 넣으면 그 시점 운영진이 관리자 멤버 행으로 함께 심어진다.
+           * 소속은 생성 후 불변이다 (guard_tournament_update 가 잠근다).
+           */
+          p_club_id?: string | null
         }
         Returns: TournamentRow
       }
@@ -147,9 +173,60 @@ export type Database = {
         Args: { p_tournament_id: string; p_config: TournamentConfigPatch }
         Returns: TournamentRow
       }
+      /**
+       * 모임 열기. 조가 없으므로 create_tournament 과 다른 함수다.
+       * 코트를 함께 만든다 — 모임은 코트가 곧 화면이다.
+       */
+      create_session: {
+        Args: {
+          p_name: string
+          p_display_name: string
+          p_court_count?: number
+          /** 소속 동아리. create_tournament 의 p_club_id 와 같은 규칙 */
+          p_club_id?: string | null
+        }
+        Returns: TournamentRow
+      }
+      /** 모임 경기 편성. 조 대신 사람을 직접 고른다. */
+      create_session_match: {
+        Args: {
+          p_tournament_id: string
+          p_court_id: string | null
+          p_players_a: string[]
+          p_players_b: string[]
+          p_label?: string | null
+        }
+        Returns: MatchRow
+      }
       join_tournament: {
         Args: { p_code: string; p_display_name?: string | null }
         Returns: JoinTournamentResult
+      }
+      /** 동아리 만들기. 만든 사람이 owner 멤버 행으로 같은 트랜잭션에 들어간다 */
+      create_club: {
+        Args: { p_name: string; p_display_name: string; p_description?: string | null }
+        Returns: ClubRow
+      }
+      /** 동아리 코드로 들어오기. 예외 대신 봉투를 돌려준다 (JoinClubResult 주석 참고) */
+      join_club: {
+        Args: { p_code: string; p_display_name?: string | null }
+        Returns: JoinClubResult
+      }
+      /**
+       * 동아리 역할 바꾸기.
+       *
+       * owner 는 인자로 못 준다 — 동아리 주인 권한은 넘기지도 뺏지도 못한다
+       * (set_member_role 이 대회에서 막은 것과 같은 이유).
+       * 강등하면 아직 안 끝난 산하 대회의 관리자 권한도 함께 내려간다.
+       */
+      set_club_member_role: {
+        Args: { p_member_id: string; p_role: 'admin' | 'member' }
+        Returns: ClubMemberRow
+      }
+      /** 동아리에서 빼기 / 스스로 나가기. owner 행은 어느 쪽도 못 뺀다 */
+      remove_club_member: {
+        Args: { p_member_id: string }
+        Returns: void
       }
       set_member_role: {
         Args: { p_member_id: string; p_role: 'admin' | 'member' }

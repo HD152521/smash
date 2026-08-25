@@ -1,3 +1,4 @@
+import { hasNoGroups, playerTitle } from './session'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
 /**
@@ -90,7 +91,13 @@ export function myMatchRole(m: MatchOverviewRow, myName: string | undefined): My
   return null
 }
 
-/** "1조 vs 3조" 처럼 한 줄로 읽히게 */
+/**
+ * "1조 vs 3조" 처럼 한 줄로 읽히게.
+ *
+ * 모임 경기는 조가 없다(group_id 가 NULL). 그때 '— vs —' 를 내면 대진표와
+ * 알림 문구가 통째로 무의미해지므로 사람 이름으로 부른다.
+ */
 export function matchTitle(m: MatchOverviewRow): string {
+  if (hasNoGroups(m)) return playerTitle(m)
   return `${m.group_a_name ?? '—'} vs ${m.group_b_name ?? '—'}`
 }

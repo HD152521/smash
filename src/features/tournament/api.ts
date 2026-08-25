@@ -10,6 +10,7 @@ import type {
   ScoreEventRow,
   StandingRow,
   TournamentConfigPatch,
+  TournamentKind,
   TournamentRow,
   TournamentStatus,
 } from '@/types/database'
@@ -22,6 +23,23 @@ export interface CreateTournamentInput {
   displayName: string
   /** 경기 규칙. 보내지 않은 키는 서버 기본값으로 채워진다 */
   config?: TournamentConfigPatch
+  /**
+   * 소속 동아리. 넣으면 그 시점 운영진이 관리자 멤버 행으로 함께 심어지고,
+   * 소속은 그 뒤로 바뀌지 않는다 (`guard_tournament_update` 가 잠근다).
+   */
+  clubId?: string | null
+}
+
+/**
+ * 소속 없이 만드는 경로를 '보내지 않는 것' 으로 표현한다.
+ *
+ * `p_club_id` 는 서버에서 `default null` 이라 null 을 보내도 결과는 같지만,
+ * 인자 자체를 빼면 **기존 대회·모임이 지나던 호출과 비트 단위로 같은 요청**이
+ * 된다. 동아리는 선택 계층이고 여기가 두 경로가 갈리는 유일한 지점이라,
+ * 안 쓰는 쪽에는 새 인자가 아예 닿지 않게 두는 편이 회귀를 만들 여지가 없다.
+ */
+function clubArg(clubId: string | null | undefined): { p_club_id?: string } {
+  return clubId ? { p_club_id: clubId } : {}
 }
 
 export async function createTournament(input: CreateTournamentInput): Promise<TournamentRow> {
@@ -32,6 +50,7 @@ export async function createTournament(input: CreateTournamentInput): Promise<To
     p_joker_group_count: input.jokerGroupCount,
     p_display_name: input.displayName,
     p_config: input.config ?? {},
+    ...clubArg(input.clubId),
   })
   return unwrap(res) as TournamentRow
 }
@@ -54,6 +73,46 @@ export async function updateTournamentConfig(
 }
 
 /**
+ * 모임 열기.
+ *
+ * 조가 없어서 create_tournament 과 다른 함수를 쓴다. 코트를 함께 만든다 —
+ * 모임은 코트가 곧 화면이라, 코트 없이 만들면 빈 화면부터 보게 된다.
+ */
+export interface CreateSessionInput {
+  name: string
+  displayName: string
+  courtCount: number
+  /** 소속 동아리. `CreateTournamentInput.clubId` 와 같은 규칙 */
+  clubId?: string | null
+}
+
+export async function createSession(input: CreateSessionInput): Promise<TournamentRow> {
+  const res = await supabase.rpc('create_session', {
+    p_name: input.name,
+    p_display_name: input.displayName,
+    p_court_count: input.courtCount,
+    ...clubArg(input.clubId),
+  })
+  return unwrap(res) as TournamentRow
+}
+
+/** 모임 경기 편성 — 조 대신 사람을 직접 고른다 */
+export async function createSessionMatch(input: {
+  tournamentId: string
+  courtId: string | null
+  playersA: string[]
+  playersB: string[]
+}): Promise<MatchRow> {
+  const res = await supabase.rpc('create_session_match', {
+    p_tournament_id: input.tournamentId,
+    p_court_id: input.courtId,
+    p_players_a: input.playersA,
+    p_players_b: input.playersB,
+  })
+  return unwrap(res) as MatchRow
+}
+
+/**
  * 참가. 서버가 예외 대신 결과 객체를 돌려주므로 여기서 예외로 바꿔 준다.
  * (예외를 던지면 브루트포스 시도 기록이 롤백되어 차단이 무력화된다)
  */
@@ -72,11 +131,14 @@ export interface MyTournament {
   id: string
   name: string
   description: string | null
+  kind: TournamentKind
   status: TournamentStatus
   inviteCode: string
   role: MemberRole
   groupId: string | null
   joinedAt: string
+  /** 소속 동아리. 동아리 없이 만든 대회·모임은 null 이다 (대부분이 여기다) */
+  clubId: string | null
 }
 
 interface MembershipRow {
@@ -88,14 +150,19 @@ interface MembershipRow {
     name: string
     description: string | null
     status: TournamentStatus
+    // kind 가 없던 시절 행이 섞여 있을 수 있다
+    kind: TournamentKind | null
     invite_code: string
+    club_id: string | null
   } | null
 }
 
 export async function fetchMyTournaments(userId: string): Promise<MyTournament[]> {
   const res = await supabase
     .from('tournament_members')
-    .select('role, group_id, joined_at, tournaments(id, name, description, status, invite_code)')
+    .select(
+      'role, group_id, joined_at, tournaments(id, name, description, status, kind, invite_code, club_id)',
+    )
     .eq('user_id', userId)
     .order('joined_at', { ascending: false })
 
@@ -109,11 +176,14 @@ export async function fetchMyTournaments(userId: string): Promise<MyTournament[]
       id: r.tournaments.id,
       name: r.tournaments.name,
       description: r.tournaments.description,
+      // kind 가 없던 시절 행은 대회다 (isSession 과 같은 판단)
+      kind: r.tournaments.kind ?? 'tournament',
       status: r.tournaments.status,
       inviteCode: r.tournaments.invite_code,
       role: r.role,
       groupId: r.group_id,
       joinedAt: r.joined_at,
+      clubId: r.tournaments.club_id,
     }))
 }
 

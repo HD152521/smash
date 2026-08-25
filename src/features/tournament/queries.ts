@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/useAuth'
 import { kickPushSender } from '@/features/notifications/push'
 import {
+  createSession,
+  createSessionMatch,
   createTournament,
   fetchGroups,
   fetchMyTournaments,
@@ -41,6 +43,7 @@ import {
   type CreateMatchInput,
   type UpdateMatchInput,
   type ManualMatchInput,
+  type CreateSessionInput,
   type CreateTournamentInput,
 } from './api'
 import type { TournamentConfigPatch, TournamentStatus } from '@/types/database'
@@ -84,6 +87,33 @@ export function useCreateTournament() {
   return useMutation({
     mutationFn: (input: CreateTournamentInput) => createTournament(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.mine }),
+  })
+}
+
+/** 모임 열기 */
+export function useCreateSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateSessionInput) => createSession(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: tournamentKeys.mine }),
+  })
+}
+
+/**
+ * 모임 경기 편성.
+ *
+ * 편성되는 순간 코트 대기열이 바뀌므로 경기 목록을 무효화한다.
+ * '곧 차례' 알림은 서버 트리거가 커밋 직전에 보낸다.
+ */
+export function useCreateSessionMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { courtId: string | null; playersA: string[]; playersB: string[] }) =>
+      createSessionMatch({ tournamentId, ...input }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+      kickPushSender()
+    },
   })
 }
 

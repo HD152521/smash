@@ -6,6 +6,7 @@ import { useAdminGate } from '@/features/admin/useAdminGate'
 import { useGroups, useMatches, useVoidMatch } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 import { matchHasPlayer, orderRecords } from '@/lib/records'
+import { isUnscored } from '@/lib/session'
 import { cn } from '@/lib/utils'
 import type { MatchOverviewRow } from '@/types/database'
 
@@ -224,9 +225,19 @@ function RecordCard({
             players={m.players_a}
             won={!voided && m.winner_side === 'A'}
           />
-          <span className="tabular shrink-0 text-2xl font-black text-ink-1">
-            {m.score_a ?? 0} : {m.score_b ?? 0}
-          </span>
+          {/*
+            모임 경기는 점수를 안 세고 끝날 수 있다. 그때 '0 : 0' 을 크게 띄우면
+            0대 0으로 끝난 경기처럼 읽힌다 — 안 센 것과 0점은 다른 이야기다.
+          */}
+          {isUnscored(m) ? (
+            <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-bold text-ink-3">
+              점수 없음
+            </span>
+          ) : (
+            <span className="tabular shrink-0 text-2xl font-black text-ink-1">
+              {m.score_a ?? 0} : {m.score_b ?? 0}
+            </span>
+          )}
           <Side
             name={m.group_b_name}
             joker={m.group_b_joker}
