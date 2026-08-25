@@ -7,10 +7,12 @@ import type {
   MatchOverviewRow,
   MatchRow,
   MemberRole,
+  RsvpStatus,
   ScoreEventRow,
   StandingRow,
   TournamentConfigPatch,
   TournamentKind,
+  TournamentMemberRow,
   TournamentRow,
   TournamentStatus,
 } from '@/types/database'
@@ -84,6 +86,22 @@ export interface CreateSessionInput {
   courtCount: number
   /** 소속 동아리. `CreateTournamentInput.clubId` 와 같은 규칙 */
   clubId?: string | null
+  /**
+   * 모임 시각(ISO). 비워 두면 즉석 모임이다 — 만들자마자 코트 현황이 보인다.
+   * 서버는 검증하지 않는다(과거 시각도 받는다). '시작했나' 는 화면이 판단한다.
+   */
+  startsAt?: string | null
+}
+
+/**
+ * 시각 없이 여는 경로를 '보내지 않는 것' 으로 표현한다 — `clubArg` 와 같은 판단.
+ *
+ * `p_starts_at` 은 서버에서 맨 뒤 `default null` 이라 null 을 보내도 결과는
+ * 같지만, 인자를 아예 빼면 **이 마이그레이션 전에 지나던 호출과 같은 요청**이
+ * 된다. 즉석 개설이 새 인자를 한 번도 안 거치게 두는 편이 회귀를 만들 여지가 없다.
+ */
+function startsAtArg(startsAt: string | null | undefined): { p_starts_at?: string } {
+  return startsAt ? { p_starts_at: startsAt } : {}
 }
 
 export async function createSession(input: CreateSessionInput): Promise<TournamentRow> {
@@ -92,8 +110,31 @@ export async function createSession(input: CreateSessionInput): Promise<Tourname
     p_display_name: input.displayName,
     p_court_count: input.courtCount,
     ...clubArg(input.clubId),
+    ...startsAtArg(input.startsAt),
   })
   return unwrap(res) as TournamentRow
+}
+
+/**
+ * 참가/불참 누르기.
+ *
+ * 갱신된 **내 행 하나**가 그대로 돌아온다 — 화면이 낙관적 갱신을 확정할 때
+ * 그 값을 쓴다. 같은 값을 다시 보내도 200 이라(멱등) 더블탭·재전송에
+ * 따로 방어를 두지 않는다.
+ *
+ * 오류는 둘뿐이다. 42501 은 '권한 없음' 이 아니라 **이 모임 명단에 내 행이
+ * 없다** 는 뜻이고(명단은 생성 시점 스냅샷이다), 22023 은 대회이거나 값이
+ * 빠진 경우다. 문구는 `src/lib/rsvp.ts` 의 `rsvpErrorMessage` 한 곳에 있다.
+ */
+export async function setMyRsvp(
+  tournamentId: string,
+  rsvp: RsvpStatus,
+): Promise<TournamentMemberRow> {
+  const res = await supabase.rpc('set_my_rsvp', {
+    p_tournament_id: tournamentId,
+    p_rsvp: rsvp,
+  })
+  return unwrap(res) as TournamentMemberRow
 }
 
 /** 모임 경기 편성 — 조 대신 사람을 직접 고른다 */
@@ -214,12 +255,17 @@ export interface MemberSummary {
   displayName: string
   role: MemberRole
   groupId: string | null
+  /**
+   * 참가 여부. **모임에서만 뜻이 있다** — 대회 행은 트리거가 전부 'going' 으로
+   * 맞추므로 대회 화면에서 이 값을 읽어도 아무것도 갈리지 않는다.
+   */
+  rsvp: RsvpStatus
 }
 
 export async function fetchMembers(tournamentId: string): Promise<MemberSummary[]> {
   const res = await supabase
     .from('tournament_members')
-    .select('id, user_id, display_name, role, group_id')
+    .select('id, user_id, display_name, role, group_id, rsvp')
     .eq('tournament_id', tournamentId)
     .order('display_name')
 
@@ -229,6 +275,7 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
     display_name: string
     role: MemberRole
     group_id: string | null
+    rsvp: RsvpStatus
   }[]
 
   return rows.map((r) => ({
@@ -237,6 +284,7 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
     displayName: r.display_name,
     role: r.role,
     groupId: r.group_id,
+    rsvp: r.rsvp,
   }))
 }
 

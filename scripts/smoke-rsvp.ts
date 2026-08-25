@@ -385,7 +385,10 @@ try {
     errcode(nullRsvp) === '22023',
     `code=${errcode(nullRsvp)} ${msg(nullRsvp)}`,
   )
-  const badRsvp = await rpc(m1.token, 'set_my_rsvp', { p_tournament_id: main.id, p_rsvp: '아무거나' })
+  const badRsvp = await rpc(m1.token, 'set_my_rsvp', {
+    p_tournament_id: main.id,
+    p_rsvp: '아무거나',
+  })
   check(
     '열거형에 없는 값은 400 대로 거절된다',
     badRsvp.status >= 400,
@@ -409,7 +412,7 @@ try {
     p_players_b: [R('회원둘').id, R('계정없는회원').id],
   })
   check(
-    "불참(declined)·미응답(invited)·계정 없는 회원까지 한 경기에 넣을 수 있다",
+    '불참(declined)·미응답(invited)·계정 없는 회원까지 한 경기에 넣을 수 있다',
     gateMatch.status === 200,
     `status=${gateMatch.status} ${msg(gateMatch)}` +
       ' — 누르지 않으면 못 치게 하는 앱은 동아리에서 미움받는다',
@@ -633,7 +636,11 @@ try {
       ' — 대회 명단은 운영진이 짜는 것이지 참가 신청으로 만들어지지 않는다',
   )
   const tStarts = await startsAtOf(t.id)
-  check('대회의 starts_at 은 NULL 이다 (대회는 이 컬럼을 안 쓴다)', tStarts === null, String(tStarts))
+  check(
+    '대회의 starts_at 은 NULL 이다 (대회는 이 컬럼을 안 쓴다)',
+    tStarts === null,
+    String(tStarts),
+  )
 
   for (const u of [m1, m2]) await rpc(u.token, 'join_tournament', { p_code: t.invite_code })
   const tRows = await tmRows(t.id)
@@ -659,11 +666,7 @@ try {
     errcode(tSetRsvp) === '22023',
     `code=${errcode(tSetRsvp)} status=${tSetRsvp.status} ${msg(tSetRsvp)}`,
   )
-  check(
-    '거절 문구가 왜 안 되는지 말해 준다',
-    msg(tSetRsvp).includes('대회'),
-    msg(tSetRsvp),
-  )
+  check('거절 문구가 왜 안 되는지 말해 준다', msg(tSetRsvp).includes('대회'), msg(tSetRsvp))
 
   const { rows: tGroups } = await db.query<{ id: string }>(
     `select id from groups where tournament_id=$1 order by sort_order`,
@@ -733,9 +736,9 @@ try {
   const tRowsAfter = await tmRows(t.id)
   check(
     '대회를 한 판 끝까지 돌려도 rsvp 값은 아무도 안 건드린다',
-    tRowsAfter.filter((r) => r.user_id === m1.uid || r.user_id === m2.uid).every(
-      (r) => r.rsvp === 'going',
-    ),
+    tRowsAfter
+      .filter((r) => r.user_id === m1.uid || r.user_id === m2.uid)
+      .every((r) => r.rsvp === 'going'),
     tRowsAfter.map((r) => `${r.display_name}=${r.rsvp}`).join(' / '),
   )
 } finally {

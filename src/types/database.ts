@@ -19,6 +19,7 @@ import type {
   MatchTeamsRow,
   MatchesRow,
   ProfilesRow,
+  RsvpStatus,
   ScoreEventsRow,
   TournamentMembersRow,
   TournamentsRow,
@@ -33,6 +34,7 @@ export type {
   MatchStatus,
   MatchTeamPlayersRow,
   MemberRole,
+  RsvpStatus,
   TeamSide,
   TournamentKind,
   TournamentStatus,
@@ -184,8 +186,27 @@ export type Database = {
           p_court_count?: number
           /** 소속 동아리. create_tournament 의 p_club_id 와 같은 규칙 */
           p_club_id?: string | null
+          /**
+           * 모임 시각(ISO). 안 보내거나 null 이면 즉석 모임 — 화면이 곧바로
+           * 코트 현황을 그린다. 서버는 이 값을 검증하지 않는다(과거 시각도
+           * 그대로 받는다) — '시작했나' 판단은 화면이 사용자 시간대로 한다.
+           */
+          p_starts_at?: string | null
         }
         Returns: TournamentRow
+      }
+      /**
+       * 참가/불참 누르기.
+       *
+       * **본인 행만** 바꾼다 — 남의 참가 여부를 정하는 인자가 아예 없다.
+       * 모임에서만 허용하고(대회는 22023), 시작한 뒤에도 허용한다.
+       * 같은 값을 다시 보내면 바뀐 것 없이 그 행을 그대로 돌려준다(멱등).
+       *
+       * 갱신된 행 하나를 돌려주므로 화면이 낙관적 갱신에 그대로 쓴다.
+       */
+      set_my_rsvp: {
+        Args: { p_tournament_id: string; p_rsvp: RsvpStatus }
+        Returns: TournamentMemberRow
       }
       /** 모임 경기 편성. 조 대신 사람을 직접 고른다. */
       create_session_match: {
