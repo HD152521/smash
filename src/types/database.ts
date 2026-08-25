@@ -15,6 +15,7 @@ import type {
   CourtsRow,
   Database as GeneratedDatabase,
   GroupsRow,
+  Json,
   MatchOverviewRow,
   MatchTeamsRow,
   MatchesRow,
@@ -248,6 +249,45 @@ export type Database = {
       remove_club_member: {
         Args: { p_member_id: string }
         Returns: void
+      }
+      /**
+       * 게스트 등록 후보 조립. **anon** 이 로그인 없이 부른다.
+       *
+       * 예외를 던지지 않는다 — join_club 과 같은 이유(definer 함수의
+       * 예외는 트랜잭션 전체를 롤백시킨다). 반환 jsonb 봉투는
+       * `src/lib/guest.ts` 의 parseGuestSessions 가 판별 유니온으로 푼다.
+       * 반환 필드는 club_name · sessions[].id · sessions[].name ·
+       * sessions[].starts_at 넷뿐이다 — 늘리면 마일스톤 4(비로그인 읽기
+       * 화면)를 앞당겨 여는 것이다.
+       */
+      guest_sessions: {
+        Args: { p_code: string }
+        Returns: Json
+      }
+      /**
+       * 게스트 등록. **anon** 이 로그인 없이 부른다 — 이 앱 최초의
+       * 비로그인 쓰기 경로다.
+       *
+       * 예외를 던지지 않는다 — 같은 트랜잭션에 남기는 log_audit 기록까지
+       * 롤백되는 것을 막기 위해서다(join_club 과 같은 이유). 반환 jsonb
+       * 봉투는 `src/lib/guest.ts` 의 parseGuestJoinResult 가 판별
+       * 유니온으로 푼다.
+       */
+      join_as_guest: {
+        Args: { p_code: string; p_session_id: string; p_name: string }
+        Returns: Json
+      }
+      /**
+       * 게스트 링크 회수 (authenticated 전용, anon 은 grant 없음).
+       *
+       * `is_club_admin` 검사 후 새 코드로 교체한다. 옛 링크는 즉시 죽고,
+       * 이미 등록된 게스트 행(tournament_members)은 건드리지 않아 그대로
+       * 남는다. 42501(운영진 아님)은 `toUserMessage` 의 기본 번역이 그대로
+       * 맞아 따로 덮지 않는다.
+       */
+      rotate_guest_code: {
+        Args: { p_club_id: string }
+        Returns: ClubRow
       }
       set_member_role: {
         Args: { p_member_id: string; p_role: 'admin' | 'member' }
