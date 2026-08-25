@@ -273,12 +273,21 @@ try {
     candBody['club_name'] === '게스트 스모크 A',
     String(candBody['club_name']),
   )
+  // 후보 개수를 단정하지 않는다 — 뒤 절에서 쓰려고 만든 모임(상한·동시성)도
+  // 같은 동아리의 열린 모임이라 정당한 후보다. 확인해야 하는 것은 "몇 개냐" 가
+  // 아니라 **들어와야 할 것이 들어오고 빠져야 할 것이 빠지는가** 다.
+  const candIds = candSessions.map((s) => s['id'])
   check(
-    '열린 두 모임만 후보로 온다 (끝난 모임·시각 창 밖·대회는 빠진다)',
-    candSessions.length === 2 &&
-      candSessions.some((s) => s['id'] === sessionOpen1.id) &&
-      candSessions.some((s) => s['id'] === sessionOpen2.id),
+    '열려 있는 모임이 후보로 온다',
+    candIds.includes(sessionOpen1.id) && candIds.includes(sessionOpen2.id),
     `${candSessions.length}건: ${candSessions.map((s) => s['name']).join(', ')}`,
+  )
+  check(
+    '끝난 모임 · 시각 창 밖 모임 · 대회는 후보에서 빠진다',
+    !candIds.includes(sessionFinished.id) &&
+      !candIds.includes(sessionOutWindow.id) &&
+      !candIds.includes(tournamentA.id),
+    `끝난=${candIds.includes(sessionFinished.id)} 창밖=${candIds.includes(sessionOutWindow.id)} 대회=${candIds.includes(tournamentA.id)}`,
   )
   const candKeys = candSessions.length > 0 ? Object.keys(candSessions[0]!).sort() : []
   check(

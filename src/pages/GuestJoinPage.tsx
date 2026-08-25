@@ -43,9 +43,7 @@ export function GuestJoinPage() {
   // 네트워크·서버 오류 (guestSupabase.rpc 호출 자체가 실패한 경우)
   if (sessions.error) {
     return (
-      <StatusScreen
-        message={toUserMessage(sessions.error, '게스트 등록을 처리하지 못했습니다')}
-      />
+      <StatusScreen message={toUserMessage(sessions.error, '게스트 등록을 처리하지 못했습니다')} />
     )
   }
 
@@ -64,9 +62,7 @@ export function GuestJoinPage() {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-5 pb-16 text-center">
         <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">등록 완료</p>
-        <h1 className="mt-4 text-4xl font-black break-words text-ink-1">
-          {join.data.displayName}
-        </h1>
+        <h1 className="mt-4 text-4xl font-black break-words text-ink-1">{join.data.displayName}</h1>
         <p className="mt-4 text-sm text-ink-2">{join.data.sessionName}에 참가로 등록됐습니다.</p>
         <p className="mt-1.5 text-xs text-ink-3">
           코트 현황판에서 이 이름으로 자신을 찾을 수 있습니다.
