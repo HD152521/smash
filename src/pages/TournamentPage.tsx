@@ -10,6 +10,7 @@ import { useCourts, useMatches, useMembers, useTournament } from '@/features/tou
 import { toUserMessage } from '@/lib/errors'
 import { hasStarted } from '@/lib/rsvp'
 import { isSession } from '@/lib/session'
+import { cn } from '@/lib/utils'
 
 /**
  * 시작 시각을 얼마나 자주 다시 보나.
@@ -103,9 +104,11 @@ export function TournamentPage() {
    * 대회에는 참가 신청이라는 개념 자체가 없고, rsvp 값도 읽지 않는다.
    */
   const beforeStart = session && !showCourts && !hasStarted(t.starts_at, now)
+  /** 하단 고정 버튼이 뜰 때만 그만큼 여백을 준다 — 안 뜨는 화면에서 빈 공간을 남기지 않는다 */
+  const showCreateButton = !beforeStart && session && Boolean(me)
 
   return (
-    <Shell id={id}>
+    <Shell id={id} padForFixedButton={showCreateButton}>
       {/* 조 안내는 대회에서만 뜻이 있다. 모임에는 조가 없다. */}
       {!session && me && !me.groupId && t.status !== 'draft' && (
         <p className="mt-5 rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm font-semibold text-ink-1">
@@ -124,37 +127,18 @@ export function TournamentPage() {
       )}
 
       {/*
-        모임에서 가장 자주 누르는 버튼. 관리 화면 안에 두지 않는다 —
-        모임장이 아닌 사람도 비는 코트를 보고 자기들끼리 들어가기 때문이다
-        (create_session_match 가 '뛰는 사람 본인' 을 허용한다).
-      */}
-      {!beforeStart && session && me && (
-        <Link
-          to={`/t/${id}/matches/new-session`}
-          className="mt-5 flex min-h-14 items-center justify-center gap-2 rounded-2xl
-                     bg-brand-600 px-5 font-black text-white shadow-sm transition-colors
-                     hover:bg-brand-700
-                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-        >
-          <Plus className="size-5" aria-hidden />
-          경기 짜기
-        </Link>
-      )}
-
-      {/*
         ── 코트별 현황 (이 화면의 본론) ───────────────────────────
+
+        "코트 현황" 이라는 제목은 달지 않는다 — 탭이 이미 '코트' 다.
+        같은 말을 본문에서 또 하면 그 자리에 코트 하나가 덜 들어간다
+        (docs/design.md '제목을 지우고 정보를 키운다').
 
         시작 전에는 아예 그리지 않는다. 감추기만 하면 아직 경기가 하나도
         없는 코트 목록이 계속 살아 있으면서 실시간 구독까지 붙어 있게 된다.
       */}
       {!beforeStart && (
-        <section className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ink-1">코트 현황</h2>
-            {realtime === 'live' && (
-              <span className="text-xs font-semibold text-ok-fg">실시간</span>
-            )}
-          </div>
+        <section className="mt-5">
+          {realtime === 'live' && <p className="mb-2 text-xs font-semibold text-ok-fg">실시간</p>}
           {matches.isPending || courts.isPending ? (
             <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
           ) : (
@@ -173,13 +157,47 @@ export function TournamentPage() {
           )}
         </section>
       )}
+
+      {/*
+        모임에서 가장 자주 누르는 버튼을 하단 고정으로.
+        엄지가 닿는 화면 아래 3분의 1 에 둔다(docs/design.md '자주 누르는
+        것은 아래에 둔다') — SessionMatchCreatePage 의 제출 버튼과 같은 자리.
+        관리 화면 안에 두지 않는 이유는 그대로다: 모임장이 아닌 사람도
+        비는 코트를 보고 자기들끼리 들어가기 때문이다
+        (create_session_match 가 '뛰는 사람 본인' 을 허용한다).
+      */}
+      {showCreateButton && (
+        <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-1/95 p-4 backdrop-blur">
+          <Link
+            to={`/t/${id}/matches/new-session`}
+            className="mx-auto flex min-h-14 max-w-2xl items-center justify-center gap-2 rounded-2xl
+                       bg-brand-600 px-5 font-black text-white shadow-sm transition-colors
+                       hover:bg-brand-700
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <Plus className="size-5" aria-hidden />
+            경기 짜기
+          </Link>
+        </div>
+      )}
     </Shell>
   )
 }
 
-function Shell({ id, children }: { id: string | undefined; children: React.ReactNode }) {
+function Shell({
+  id,
+  padForFixedButton = false,
+  children,
+}: {
+  id: string | undefined
+  /** 하단 고정 '경기 짜기' 버튼이 코트 목록을 가리지 않게 여백을 더 준다 */
+  padForFixedButton?: boolean
+  children: React.ReactNode
+}) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
+    <main
+      className={cn('mx-auto w-full max-w-2xl px-5 pt-6', padForFixedButton ? 'pb-28' : 'pb-16')}
+    >
       {id && <TournamentNav id={id} active="court" />}
       {children}
     </main>

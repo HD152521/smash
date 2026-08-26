@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/useAuth'
 import { kickPushSender } from '@/features/notifications/push'
+import { startMatch } from '@/features/scoring/api'
 import {
   createSession,
   createSessionMatch,
@@ -503,5 +504,20 @@ export function useClaimCourt(tournamentId: string) {
       void kickPushSender()
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
     },
+  })
+}
+
+/**
+ * 빈 코트를 눌러 대기 맨 앞 경기를 바로 시작한다.
+ *
+ * 전에는 코트 카드 → 모달 → 경기 상세 → '시작' 버튼, 이렇게 탭 3번을 거쳤다.
+ * 여기서 곧바로 start_match 를 부르면 코트 카드 한 번으로 끝난다
+ * (docs/design.md 서명 요소).
+ */
+export function useStartMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (matchId: string) => startMatch(matchId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
   })
 }

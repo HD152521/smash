@@ -42,6 +42,19 @@
   --color-ok: oklch(52% 0.16 152);
   --color-warn: oklch(55% 0.16 70);
 
+  /*
+   * 상태 별칭 — docs/design.md '색은 상태다' 원칙.
+   * 값은 기존 브랜드/경고 색을 그대로 쓴다. 이름을 '상태' 로 따로 두는 이유는
+   * 코트 카드가 브랜드 색을 빌려 쓰는 게 아니라 '들어갈 수 있다' 는 상태
+   * 자체를 표현한다는 걸 코드에서 바로 읽히게 하기 위해서다.
+   *   open — 빈 코트, 대기 경기 있음 → 들어갈 수 있다
+   *   soon — 매치포인트, 대기 2번째 → 곧 끝난다·준비해라
+   * '되돌릴 수 없다' 는 새 별칭을 만들지 않는다 — team-b(빨강)가 이미
+   * 오류·삭제 문구 전체에서 그 뜻으로 쓰이고 있다.
+   */
+  --color-state-open: var(--color-brand-600);
+  --color-state-soon: var(--color-warn);
+
   /* 타이포 */
   --font-sans: 'Pretendard Variable', Pretendard, system-ui, sans-serif;
   --text-score: clamp(3.5rem, 2rem + 12vw, 9rem);
@@ -124,6 +137,8 @@
   --color-live-fg: var(--fg-live);
   --color-warn-fg: var(--fg-warn);
   --color-team-b-fg: var(--fg-team-b);
+  --color-state-open-fg: var(--fg-brand);
+  --color-state-soon-fg: var(--fg-warn);
   --color-surface-0: var(--surface-0);
   --color-surface-1: var(--surface-1);
   --color-surface-2: var(--surface-2);
