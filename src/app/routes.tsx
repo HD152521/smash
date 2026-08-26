@@ -101,12 +101,15 @@ const JoinClubPage = lazyPage(() =>
 const ClubPage = lazyPage(() => import('@/pages/ClubPage').then((m) => ({ default: m.ClubPage })))
 
 /*
- * 게스트 등록은 이 앱에서 유일하게 **로그인 가드 밖**에 있는 화면이다.
+ * 게스트 화면 둘은 이 앱에서 **로그인 가드 밖**에 있는 유일한 화면들이다.
  * 계정 없는 사람이 링크로 바로 여는 화면이라, 다른 코드 스플릿 화면처럼
  * `Protected` 로 감싸면(RequireAuth 가 안에 있다) 정작 게스트가 못 연다.
  */
 const GuestJoinPage = lazyPage(() =>
   import('@/pages/GuestJoinPage').then((m) => ({ default: m.GuestJoinPage })),
+)
+const GuestBoardPage = lazyPage(() =>
+  import('@/pages/GuestBoardPage').then((m) => ({ default: m.GuestBoardPage })),
 )
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -160,6 +163,23 @@ export function AppRoutes() {
         element={
           <Public>
             <GuestJoinPage />
+          </Public>
+        }
+      />
+      {/*
+        게스트 현황판 — 등록을 마친 사람이 코트를 보는 곳. 주소의 두 조각이
+        `guest_board(p_code, p_session_id)` 의 인자와 1:1 로 맞아, 새로고침해도
+        정확히 그 모임으로 돌아온다.
+
+        등록 화면과 **같은 자리**에 둔다. 여기만 `Protected` 로 옮기면 등록은
+        되는데 현황판이 `/login` 으로 튕겨, 코트 앞에 선 게스트를 정확히
+        막는다.
+      */}
+      <Route
+        path="/g/:guestCode/:sessionId"
+        element={
+          <Public>
+            <GuestBoardPage />
           </Public>
         }
       />

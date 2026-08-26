@@ -105,7 +105,20 @@ export type GuestMyNext =
    */
   | { kind: 'unassigned' }
 
-function isMine(match: GuestBoardMatch, myName: string): boolean {
+/**
+ * 내가 뛰는 경기인가.
+ *
+ * 지금은 문자열 포함 검사 한 줄이라 화면에 복사해 둬도 당장은 어긋나지
+ * 않는다. 그런데 이 판단은 앞으로 자랄 자리가 분명하다 — 접미사 붙은 이름
+ * (`join_as_guest` 가 동명이인에게 붙인다) · 공백 정리 · 대소문자. 그때
+ * 한쪽만 고치면 **"내 차례까지 2경기" 카드는 뜨는데 정작 그 줄은 강조가
+ * 안 되는** 상태가 된다. 같은 질문에 두 곳이 다르게 답하는 것이다.
+ *
+ * `myName` 이 null 이면 false — 이름을 저장하지 못한 브라우저(시크릿창 등)
+ * 에서도 현황판 자체는 완전히 그려져야 한다.
+ */
+export function isMyMatch(match: GuestBoardMatch, myName: string | null): boolean {
+  if (!myName) return false
   return match.playersA.includes(myName) || match.playersB.includes(myName)
 }
 
@@ -123,15 +136,15 @@ export function myNextMatch(board: GuestBoardView, myName: string | undefined): 
   if (!myName) return null
 
   for (const queue of board.courts) {
-    if (queue.live && isMine(queue.live, myName)) {
+    if (queue.live && isMyMatch(queue.live, myName)) {
       return { kind: 'playing', courtName: queue.court.name }
     }
   }
 
   const mineOnCourt = board.courts
-    .map((queue) => ({ queue, match: queue.waiting.find((m) => isMine(m, myName)) }))
+    .map((queue) => ({ queue, match: queue.waiting.find((m) => isMyMatch(m, myName)) }))
     .filter((c): c is { queue: GuestCourtQueue; match: GuestBoardMatch } => Boolean(c.match))
-  const mineUnassigned = board.unassigned.filter((m) => isMine(m, myName))
+  const mineUnassigned = board.unassigned.filter((m) => isMyMatch(m, myName))
 
   /*
    * 코트가 다르면 서로의 대기열만으로는 앞뒤를 알 수 없어 queue_order 로

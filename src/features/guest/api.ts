@@ -90,10 +90,7 @@ export async function joinAsGuest(
  * 는 네트워크 오류가 아니라 "지난 모임이거나 링크가 바뀌었다" 는, 화면이
  * 등록 입구로 안내해야 할 상태다.
  */
-export async function fetchGuestBoard(
-  code: string,
-  sessionId: string,
-): Promise<GuestBoardOutcome> {
+export async function fetchGuestBoard(code: string, sessionId: string): Promise<GuestBoardOutcome> {
   const res = await guestSupabase.rpc('guest_board', {
     p_code: code,
     p_session_id: sessionId,
