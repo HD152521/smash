@@ -45,7 +45,14 @@
 --
 -- 그래서 matches · courts · match_teams · match_team_players ·
 -- tournament_members 를 **직접 조인해 필요한 컬럼만** 뽑는다. 뷰 정의는
--- 한 줄도 안 고치고, anon 에 열지도 않는다.
+-- 한 줄도 안 고치고, 이 함수 안에서 참조조차 하지 않는다.
+--
+-- ⚠ 뷰의 anon SELECT grant 를 이 마이그레이션이 걷지는 않는다. Supabase
+--   기본 권한으로 이미 붙어 있고(이 마일스톤 이전부터), 그래도 안전한
+--   이유는 뷰가 security_invoker=true 라 기반 테이블 RLS 를 anon 권한으로
+--   그대로 타서 **행이 0개** 나오기 때문이다. 그래서 검사(smoke-guest
+--   75절)는 403 을 기대하지 않는다 — 기대하면 반드시 실패한다.
+--   PostgREST 는 RLS 로 0행이 걸러져도 200 을 낸다.
 --
 -- ── 🔴 pgcrypto / search_path 함정 (여기 손대는 사람이 먼저 읽을 것) ─
 --
@@ -312,8 +319,21 @@ $fn$;
 -- 다 부른다** 는 규율을 지킨다. 로그인 세션이 딸려 들어오면 안 되는
 -- 경로라 롤을 하나로 묶어 두는 편이 검사(db:verify)도 단순해진다.
 --
--- 이로써 anon 이 실행할 수 있는 public 함수는 정확히 셋 —
--- guest_sessions · join_as_guest · guest_board.
+-- ⚠ 이로써 anon 이 실행할 수 있는 public 함수는 **넷**이다. 게스트 RPC
+--   셋(guest_sessions · join_as_guest · guest_board)과, 그와 무관한
+--   is_direct_api_call() 이다.
+--
+--   넷째를 보고 "셋이어야 하는데" 라며 걷어내지 마라. 그 grant 는
+--   20260819000001_fix_guard_permission.sql 의 의도된 결정이다 — 가드
+--   트리거는 SECURITY INVOKER 여야만 발동하고(DEFINER 로 바꾸면 트리거
+--   안에서 current_user 가 postgres 가 되어 is_direct_api_call() 이 항상
+--   거짓이 되고, 가드가 영영 안 걸린다), 그래서 호출자 권한으로 이
+--   함수를 부를 수 있어야 한다. 예전에 이 EXECUTE 를 걷었다가 주최자의
+--   정상 수정이 통째로 막혔다. 노출되는 것은 "당신이 authenticated 인가"
+--   불리언 하나뿐이다.
+--
+--   그래서 검사(db:verify · smoke-guest 81절)는 개수가 아니라 **집합**을
+--   본다. 개수보다 강한 검사다 — 새 함수가 anon 에 새면 여전히 걸린다.
 --
 -- 문제가 생기면 `revoke execute on function guest_board(text, uuid)
 -- from anon;` 한 줄로 즉시·완전히 닫힌다.

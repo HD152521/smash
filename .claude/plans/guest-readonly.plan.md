@@ -30,11 +30,26 @@
 | `src/features/guest/api.ts` `guestSupabase` | `persistSession:false` · `autoRefreshToken:false` · `detectSessionInUrl:false` | **그대로 재사용.** 새 클라이언트를 또 만들지 않는다 — 셋 중 하나만 켜져도 로그인 세션이 딸려 들어와 42501 이 된다 |
 | `src/app/routes.tsx` | 가드 밖 라우트는 `/login` · `/auth/callback` · `/g/:guestCode` 셋 | `/g/:guestCode/:sessionId` 를 **같은 자리**에 추가. 넷이 된다 |
 | `src/lib/guest.ts` `GuestErrorCode` | `bad_code` · `no_open_session` · `session_closed` · `bad_name` · `guest_limit` · `unknown` | `board_closed` 하나만 더한다. **빈 문구가 나오는 일은 없게** 하는 규율은 그대로 |
-| `scripts/verify-schema.ts` | anon 권한 검사가 대회 RPC 에 대해서만 있다 | **"anon 이 execute 할 수 있는 public 함수는 정확히 셋"** 검사를 추가한다 |
+| `scripts/verify-schema.ts` | anon 권한 검사가 대회 RPC 에 대해서만 있다 | **"anon 이 execute 할 수 있는 public 함수 집합"** 검사를 추가한다 (아래 정정 참고) |
 | `20260828000002_...search_path.sql` | `gen_guest_code` 만 `public, extensions, pg_temp` | 이번 함수는 pgcrypto 를 안 부르므로 `public, pg_temp` 로 충분하다. **다만 나중에 누가 이 함수에 `digest`·`gen_random_bytes` 를 더하면 즉시 죽는다** (→ Risks) |
 | `clubs.guest_code` · `tournament_members.is_guest` | 마일스톤 3 이 만든 컬럼 | **컬럼을 하나도 더하지 않는다.** 더하는 순간 "not null 로 만든 쪽이 채우는 책임도 진다" 를 다시 지켜야 하고, 마일스톤 3 이 정확히 거기서 프로덕션을 깼다 (→ Risks) |
 
 ## 설계 판단 여덟 가지
+
+> **착수 중 정정 — "정확히 셋" 은 틀렸다. 넷이다.**
+>
+> 계획 단계에서 anon 이 실행할 수 있는 public 함수를 게스트 RPC 셋으로
+> 적었는데, 프로덕션을 실제로 조회하니 **`is_direct_api_call()` 이 넷째로
+> 있다.** 이건 `20260819000001_fix_guard_permission.sql` 의 의도된 결정이다 —
+> 가드 트리거는 SECURITY INVOKER 여야만 발동하고(DEFINER 로 바꾸면 트리거
+> 안에서 `current_user` 가 postgres 가 되어 가드가 **영영 안 걸린다**),
+> 그래서 호출자 권한으로 이 함수를 부를 수 있어야 한다. 예전에 이 EXECUTE 를
+> 걷었다가 주최자의 정상 수정이 통째로 막혔다.
+>
+> 노출되는 것은 "당신이 authenticated 인가" 불리언 하나뿐이라 위험이 없다.
+> **걷지 않고, 검사를 개수가 아니라 집합으로 바꿨다** — 개수보다 강한
+> 검사다(새 함수가 anon 에 새면 여전히 걸린다). 트리거 함수는 PostgREST 가
+> 노출하지 않으므로 `prorettype <> 'trigger'` 로 제외한다.
 
 ### 1. 이번에도 **정책 0개**다. 읽기라고 다르지 않다
 
@@ -227,7 +242,7 @@ and (starts_at is null
 | `src/pages/GuestJoinPage.tsx` | UPDATE | 완료 화면 버튼 · 이름 저장 · 재방문 자동 이동(`replace`) |
 | `src/app/routes.tsx` | UPDATE | `Public` 으로 `/g/:guestCode` 옆에 |
 | `scripts/smoke-guest.ts` | UPDATE | 절을 **이어 붙인다**. 새 스크립트를 만들지 않는다 |
-| `scripts/verify-schema.ts` | UPDATE | **anon 실행 가능 함수 = 정확히 셋** |
+| `scripts/verify-schema.ts` | UPDATE | **anon 실행 가능 함수 = 정확히 그 넷의 집합** |
 | `.claude/prds/club-platform.prd.md` · `docs/todo.md` · `이어서시작.md` · `README.md` | UPDATE | 결과 · 화면 구조 · 즉석 모임 창 구멍 |
 
 > **목록에 없는 것 — 전부 의도입니다.**
@@ -287,7 +302,7 @@ and (starts_at is null
 78. 시각 창 밖은 `board_closed`
 79. **틀린 코드 + 맞는 session_id 가 거절된다**
 80. **맞는 코드 + 다른 동아리의 session_id 가 거절된다**
-81. **anon 실행 가능 public 함수가 정확히 셋**
+81. **anon 실행 가능 public 함수가 정확히 그 넷의 집합** ← 착수 중 정정. 아래 상자
 82. 재발급하면 **옛 코드로 현황판도 즉시 안 열린다**
 83. 게스트는 여전히 아무것도 못 쓴다 (`record_score`·`finish_match`·`claim_court`·`set_court_queue`)
 
@@ -303,7 +318,7 @@ PRD Open Questions → Decisions 승격. **즉석 모임 시각 창 구멍**을 
 npm run verify
 npm run db:push             # dry-run 먼저
 npm run db:types            # 선택이 아니다
-npm run db:verify           # anon 실행 가능 함수 = 정확히 셋
+npm run db:verify           # anon 실행 가능 함수 = 정확히 그 넷의 집합
 npm run db:smoke:guest      # 1~85절 전량
 npm run db:smoke:security   # anon 표면이 늘었으므로 필수
 npm run db:smoke:match      # match_overview 무변경 증명
@@ -354,7 +369,7 @@ npm run db:smoke:session / club / rsvp / roster / notify
 - [ ] **편성되지 않은 참가자의 이름이 응답 어디에도 없다** ← 핵심
 - [ ] **반환 JSON 의 키가 설계 판단 6 목록과 정확히 일치한다**
 - [ ] **anon 이 테이블·뷰에 직접 도달하지 못한다** — `match_overview` 포함
-- [ ] **anon 실행 가능 함수가 정확히 셋**
+- [x] **anon 실행 가능 함수가 정확히 그 넷의 집합** (셋 + is_direct_api_call)
 - [ ] 게스트는 여전히 점수·심판·코트 잡기를 못 한다
 - [ ] 코드를 재발급하면 현황판도 즉시 닫힌다
 - [ ] **새 컬럼 0 · 새 테이블 0 · 새 RLS 정책 0**

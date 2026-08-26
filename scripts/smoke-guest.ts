@@ -26,9 +26,13 @@ const ANON = env['VITE_SUPABASE_PUBLISHABLE_KEY']!
 let passed = 0
 let failed = 0
 function check(name: string, ok: boolean, detail = '') {
+  // 절 번호를 같이 찍는다 — 계획서와 보고가 "73번(키 전수 검사)" 처럼
+  // 번호로 이야기하는데, 번호가 출력에 없으면 어느 줄이 그 번호인지
+  // 세어 봐야 알 수 있다. 이 스크립트의 절 번호가 정본이다.
+  const no = passed + failed + 1
   if (ok) passed++
   else failed++
-  console.log(`${ok ? '✅' : '❌'} ${name}${detail ? `\n     ${detail}` : ''}`)
+  console.log(`${ok ? '✅' : '❌'} ${no}. ${name}${detail ? `\n     ${detail}` : ''}`)
 }
 
 interface ApiResult {
@@ -77,6 +81,23 @@ function msg(r: ApiResult): string {
 // 둘 다 "anon 이 테이블에 못 닿는다" 는 같은 결론이라 하나로 묶는다.
 function blocked(r: ApiResult): boolean {
   return r.status >= 400 || (r.status === 200 && rows(r).length === 0)
+}
+
+// 응답 전체(중첩 객체·배열 안까지)의 키를 재귀로 모은다. 73절이 쓰는
+// 도구다 — 최상위 키만 세면 matches[] 안에 label 이나 scored 가 하나
+// 늘어난 것을 영영 못 잡는다. "필드 하나가 곧 노출 표면" 이라는 규율은
+// 전수 검사로만 지켜진다.
+function collectKeys(value: unknown, into: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectKeys(item, into)
+    return
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      into.add(k)
+      collectKeys(v, into)
+    }
+  }
 }
 
 async function makeUser(db: Client, tag: string, name: string) {
@@ -134,6 +155,62 @@ const guestCount = async (tid: string) => {
     [tid],
   )
   return Number(r[0]!.n)
+}
+
+// 현황판(마일스톤 4)이 읽을 경기를 손으로 세운다.
+// create_session_match 는 authenticated 전용이라 anon 스모크에서 부를 수
+// 없고, 애초에 여기서 필요한 것은 "이 status · 이 court_id · 이 queue_order
+// 를 가진 경기" 라 RPC 보다 직접 INSERT 가 정확하다. 13·20절이 이미 같은
+// 방식으로 경기를 만든다.
+async function makeMatch(
+  tid: string,
+  createdBy: string,
+  opts: {
+    status: 'scheduled' | 'live' | 'finished'
+    courtId: string | null
+    queueOrder: number
+    scoreA?: number
+    scoreB?: number
+    started?: boolean
+    winner?: 'A' | 'B' | null
+    playersA: string[]
+    playersB: string[]
+  },
+): Promise<string> {
+  const { rows: made } = await db.query<{ id: string }>(
+    `insert into matches (tournament_id, court_id, status, queue_order,
+                          score_a, score_b, started_at, winner_side, created_by)
+     values ($1,$2,$3::match_status,$4,$5,$6,$7,$8::team_side,$9) returning id`,
+    [
+      tid,
+      opts.courtId,
+      opts.status,
+      opts.queueOrder,
+      opts.scoreA ?? 0,
+      opts.scoreB ?? 0,
+      opts.started ? new Date().toISOString() : null,
+      opts.winner ?? null,
+      createdBy,
+    ],
+  )
+  const matchId = made[0]!.id
+  for (const [side, members] of [
+    ['A', opts.playersA],
+    ['B', opts.playersB],
+  ] as const) {
+    const { rows: team } = await db.query<{ id: string }>(
+      `insert into match_teams (match_id, side, group_id, target_score, win_points, is_joker)
+       values ($1,$2::team_side,null,21,1.0,false) returning id`,
+      [matchId, side],
+    )
+    for (const memberId of members) {
+      await db.query(`insert into match_team_players (match_team_id, member_id) values ($1,$2)`, [
+        team[0]!.id,
+        memberId,
+      ])
+    }
+  }
+  return matchId
 }
 
 try {
@@ -839,20 +916,556 @@ try {
     sameErrorMessages.size === 1,
     `${sameErrorMessages.size}종류: ${[...sameErrorMessages].join(' / ')}`,
   )
+
+  // ══════════════════════════════════════════════════════════════════
+  // 여기까지가 마일스톤 3(게스트 등록) 통로 — 1~67절.
+  // 85절이 이 지점의 성적을 그대로 되읽어 "회귀가 없었다" 를 단정한다.
+  // 아래 마일스톤 4 절을 추가하면서 위쪽을 건드리면 여기서 걸린다.
+  // ══════════════════════════════════════════════════════════════════
+  const milestone3Passed = passed
+  const milestone3Failed = failed
+
+  // ══════════════════════════════════════════════════════════════════
+  // 마일스톤 4 사전 준비 — 현황판 전용 모임을 따로 세운다
+  //
+  // sessionOpen1 을 쓰지 않는다. 13·20절이 거기에 이미 경기를 꽂아 뒀고,
+  // 상한·동시성 절이 게스트를 60명 채워 놨다. "경기가 정확히 넷이고
+  // 편성 안 된 사람이 정확히 누구인가" 를 단정하려면 아무도 안 건드린
+  // 모임이 필요하다.
+  // ══════════════════════════════════════════════════════════════════
+  const sessionBoard = obj(
+    await rpc(ownerA.token, 'create_session', {
+      p_name: '현황판 모임',
+      p_display_name: '동아리A주인',
+      p_court_count: 2,
+      p_club_id: clubA.id,
+    }),
+  ) as unknown as SessionRow
+
+  const { rows: boardCourts } = await db.query<{ id: string; name: string }>(
+    `select id, name from courts where tournament_id=$1 order by sort_order`,
+    [sessionBoard.id],
+  )
+  const court1 = boardCourts[0]!.id
+  const court2 = boardCourts[1]!.id
+
+  // 코트에 편성될 둘 + **명단에만 있고 어떤 경기에도 안 들어가는 한 명**.
+  // 셋째 사람이 74절의 전부다.
+  for (const name of ['코트뛰는사람하나', '코트뛰는사람둘', '명단에만있는사람']) {
+    await anonRpc('join_as_guest', {
+      p_code: clubA.guest_code,
+      p_session_id: sessionBoard.id,
+      p_name: name,
+    })
+  }
+  const playerOne = (await memberByName(sessionBoard.id, '코트뛰는사람하나'))!.id
+  const playerTwo = (await memberByName(sessionBoard.id, '코트뛰는사람둘'))!.id
+
+  // 삽입 순서를 queue_order 의 **역순**으로 둔다 — 서버가 created_at 으로
+  // 정렬하고 있으면 70절에서 정확히 뒤집힌 순서가 나온다.
+  const matchNoCourt = await makeMatch(sessionBoard.id, ownerA.uid, {
+    status: 'scheduled',
+    courtId: null,
+    queueOrder: 3003,
+    playersA: [playerOne],
+    playersB: [playerTwo],
+  })
+  const matchWaiting = await makeMatch(sessionBoard.id, ownerA.uid, {
+    status: 'scheduled',
+    courtId: court1,
+    queueOrder: 3002,
+    playersA: [playerOne],
+    playersB: [playerTwo],
+  })
+  const matchLive = await makeMatch(sessionBoard.id, ownerA.uid, {
+    status: 'live',
+    courtId: court1,
+    queueOrder: 3001,
+    scoreA: 11,
+    scoreB: 7,
+    started: true,
+    playersA: [playerOne],
+    playersB: [playerTwo],
+  })
+  const matchDone = await makeMatch(sessionBoard.id, ownerA.uid, {
+    status: 'finished',
+    courtId: court2,
+    queueOrder: 3000,
+    scoreA: 21,
+    scoreB: 15,
+    started: true,
+    winner: 'A',
+    playersA: [playerOne],
+    playersB: [playerTwo],
+  })
+
+  const board = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: sessionBoard.id,
+  })
+  const boardBody = obj(board)
+  const boardRaw = JSON.stringify(board.body)
+  const boardSession = (boardBody['session'] ?? {}) as Record<string, unknown>
+  const boardCourtList = Array.isArray(boardBody['courts'])
+    ? (boardBody['courts'] as Record<string, unknown>[])
+    : []
+  const boardMatches = Array.isArray(boardBody['matches'])
+    ? (boardBody['matches'] as Record<string, unknown>[])
+    : []
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 26. [68~72절] 통로 — 게스트가 코트 현황을 읽는다 ──')
+  // ══════════════════════════════════════════════════════════════════
+  check(
+    '로그인 없이 현황판이 열리고 동아리·모임·코트가 온다',
+    boardBody['ok'] === true &&
+      boardBody['club_name'] === '게스트 스모크 A' &&
+      boardSession['id'] === sessionBoard.id &&
+      boardSession['status'] === 'live' &&
+      boardCourtList.length === 2,
+    `${msg(board)} — 실패하면 사전 준비(create_session · join_as_guest · 경기 4건)부터 본다`,
+  )
+
+  const liveRow = boardMatches.find((m) => m['id'] === matchLive) ?? {}
+  const livePlayersA = Array.isArray(liveRow['players_a']) ? (liveRow['players_a'] as string[]) : []
+  const livePlayersB = Array.isArray(liveRow['players_b']) ? (liveRow['players_b'] as string[]) : []
+  check(
+    '진행 중 경기에 점수와 **코트에 편성된 사람 이름**이 실린다',
+    liveRow['status'] === 'live' &&
+      liveRow['score_a'] === 11 &&
+      liveRow['score_b'] === 7 &&
+      typeof liveRow['started_at'] === 'string' &&
+      livePlayersA.join() === '코트뛰는사람하나' &&
+      livePlayersB.join() === '코트뛰는사람둘',
+    `${String(liveRow['score_a'])}:${String(liveRow['score_b'])} A=${livePlayersA.join(',')} B=${livePlayersB.join(',')}`,
+  )
+
+  const boardOrder = boardMatches.map((m) => Number(m['queue_order']))
+  check(
+    'created_at 이 아니라 queue_order 순으로 온다 (알림이 세는 줄과 같은 순서)',
+    boardOrder.join(',') === '3001,3002,3003',
+    `${boardOrder.join(',')} — 삽입은 3003→3002→3001 순이었다. 3003,3002,3001 이 나오면 서버가 created_at 으로 정렬하고 있다`,
+  )
+
+  const unassignedRows = boardMatches.filter((m) => m['court_id'] === null)
+  check(
+    '코트 미배정 경기는 코트마다 복제되지 않고 응답에 딱 한 번만 실린다',
+    unassignedRows.length === 1 &&
+      unassignedRows[0]!['id'] === matchNoCourt &&
+      boardMatches.length === 3,
+    `미배정 ${unassignedRows.length}건 / 전체 ${boardMatches.length}건 — 코트가 둘이라 복제되면 2건이 된다`,
+  )
+
+  const finishedBoard = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: sessionFinished.id,
+  })
+  const finishedBody = obj(finishedBoard)
+  check(
+    '끝난 경기는 목록이 아니라 finished_count 숫자 하나이고, 끝난 모임도 ok:true 로 열린다',
+    boardMatches.every((m) => m['id'] !== matchDone) &&
+      boardBody['finished_count'] === 1 &&
+      finishedBody['ok'] === true &&
+      ((finishedBody['session'] ?? {}) as Record<string, unknown>)['status'] === 'finished',
+    `finished_count=${String(boardBody['finished_count'])} · 끝난 모임 ok=${String(finishedBody['ok'])} ${msg(finishedBoard)}`,
+  )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 27. [73~74절] 관문 — 응답에 무엇이 실렸는가 ──')
+  // ══════════════════════════════════════════════════════════════════
+  // 이 두 절이 마일스톤 4 의 합격선이다. 나머지는 통로 확인이고,
+  // 여기가 "링크 하나로 무엇이 새는가" 를 정면으로 본다.
+  const seenKeys = new Set<string>()
+  collectKeys(board.body, seenKeys)
+  // 설계 판단 6 · 마이그레이션 머리 표의 목록 그대로. 중첩까지 펼친
+  // 전수 목록이라 matches[] · courts[] · session 안의 키도 여기 다 있다.
+  const allowedKeys = [
+    'club_name',
+    'court_id',
+    'courts',
+    'finished_count',
+    'id',
+    'matches',
+    'name',
+    'ok',
+    'players_a',
+    'players_b',
+    'queue_order',
+    'score_a',
+    'score_b',
+    'session',
+    'sort_order',
+    // started_at(경기가 시작된 시각)과 starts_at(모임 예정 시각)은 서로
+    // 다른 필드다. 둘 다 실린다 — 한 글자 차이라 목록에서 빠뜨리기 쉽다.
+    'started_at',
+    'starts_at',
+    'status',
+  ]
+  // 이름을 따로 적어 두는 이유: 집합 비교만 하면 실패 메시지가
+  // "집합이 다르다" 로만 나온다. **무엇이 새로 샜는지**가 보여야 한다.
+  const forbiddenKeys = [
+    'referees',
+    'member_id',
+    'user_id',
+    'label',
+    'target_score',
+    'target_a',
+    'target_b',
+    'deuce',
+    'max_score',
+    'invite_code',
+    'guest_code',
+    'club_id',
+    'scored',
+    'winner_side',
+    'finished_at',
+    'group_id',
+    'group_a_id',
+    'group_a_name',
+    'is_joker',
+    'created_by',
+    'updated_by',
+    'edited_at',
+    'source',
+    'tournament_id',
+    'created_at',
+    'is_guest',
+    'rsvp',
+    'role',
+  ]
+  const extraKeys = [...seenKeys].filter((k) => !allowedKeys.includes(k)).sort()
+  const missingKeys = allowedKeys.filter((k) => !seenKeys.has(k))
+  const leakedForbidden = forbiddenKeys.filter((k) => seenKeys.has(k))
+  check(
+    '반환 JSON 의 키가 설계 판단 6 목록과 정확히 일치한다 (중첩까지 전수)',
+    extraKeys.length === 0 && missingKeys.length === 0 && leakedForbidden.length === 0,
+    `늘어난 키=[${extraKeys.join(', ')}] 사라진 키=[${missingKeys.join(', ')}] 금지 키=[${leakedForbidden.join(', ')}]`,
+  )
+
+  // ── 74절 — 이 마일스톤에서 가장 중요한 한 줄 ────────────────────────
+  // 명단(tournament_members)에는 있지만 어떤 경기에도 안 들어간 사람의
+  // 이름이 응답 **문자열 어디에도** 없어야 한다. 키 검사(73절)로는 절대
+  // 안 잡힌다 — players_a 라는 허용된 키 안에 명단 전체를 담아도 키는
+  // 그대로이기 때문이다. 그래서 값을 본다.
+  const { rows: boardRoster } = await db.query<{ display_name: string }>(
+    `select display_name from tournament_members where tournament_id=$1`,
+    [sessionBoard.id],
+  )
+  const assignedNames = new Set(['코트뛰는사람하나', '코트뛰는사람둘'])
+  const unassignedNames = boardRoster
+    .map((r) => r.display_name)
+    .filter((n) => !assignedNames.has(n))
+  const leakedNames = unassignedNames.filter((n) => boardRaw.includes(n))
+  check(
+    '편성되지 않은 참가자의 이름이 응답 어디에도 없다',
+    // 편성 안 된 사람이 애초에 없으면 이 검사는 아무것도 증명하지 않는다.
+    // 그래서 "샌 사람이 0명" 과 "볼 사람이 있었다" 를 같이 단정한다.
+    unassignedNames.length >= 2 && leakedNames.length === 0,
+    `명단 ${boardRoster.length}명 중 미편성 ${unassignedNames.length}명(${unassignedNames.join(', ')}) · 샌 이름 ${leakedNames.length}개[${leakedNames.join(', ')}]`,
+  )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 28. [75~76절] anon 은 여전히 테이블·뷰에 직접 못 닿는다 ──')
+  // ══════════════════════════════════════════════════════════════════
+  // ⚠ match_overview 에는 anon SELECT grant 가 **이미 있다**(Supabase 기본
+  //   권한, 마일스톤 4 이전부터). 뷰가 security_invoker=true 라 기반
+  //   테이블의 RLS 가 그대로 걸려 0행이 나올 뿐이다. 그래서 403 을
+  //   기대하면 안 되고, **반환 행 수**로 판정해야 한다 — PostgREST 는 RLS
+  //   로 전부 걸러져도 200 을 낸다.
+  const anonOverview = await anonApi(
+    `match_overview?tournament_id=eq.${sessionBoard.id}&select=id,players_a,referees`,
+  )
+  check(
+    'anon 이 match_overview 를 직접 SELECT 해도 한 행도 못 얻는다',
+    blocked(anonOverview),
+    `status=${anonOverview.status} ${rows(anonOverview).length}행 — grant 는 있으나 security_invoker + RLS 로 0행이어야 한다`,
+  )
+
+  const directTables = [
+    'matches',
+    'courts',
+    'match_teams',
+    'match_team_players',
+    'tournament_members',
+    'score_events',
+  ]
+  const reachable: string[] = []
+  for (const table of directTables) {
+    const r = await anonApi(`${table}?select=*&limit=1`)
+    if (!blocked(r)) reachable.push(`${table}(status=${r.status}, ${rows(r).length}행)`)
+  }
+  check(
+    'anon 이 현황판 기반 테이블 여섯을 전부 직접 못 읽는다',
+    reachable.length === 0,
+    reachable.length ? `⚠ 뚫린 테이블: ${reachable.join(', ')}` : `${directTables.join(' · ')} 전부 차단`,
+  )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 29. [77~80절] 오류가 갈리지 않는다 — 탐색기가 되지 않게 ──')
+  // ══════════════════════════════════════════════════════════════════
+  const boardOtherClub = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: sessionB.id,
+  })
+  const boardTournament = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: tournamentA.id,
+  })
+  const boardGhost = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: fakeSessionId,
+  })
+  const closedTrio = [boardOtherClub, boardTournament, boardGhost]
+  const closedCodes = new Set(closedTrio.map((r) => String(obj(r)['error'])))
+  const closedMessages = new Set(closedTrio.map((r) => String(obj(r)['message'])))
+  check(
+    '다른 동아리 · 대회 UUID · 없는 UUID 가 전부 board_closed 하나로 (코드도 메시지도 안 갈린다)',
+    closedTrio.every((r) => obj(r)['ok'] === false) &&
+      closedCodes.size === 1 &&
+      closedCodes.has('board_closed') &&
+      closedMessages.size === 1,
+    `코드 ${closedCodes.size}종[${[...closedCodes].join(', ')}] 메시지 ${closedMessages.size}종 — 갈리면 임의 UUID 로 "이 동아리에 이 모임이 있나" 를 알아낼 수 있다`,
+  )
+
+  const boardOutWindow = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: sessionOutWindow.id,
+  })
+  check(
+    '시각 창 밖(48시간 뒤) 모임은 board_closed 다 — 읽기 창이 등록 창보다 넓지 않다',
+    obj(boardOutWindow)['ok'] === false && obj(boardOutWindow)['error'] === 'board_closed',
+    msg(boardOutWindow),
+  )
+
+  const boardWrongCode = await anonRpc('guest_board', {
+    p_code: 'Z'.repeat(22),
+    p_session_id: sessionBoard.id,
+  })
+  check(
+    '틀린 코드 + 맞는 session_id 는 bad_code 로 거절된다 (session_id 만으로는 아무것도 안 열린다)',
+    obj(boardWrongCode)['ok'] === false && obj(boardWrongCode)['error'] === 'bad_code',
+    msg(boardWrongCode),
+  )
+
+  const boardCrossCode = await anonRpc('guest_board', {
+    p_code: clubB.guest_code,
+    p_session_id: sessionBoard.id,
+  })
+  check(
+    '맞는 코드(B동아리) + 다른 동아리(A)의 session_id 는 board_closed 로 거절된다',
+    obj(boardCrossCode)['ok'] === false && obj(boardCrossCode)['error'] === 'board_closed',
+    `${msg(boardCrossCode)} — club_id 를 같이 걸지 않으면 아무 동아리 코드로 남의 모임이 열린다`,
+  )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 30. [81~83절] anon 표면 — 늘어난 것이 정확히 무엇인가 ──')
+  // ══════════════════════════════════════════════════════════════════
+  // 개수가 아니라 **집합**으로 센다. 개수만 세면 하나가 빠지고 하나가
+  // 늘어난 교체를 못 잡는다.
+  //
+  // ⚠ is_direct_api_call() 이 이 넷에 들어 있는 것은 의도다
+  //   (20260819000001_fix_guard_permission.sql). 가드 트리거는 SECURITY
+  //   INVOKER 여야만 발동하는데(DEFINER 로 바꾸면 current_user 가 postgres 가
+  //   되어 가드가 영영 안 걸린다), 그러면 호출자 권한으로 이 함수를 불러야
+  //   한다. 예전에 이 grant 를 걷었다가 관리자 수정이 통째로 막혔다.
+  //   노출되는 정보는 "당신이 authenticated 인가" 불리언 하나뿐이다.
+  //
+  // ⚠ 트리거 함수(prorettype = 'trigger')는 제외한다 — PostgREST 가
+  //   노출하지 않으므로 anon 이 부를 수 있는 표면이 아니다.
+  const { rows: anonFns } = await db.query<{ sig: string }>(
+    `select p.proname || '(' || pg_get_function_arguments(p.oid) || ')' as sig
+       from pg_proc p
+      where p.pronamespace = 'public'::regnamespace
+        and p.prorettype <> 'trigger'::regtype
+        and has_function_privilege('anon', p.oid, 'EXECUTE')
+      order by 1`,
+  )
+  const expectedAnonFns = [
+    'guest_board(p_code text, p_session_id uuid)',
+    'guest_sessions(p_code text)',
+    'is_direct_api_call()',
+    'join_as_guest(p_code text, p_session_id uuid, p_name text)',
+  ]
+  const actualAnonFns = anonFns.map((r) => r.sig)
+  check(
+    'anon 이 호출할 수 있는 public 함수가 정확히 이 넷이다 (개수가 아니라 집합)',
+    actualAnonFns.join(' | ') === expectedAnonFns.join(' | '),
+    `실제: ${actualAnonFns.join(' | ') || '(없음)'}`,
+  )
+
+  const codeBeforeBoardRotate = clubA.guest_code
+  const rotatedForBoard = obj(
+    await rpc(ownerA.token, 'rotate_guest_code', { p_club_id: clubA.id }),
+  ) as unknown as ClubRow
+  const boardOldCode = await anonRpc('guest_board', {
+    p_code: codeBeforeBoardRotate,
+    p_session_id: sessionBoard.id,
+  })
+  const boardNewCode = await anonRpc('guest_board', {
+    p_code: rotatedForBoard.guest_code,
+    p_session_id: sessionBoard.id,
+  })
+  check(
+    '재발급하면 옛 코드로 현황판도 즉시 안 열리고, 새 코드로는 열린다',
+    obj(boardOldCode)['ok'] === false &&
+      obj(boardOldCode)['error'] === 'bad_code' &&
+      obj(boardNewCode)['ok'] === true,
+    `옛코드=${msg(boardOldCode)} 새코드 ok=${String(obj(boardNewCode)['ok'])} — 유출된 링크를 닫는 유일한 수단이다`,
+  )
+  clubA.guest_code = rotatedForBoard.guest_code
+
+  const writeRpcs: [string, unknown][] = [
+    ['record_score', { p_match_id: matchLive, p_side: 'A', p_delta: 1, p_client_event_id: 'g4' }],
+    ['finish_match', { p_match_id: matchLive, p_winner_side: 'A' }],
+    ['claim_court', { p_match_id: matchWaiting, p_court_id: court2 }],
+    [
+      'set_court_queue',
+      { p_tournament_id: sessionBoard.id, p_court_id: court1, p_match_ids: [matchWaiting] },
+    ],
+  ]
+  const callable: string[] = []
+  for (const [fn, args] of writeRpcs) {
+    const r = await anonRpc(fn, args)
+    if (r.status < 400) callable.push(`${fn}(status=${r.status})`)
+  }
+  const { rows: liveAfterWrites } = await db.query<{ score_a: number; status: string }>(
+    `select score_a, status::text as status from matches where id=$1`,
+    [matchLive],
+  )
+  check(
+    '현황판이 열려도 게스트는 여전히 아무것도 못 쓴다 (점수·종료·코트잡기·대기열)',
+    callable.length === 0 &&
+      liveAfterWrites[0]!.score_a === 11 &&
+      liveAfterWrites[0]!.status === 'live',
+    callable.length
+      ? `⚠ 뚫린 RPC: ${callable.join(', ')}`
+      : `4종 전부 차단 · 경기는 ${liveAfterWrites[0]!.status} ${liveAfterWrites[0]!.score_a}점 그대로`,
+  )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 31. [84~85절] 회귀 — 있던 것이 그대로다 ──')
+  // ══════════════════════════════════════════════════════════════════
+  // 로그인 사용자 경로는 match_overview + RLS 그대로여야 한다. 게스트에게
+  // 안 나가기로 한 필드(referees · target_a · scored · label · source)가
+  // **여기서는 여전히 나오는 것**이 무변경의 증거다 — 뷰를 줄이는 방식으로
+  // 게스트 노출을 막았다면 여기서 걸린다.
+  const ownerOverview = await api(
+    ownerA.token,
+    `match_overview?tournament_id=eq.${sessionBoard.id}&select=id,status,court_name,label,source,scored,target_a,referees,players_a,winner_side&order=queue_order`,
+  )
+  const ownerRows = rows(ownerOverview)
+  const ownerLive = ownerRows.find((r) => r['id'] === matchLive) ?? {}
+  check(
+    '로그인 사용자의 현황판(match_overview)은 한 글자도 안 바뀌었다 — 끝난 경기까지 넷 다 보이고 게스트에 안 나가는 필드도 그대로다',
+    ownerOverview.status === 200 &&
+      ownerRows.length === 4 &&
+      ownerRows.some((r) => r['id'] === matchDone) &&
+      ['label', 'source', 'scored', 'target_a', 'referees', 'winner_side'].every(
+        (k) => k in ownerLive,
+      ) &&
+      ownerLive['target_a'] === 21,
+    `status=${ownerOverview.status} ${ownerRows.length}행(기대 4) · 필드=${Object.keys(ownerLive).join(',')}`,
+  )
+
+  check(
+    '마일스톤 3 등록 통로 1~67절이 여전히 전량 통과한다',
+    milestone3Failed === 0 && milestone3Passed === 67,
+    `${milestone3Passed}/${milestone3Passed + milestone3Failed} 통과 (기대 67/67) — 개수가 어긋나면 위쪽 절이 늘거나 줄었다는 뜻이고, 계획서·문서의 절 번호가 정본이 아니게 된다`,
+  )
 } finally {
+  // ── 정리 ────────────────────────────────────────────────────────────
+  // **프로덕션 DB 다.** 예전에 정리가 통째로 실패해 계정 8개 · 동아리 1개 ·
+  // 모임 2개가 프로덕션에 남은 사고가 있었다. 원인은 한 문장이 실패하면
+  // 뒤 문장이 전부 안 돌았다는 것이다. 그래서
+  //   (1) 단계마다 try/catch 로 끊어 한 단계가 실패해도 나머지가 돌고
+  //   (2) pooler 의 간헐적 `Connection timed out` 은 재시도로 넘기고
+  //   (3) 마지막에 **잔여를 다시 조회해** 눈으로 확인한다.
+  // 삭제 전에 id 를 먼저 확보하는 것이 핵심이다 — 계정을 지우고 나면
+  // "owner_id in (select ... from auth.users)" 로는 남은 것을 못 찾는다.
+  const sweep = async (label: string, sql: string, params: unknown[]): Promise<number> => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const r = await db.query(sql, params)
+        return r.rowCount ?? 0
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err)
+        if (attempt === 3) {
+          console.log(`⚠️ 정리 실패(${label}): ${detail}`)
+          return -1
+        }
+        console.log(`   정리 재시도 ${attempt}/2 (${label}): ${detail}`)
+        await new Promise((r) => setTimeout(r, 800 * attempt))
+      }
+    }
+    return -1
+  }
+  const idsOf = async (label: string, sql: string): Promise<string[]> => {
+    try {
+      const { rows: r } = await db.query<{ id: string }>(sql, [emails])
+      return r.map((x) => x.id)
+    } catch (err) {
+      console.log(`⚠️ 잔여 확인용 id 수집 실패(${label}): ${err instanceof Error ? err.message : String(err)}`)
+      return []
+    }
+  }
+
+  const tourIds = await idsOf(
+    'tournaments',
+    `select id from tournaments where owner_id in (select id from auth.users where email = any($1))`,
+  )
+  const clubIds = await idsOf(
+    'clubs',
+    `select id from clubs where owner_id in (select id from auth.users where email = any($1))`,
+  )
+
   // tournaments.owner_id · clubs.owner_id 는 둘 다 on delete restrict 다.
   // 계정보다 먼저 지우지 않으면 정리가 통째로 실패한다.
-  await db.query(
+  const delTours = await sweep(
+    'tournaments',
     `delete from tournaments where owner_id in (select id from auth.users where email = any($1))`,
     [emails],
   )
-  await db.query(
+  const delClubs = await sweep(
+    'clubs',
     `delete from clubs where owner_id in (select id from auth.users where email = any($1))`,
     [emails],
   )
-  await db.query(`delete from auth.users where email = any($1)`, [emails])
-  console.log(`\n🧹 테스트 계정 ${emails.length}개 정리 완료`)
-  await db.end()
+  const delUsers = await sweep('auth.users', `delete from auth.users where email = any($1)`, [
+    emails,
+  ])
+  console.log(
+    `\n🧹 정리 — 모임·대회 ${delTours}건 · 동아리 ${delClubs}건 · 계정 ${delUsers}건 (계정 ${emails.length}개 생성)`,
+  )
+
+  // 잔여 재조회 — "지웠다" 와 "안 남았다" 는 다른 이야기다.
+  try {
+    const { rows: left } = await db.query<{ users: number; clubs: number; tours: number }>(
+      `select (select count(*) from auth.users   where email = any($1))::int as users,
+              (select count(*) from clubs        where id    = any($2::uuid[]))::int as clubs,
+              (select count(*) from tournaments  where id    = any($3::uuid[]))::int as tours`,
+      [emails, clubIds, tourIds],
+    )
+    const rest = left[0]!
+    const clean = rest.users === 0 && rest.clubs === 0 && rest.tours === 0
+    console.log(
+      clean
+        ? '🧹 잔여 확인: 계정 0 · 동아리 0 · 모임 0 — 프로덕션에 남은 것이 없다'
+        : `🚨 잔여 확인 실패: 계정 ${rest.users} · 동아리 ${rest.clubs} · 모임 ${rest.tours} 이 남았다. 손으로 지워야 한다`,
+    )
+    if (!clean) process.exitCode = 1
+  } catch (err) {
+    console.log(
+      `🚨 잔여 확인 자체가 실패했다 — 남았는지 알 수 없다: ${err instanceof Error ? err.message : String(err)}`,
+    )
+    process.exitCode = 1
+  }
+
+  try {
+    await db.end()
+  } catch {
+    // 연결 종료 실패는 정리 결과를 바꾸지 않는다. 여기서 던지면 위에서
+    // 찍은 잔여 보고가 예외에 묻힌다.
+  }
 }
 
 console.log(`\n${passed}/${passed + failed} 통과`)
