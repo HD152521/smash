@@ -278,6 +278,24 @@ export type Database = {
         Returns: Json
       }
       /**
+       * 게스트 현황판. **anon** 이 로그인 없이 부른다 — 이 앱 최초의
+       * 비로그인 읽기 경로다.
+       *
+       * 예외를 던지지 않는다 — 세 게스트 함수의 실패 모양을 하나로 맞춘다.
+       * 반환 jsonb 봉투는 `src/lib/guest.ts` 의 parseGuestBoard 가 판별
+       * 유니온으로 푼다.
+       *
+       * ⚠ 반환 키는 여섯뿐이다 — ok · club_name · session · courts ·
+       * matches · finished_count. **필드를 하나 늘리는 것이 곧 비로그인
+       * 노출 표면을 넓히는 것**이라 `20260829000001_guest_board.sql` 머리의
+       * "안 싣는 것" 표가 정본이고, smoke 73번이 키 전수 검사로 지킨다.
+       * 명단 전체 · member_id · user_id · guest_code 는 어디에도 없다.
+       */
+      guest_board: {
+        Args: { p_code: string; p_session_id: string }
+        Returns: Json
+      }
+      /**
        * 게스트 링크 회수 (authenticated 전용, anon 은 grant 없음).
        *
        * `is_club_admin` 검사 후 새 코드로 교체한다. 옛 링크는 즉시 죽고,

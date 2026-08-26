@@ -57,9 +57,15 @@ export function buildSchedule(
  *   3번으로 보이는 사람에게 알림이 가거나 그 반대가 된다.
  *
  * 진행 중인 경기는 줄에서 뺀다 — 이미 코트 안에 있는 사람은 기다리는 게 아니다.
+ *
+ * 인자를 `MatchOverviewRow` 가 아니라 `{ id }` 로만 받는 이유: 게스트
+ * 현황판(`src/lib/guestBoard.ts`)은 `match_overview` 를 볼 수 없어 훨씬 작은
+ * 모양을 들고 온다. 거기서 이 함수를 못 부르면 **같은 줄을 세는 셈법이
+ * 셋으로 갈린다**(notify_up_next · 로그인 화면 · 게스트 화면). 세는 규칙은
+ * 한 글자도 안 바뀌었다 — 받는 모양만 넓혔다.
  */
 export function queuePosition(
-  waiting: readonly MatchOverviewRow[],
+  waiting: readonly { id: string | null }[],
   matchId: string | null,
 ): number | null {
   if (!matchId) return null

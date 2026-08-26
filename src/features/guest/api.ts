@@ -2,25 +2,27 @@ import { createClient } from '@supabase/supabase-js'
 import { env } from '@/lib/env'
 import { unwrap } from '@/lib/errors'
 import {
+  parseGuestBoard,
   parseGuestJoinResult,
   parseGuestSessions,
+  type GuestBoardOutcome,
   type GuestJoinOutcome,
   type GuestSessionsOutcome,
 } from '@/lib/guest'
 import type { Database } from '@/types/database'
 
 /**
- * 게스트 데이터 접근 — 이 파일의 두 함수는 **로그인 세션 없이** 동작해야
+ * 게스트 데이터 접근 — 이 파일의 세 함수는 **로그인 세션 없이** 동작해야
  * 한다.
  *
- * `guest_sessions` · `join_as_guest` 는 마이그레이션 권한 절에서
+ * `guest_sessions` · `join_as_guest` · `guest_board` 는 마이그레이션 권한 절에서
  * `anon` 에게만 grant 됐고 `authenticated` 에게는 없다
  * (`20260828000001_guest_registration.sql` 끝의 권한 절 참고). 앱 전역
  * `src/lib/supabase.ts` 의 `supabase` 클라이언트는 `persistSession: true`
  * 라 로그인한 사람이 **같은 브라우저**로 게스트 링크를 열면(운영진이
  * 자기 링크를 테스트하는 경우 등) 저장된 세션의 JWT 를 Authorization
  * 헤더에 그대로 실어 보낸다. 그러면 Postgres 의 `current_user` 가
- * `'authenticated'` 가 되는데, 이 두 RPC 는 `authenticated` 에게 EXECUTE
+ * `'authenticated'` 가 되는데, 이 세 RPC 는 `authenticated` 에게 EXECUTE
  * grant 가 없으므로 42501(permission denied)로 떨어진다 — 로그인
  * 여부와 무관하게 항상 `anon` 으로 불러야 하는 이유다.
  *
@@ -74,4 +76,27 @@ export async function joinAsGuest(
     p_name: name,
   })
   return parseGuestJoinResult(unwrap(res))
+}
+
+/**
+ * 게스트 현황판을 읽는다.
+ *
+ * **위의 `guestSupabase` 를 그대로 쓴다** — 이 경로 전용 클라이언트를 또
+ * 만들면 위 주석의 함정(로그인 세션이 딸려 들어와 42501)이 새 파일에서
+ * 되살아난다. 로그인한 운영진이 자기 링크를 확인하는 일은 실제로 자주
+ * 일어난다.
+ *
+ * 실패를 예외로 바꾸지 않는 이유도 앞의 두 함수와 같다 — `board_closed`
+ * 는 네트워크 오류가 아니라 "지난 모임이거나 링크가 바뀌었다" 는, 화면이
+ * 등록 입구로 안내해야 할 상태다.
+ */
+export async function fetchGuestBoard(
+  code: string,
+  sessionId: string,
+): Promise<GuestBoardOutcome> {
+  const res = await guestSupabase.rpc('guest_board', {
+    p_code: code,
+    p_session_id: sessionId,
+  })
+  return parseGuestBoard(unwrap(res))
 }
