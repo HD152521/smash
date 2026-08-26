@@ -146,13 +146,7 @@ function dayLabel(m: MatchOverviewRow): string | null {
   return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
 }
 
-function RecordCard({
-  m,
-  tournamentId,
-}: {
-  m: MatchOverviewRow
-  tournamentId: string
-}) {
+function RecordCard({ m, tournamentId }: { m: MatchOverviewRow; tournamentId: string }) {
   const voided = m.status === 'void'
   const when = m.finished_at ?? m.created_at
   return (
