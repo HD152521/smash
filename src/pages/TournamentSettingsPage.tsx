@@ -4,16 +4,20 @@ import { Lock } from 'lucide-react'
 import { useAuth } from '@/features/auth/useAuth'
 import { GroupPicker } from '@/features/tournament/GroupPicker'
 import { NameEditor } from '@/features/tournament/NameEditor'
-import { PushToggle } from '@/features/notifications/PushToggle'
 import { useGroups, useMembers, useSetMyGroup, useTournament } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 
 /**
- * 대회 설정 — 지금은 내 조 변경만.
+ * 대회 설정 — **이 대회에서의 나.** 조와 이름, 둘 다 이 대회에만 남는다.
  *
  * 조 변경은 참가자 스스로 하는 게 맞지만, 대회가 시작된 뒤에는
  * 대진표가 이미 짜여 있으므로 관리자만 손댈 수 있어야 한다.
  * 그 규칙은 서버(set_my_group)가 강제하고, 여기서는 왜 막혔는지만 설명한다.
+ *
+ * ⚠ 알림 스위치는 여기 없다. `PushToggle` 은 `tournamentId` 를 받지 않는
+ * **브라우저 구독 하나**라, 대회마다 두면 같은 스위치가 여러 군데 뜨고
+ * 한 곳에서 끄면 나머지 대회 알림도 같이 죽는다. `/settings/alerts` 로
+ * 뺐다 — 그 파일 머리에 근거가 있다.
  */
 export function TournamentSettingsPage() {
   const { id } = useParams<{ id: string }>()
@@ -74,14 +78,6 @@ export function TournamentSettingsPage() {
             />
           </div>
         )}
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-lg font-bold text-ink-1">알림</h2>
-        <p className="mt-1 mb-3 text-sm text-ink-2">
-          내 경기에 코트가 배정되면 알려드립니다. 이 기기에만 적용됩니다.
-        </p>
-        <PushToggle />
       </section>
 
       <section className="mt-10">

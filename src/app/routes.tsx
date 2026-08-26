@@ -89,6 +89,17 @@ const AuditLogPage = lazyPage(() =>
  * 동아리는 선택 계층이라 대부분의 참가자는 이 코드를 한 줄도 안 받는다.
  * 나눠 받는 이유가 관리 화면과 같다 — 안 쓰는 사람에게 안 보내는 것.
  */
+/*
+ * 계정·기기 설정. 대회 밑이 아니라 홈 밑에 둔다 — 알림 구독은 브라우저
+ * 하나에 하나라서, 대회 화면에 두면 같은 스위치가 참가한 대회 수만큼
+ * 생기고 한 곳에서 끄면 나머지도 같이 죽는다.
+ */
+const NotificationSettingsPage = lazyPage(() =>
+  import('@/pages/NotificationSettingsPage').then((m) => ({
+    default: m.NotificationSettingsPage,
+  })),
+)
+
 const MyClubsPage = lazyPage(() =>
   import('@/pages/MyClubsPage').then((m) => ({ default: m.MyClubsPage })),
 )
@@ -221,6 +232,14 @@ export function AppRoutes() {
         element={
           <Protected>
             <MyTournamentsPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/settings/alerts"
+        element={
+          <Protected>
+            <NotificationSettingsPage />
           </Protected>
         }
       />

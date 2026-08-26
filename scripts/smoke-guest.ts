@@ -1197,7 +1197,9 @@ try {
   check(
     'anon 이 현황판 기반 테이블 여섯을 전부 직접 못 읽는다',
     reachable.length === 0,
-    reachable.length ? `⚠ 뚫린 테이블: ${reachable.join(', ')}` : `${directTables.join(' · ')} 전부 차단`,
+    reachable.length
+      ? `⚠ 뚫린 테이블: ${reachable.join(', ')}`
+      : `${directTables.join(' · ')} 전부 차단`,
   )
 
   // ══════════════════════════════════════════════════════════════════
@@ -1404,7 +1406,9 @@ try {
       const { rows: r } = await db.query<{ id: string }>(sql, [emails])
       return r.map((x) => x.id)
     } catch (err) {
-      console.log(`⚠️ 잔여 확인용 id 수집 실패(${label}): ${err instanceof Error ? err.message : String(err)}`)
+      console.log(
+        `⚠️ 잔여 확인용 id 수집 실패(${label}): ${err instanceof Error ? err.message : String(err)}`,
+      )
       return []
     }
   }
