@@ -514,7 +514,7 @@ function MatchCard({
             시작
           </Link>
           <Link
-            to={`/t/${tournamentId}/matches/new?edit=${m.id}`}
+            to={`/t/${tournamentId}/matches/${m.id}/edit`}
             aria-label={`${matchTitle(m)} 수정`}
             className="grid size-10 shrink-0 place-items-center rounded-lg text-ink-3
                        transition-colors hover:bg-surface-2 hover:text-ink-1

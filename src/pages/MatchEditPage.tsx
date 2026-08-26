@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { CourtPicker } from '@/features/match/CourtPicker'
 import { MatchEditorScreen } from '@/features/match/MatchEditorScreen'
 import { MatchSubmitBar } from '@/features/match/MatchSubmitBar'
@@ -8,54 +8,86 @@ import { TeamSection } from '@/features/match/TeamSection'
 import { targetPoints, useMatchTeams } from '@/features/match/useMatchTeams'
 import {
   useCourts,
-  useCreateMatch,
   useGroups,
+  useMatches,
   useMembers,
   useTournament,
+  useUpdateMatch,
 } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
+import type { MatchOverviewRow } from '@/types/database'
 
 /**
- * 경기 편성 — 앞으로 할 경기를 코트에 올린다. 그것 하나만 한다.
+ * 경기 고치기 — 이미 편성한 한 경기의 편성을 바로잡는다. 한 건짜리 일이다.
  *
- * 목표 점수와 승점은 여기서 보내지 않는다. 서버가 조의 is_joker 와
- * 대회 설정에서 계산해 스냅샷으로 굳힌다. 화면은 그 결과를 미리 보여줄 뿐이다.
+ * 새로 만들지 않는다. 여기에 **'하나 더 만들기' 를 붙이지 말 것** — 고치러
+ * 들어온 사람에게 만들기를 겸하게 하면, 고친 줄 알았는데 한 판이 더 생긴다.
+ * 새로 짜는 일은 `/matches/new` 가 받는다.
  *
- * 여기에 **점수 칸을 들이지 말 것**. 아직 치르지 않은 경기라 넣을 점수가
- * 없다. 이미 치른 경기의 결과는 `/matches/record`, 이미 편성한 경기를
- * 고치는 일은 `/matches/:matchId/edit` 이 받는다. 셋을 한 화면에 토글로
- * 겹쳐 놨던 적이 있는데, 다음 판을 급히 짜러 온 운영자가 '이미 끝난 경기'
- * 가 눌린 채로 들어와 코트 칸을 못 찾았다.
+ * 예정 경기만 대상이다. 이미 시작했거나 끝난 경기는 서버가 거절한다 —
+ * 조를 바꾸면 목표 점수 스냅샷까지 다시 계산해야 하기 때문이다.
  */
-export function MatchCreatePage() {
-  const { id } = useParams<{ id: string }>()
-  const [searchParams] = useSearchParams()
+export function MatchEditPage() {
+  const { id, matchId } = useParams<{ id: string; matchId: string }>()
+  const navigate = useNavigate()
 
   const tournament = useTournament(id)
   const groups = useGroups(id)
   const members = useMembers(id)
   const courts = useCourts(id)
-  const create = useCreateMatch(id ?? '')
+  const matches = useMatches(id)
+  const update = useUpdateMatch(id ?? '')
 
   const config = tournament.data?.config
   const squadSize = config?.format === 'singles' ? 1 : 2
 
   const [courtId, setCourtId] = useState('')
   const [referees, setReferees] = useState<string[]>([])
-  /** 저장한 횟수. 화면에 머무르므로 '저장됐다' 를 눈에 보이게 알려야 한다 */
-  const [justSaved, setJustSaved] = useState(0)
 
-  /*
-   * 대진표의 빈 칸에서 넘어오면 두 조가 이미 정해져 있다 (?a=&b=).
-   * 첫 렌더에서 한 번만 읽는다 — 이후 사용자가 바꾼 선택을 주소가 되돌리면 안 된다.
-   * 없는 조 id 가 들어와도 그 조의 선수 목록이 비어 편성 자체가 막히므로 따로 막지 않는다.
-   */
   const teams = useMatchTeams({
     squadSize,
-    initial: { groupA: searchParams.get('a') ?? '', groupB: searchParams.get('b') ?? '' },
     // 뛰는 사람은 그 경기 심판을 볼 수 없다 (서버도 거부한다)
     onPlayersChange: (picked) => setReferees((r) => r.filter((x) => !picked.includes(x))),
   })
+
+  const editing = (matches.data ?? []).find((m) => m.id === matchId)
+  const [filledFrom, setFilledFrom] = useState<MatchOverviewRow | null>(null)
+
+  /*
+   * 서버에서 온 편성으로 폼을 채운다.
+   *
+   * useEffect 로 채우면 빈 폼이 한 번 그려진 뒤에 값이 들어와 입력칸이
+   * 껌뻑인다. 전에는 데이터가 도착한 뒤에 key 로 폼을 통째로 새로
+   * 마운트해 피했는데, 그 우회는 화면이 하나뿐이라 필요했던 것이다.
+   * 지금은 이 화면이 수정만 하므로 렌더 중에 한 번 맞추면 끝난다.
+   *
+   * react-query 는 내용이 같으면 같은 객체를 돌려주므로(structural sharing)
+   * 다시 받아왔다는 이유만으로는 여기 안 걸린다. 다른 관리자가 같은 경기를
+   * 바꿨을 때만 폼이 서버 값으로 맞춰진다.
+   *
+   * 이름은 화면에 나오지만 서버는 멤버 id 를 받으므로 이름으로 되짚는다.
+   * 그래서 명단이 도착하기 전에는 채우지 않는다 — 채우면 선수와 심판이
+   * 통째로 비어 버리고, 그 뒤로는 다시 채울 계기가 없다.
+   */
+  if (editing && members.data && editing !== filledFrom) {
+    const idsOf = (names: string[] | null) =>
+      (names ?? [])
+        .map((n) => members.data?.find((m) => m.displayName === n)?.id)
+        .filter((x): x is string => Boolean(x))
+
+    setFilledFrom(editing)
+    setCourtId(editing.court_id ?? '')
+    teams.fill({
+      groupA: editing.group_a_id ?? '',
+      groupB: editing.group_b_id ?? '',
+      playersA: idsOf(editing.players_a),
+      playersB: idsOf(editing.players_b),
+    })
+    setReferees(idsOf(editing.referees))
+  }
+
+  // 지워졌거나 없는 경기 — 고칠 것이 없으니 목록으로 돌려보낸다
+  if (matches.data && !editing) return <Navigate to={`/t/${id}/schedule`} replace />
 
   const groupList = groups.data ?? []
   const roster = members.data ?? []
@@ -64,7 +96,8 @@ export function MatchCreatePage() {
 
   async function handleSubmit() {
     try {
-      await create.mutateAsync({
+      await update.mutateAsync({
+        matchId: matchId ?? '',
         courtId: courtId || null,
         groupA: teams.groupA,
         playersA: teams.playersA,
@@ -72,32 +105,21 @@ export function MatchCreatePage() {
         playersB: teams.playersB,
         referees,
       })
-      /*
-       * 화면을 떠나지 않는다.
-       *
-       * 대회 준비는 한 판만 짜고 끝나지 않는다. 저장할 때마다 대회 홈으로
-       * 튕기면 다시 관리 → 편성으로 두 번 들어와야 다음 경기를 짠다.
-       * 대신 방금 넣은 값을 지워 다음 편성을 바로 시작할 수 있게 한다.
-       *
-       * 코트는 남긴다 — 같은 코트에 여러 경기를 줄 세우는 일이 잦다.
-       */
-      teams.clear()
-      setReferees([])
-      setJustSaved((n) => n + 1)
+      // 한 건짜리 일이다. 고치고 나면 목록으로 돌려보낸다.
+      navigate(`/t/${id}/schedule`, { replace: true })
     } catch {
-      // create.error 로 화면에 뿌린다
+      // update.error 로 화면에 뿌린다
     }
   }
 
   return (
     <MatchEditorScreen
       tournamentId={id ?? ''}
-      title="경기 편성"
-      backTo={`/t/${id}/admin`}
-      backLabel="관리로"
-      // 편성을 반복하면 히스토리가 이 화면으로 쌓인다. 부모를 못 박는다.
-      fixedBack
-      pending={!config || !groups.data}
+      title="경기 고치기"
+      description="아직 시작하지 않은 경기만 고칠 수 있습니다. 코트와 심판 지정은 그대로 남습니다."
+      backTo={`/t/${id}/schedule`}
+      backLabel="대진표로"
+      pending={!config || !groups.data || !filledFrom}
       bottomBar={
         teams.ready && (
           <MatchSubmitBar
@@ -105,8 +127,8 @@ export function MatchCreatePage() {
             groupB={gB}
             targetA={targetPoints(gA, config)}
             targetB={targetPoints(gB, config)}
-            label="경기 만들기"
-            loading={create.isPending}
+            label="고치기"
+            loading={update.isPending}
             onSubmit={() => void handleSubmit()}
           />
         )
@@ -151,17 +173,9 @@ export function MatchCreatePage() {
         onToggle={(m) => setReferees((r) => (r.includes(m) ? r.filter((x) => x !== m) : [...r, m]))}
       />
 
-      {/* 화면에 그대로 머무르므로 저장됐다는 걸 눈에 보이게 알려야 한다.
-          안 그러면 저장이 됐는지 몰라 같은 경기를 두 번 넣는다. */}
-      {justSaved > 0 && !create.error && (
-        <p role="status" className="mt-6 text-sm font-semibold text-ok-fg">
-          저장했습니다 · 이번에 {justSaved}경기 편성 — 이어서 다음 경기를 짜세요
-        </p>
-      )}
-
-      {create.error && (
+      {update.error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
-          {toUserMessage(create.error, '경기를 저장하지 못했습니다')}
+          {toUserMessage(update.error, '경기를 저장하지 못했습니다')}
         </p>
       )}
 

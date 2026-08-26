@@ -1,127 +1,44 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Copy, LogOut, RefreshCw, Trash2 } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { ArrowRight, KeyRound, Link2, Settings, Users } from 'lucide-react'
 import { BackLink } from '@/components/ui/BackLink'
-import { Button } from '@/components/ui/Button'
-import { InlineEdit } from '@/components/ui/InlineEdit'
 import { useAuth } from '@/features/auth/useAuth'
-import { ClubStaffManager } from '@/features/club/ClubStaffManager'
 import { ClubTournamentList } from '@/features/club/ClubTournamentList'
-import {
-  useClub,
-  useClubMembers,
-  useClubTournaments,
-  useDeleteClub,
-  useRemoveClubMember,
-  useRenameClub,
-  useRotateGuestCode,
-} from '@/features/club/queries'
-import { CLUB_NAME_MAX, isClubStaff } from '@/lib/club'
-import { toUserMessage } from '@/lib/errors'
-import { guestLinkUrl } from '@/lib/guest'
+import { ClubUnavailable } from '@/features/club/ClubScreen'
+import { useClub, useClubMembers, useClubTournaments } from '@/features/club/queries'
+import { isClubStaff } from '@/lib/club'
 
 /**
- * 동아리 화면 — 이름 · 동아리 코드 · 명단 · 산하 대회.
+ * 동아리 허브 — **이 동아리에서 무엇을 할지 고른다.**
  *
- * 대회의 관리 화면(`TournamentAdminPage`)처럼 허브로 쪼개지 않고 한 장에 둔다.
- * 동아리에서 하는 일은 목록 하나(명단)와 값 두 개(이름·코드)뿐이라 화면을
- * 나눌 만큼 길어지지 않는다. 길어지는 것은 명단인데, 그건 어차피 스크롤이다.
+ * 전에는 한 장에 다 있었다. 이름 · 동아리 코드 · 게스트 링크 · 산하 대회
+ * 목록 · 회원 명단 · 나가기 · 지우기. 그 화면의 주석은 스스로 "목록
+ * 하나(명단)와 값 두 개뿐이라 나눌 만큼 길어지지 않는다" 고 변론했지만,
+ * 그 사이 목록이 둘(산하 대회 · 명단)이 되고 게스트 링크가 그 사이에
+ * 끼면서 변론이 무너졌다.
  *
- * 권한은 화면이 아니라 서버가 정한다. 여기서 숨기는 건 **눌러도 안 되는 것을
- * 안 보이게** 하는 것뿐이다 — 진짜 벽은 RLS 와 RPC 안의 검사다.
+ * 대회 관리(`TournamentAdminPage`)가 같은 문제를 이미 이렇게 풀었다 —
+ * *"코트·참가자·조를 한 화면에 쌓으면 급할 때 필요한 게 스크롤 밑으로
+ * 밀린다"*. 동아리에만 그 원칙을 안 쓰고 있었다.
+ *
+ * 체육관에서 운영진이 이 화면을 여는 이유는 거의 언제나 하나 —
+ * **게스트 링크를 카톡에 붙여넣기.** 이제 한 번 눌러 닿는다.
+ *
+ * ⚠ 여기에 명단이나 코드를 다시 끌어오지 마라. 산하 대회 목록은
+ * 데이터가 아니라 **문의 목록**이라 남는다 — 한 줄이 대회 하나로 가는
+ * 길이다.
  */
 export function ClubPage() {
   const { clubId } = useParams<{ clubId: string }>()
-  const navigate = useNavigate()
   const { user } = useAuth()
 
   const club = useClub(clubId)
   const members = useClubMembers(clubId)
   const tournaments = useClubTournaments(clubId)
 
-  const rename = useRenameClub(clubId ?? '')
-  const leave = useRemoveClubMember(clubId ?? '')
-  const remove = useDeleteClub()
-  const rotateGuestCode = useRotateGuestCode(clubId ?? '')
-  const [copied, setCopied] = useState(false)
-
-  /*
-   * 내 역할은 명단에서 찾는다. 목록 화면(`useMyClubs`)이 이미 역할을 들고
-   * 있지만 여기까지 들고 오지 않는다 — 코드로 막 들어온 사람이나 주소로 바로
-   * 들어온 사람에게는 그 목록이 아직 없다.
-   */
   const me = members.data?.find((m) => m.userId === user?.id)
   const canManage = isClubStaff(me?.role)
-  const isOwner = me?.role === 'owner'
 
-  async function handleLeave() {
-    if (!me) return
-    if (!confirm(`${club.data?.name ?? '이 동아리'}에서 나갈까요?`)) return
-    try {
-      await leave.mutateAsync(me.id)
-      navigate('/clubs', { replace: true })
-    } catch {
-      // leave.error 로 화면에 뿌린다
-    }
-  }
-
-  async function handleDelete() {
-    if (!clubId) return
-    if (!confirm(`${club.data?.name ?? '이 동아리'}를 지울까요? 되돌릴 수 없습니다.`)) return
-    try {
-      await remove.mutateAsync(clubId)
-      navigate('/clubs', { replace: true })
-    } catch {
-      // remove.error 로 화면에 뿌린다
-    }
-  }
-
-  async function handleCopyGuestLink(url: string) {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // 클립보드 접근이 막힌 브라우저 — 링크는 이미 화면에 보이므로 손으로 복사할 수 있다
-    }
-  }
-
-  /**
-   * 재발급은 확인을 한 번 더 받는다 — 누르는 순간 옛 링크가 즉시 죽어서,
-   * 방금 카톡으로 그 링크를 뿌린 사람이 있으면 그 사람들은 다시 못 들어온다.
-   * 이미 등록된 게스트는 건드리지 않는다(`rotate_guest_code` 주석 참고).
-   */
-  async function handleRotateGuestCode() {
-    if (!confirm('게스트 링크를 다시 만들까요? 지금 링크는 바로 꺼집니다.')) return
-    try {
-      await rotateGuestCode.mutateAsync()
-    } catch {
-      // rotateGuestCode.error 로 화면에 뿌린다
-    }
-  }
-
-  if (club.error) {
-    return (
-      <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-        <BackLink to="/clubs">내 동아리</BackLink>
-        <p role="alert" className="mt-8 text-sm font-medium text-team-b-fg">
-          {toUserMessage(club.error, '동아리를 불러오지 못했습니다')}
-        </p>
-        {/* 남의 동아리는 아예 안 보인다(`clubs_select` 가 is_club_member).
-            '없다' 와 '내가 회원이 아니다' 를 구별할 수 없으므로 둘 다 안내한다. */}
-        <p className="mt-2 text-sm text-ink-2">
-          회원만 볼 수 있습니다.{' '}
-          <Link
-            to="/clubs/join"
-            className="font-semibold text-brand-fg underline underline-offset-2
-                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            동아리 코드로 들어가기
-          </Link>
-        </p>
-      </main>
-    )
-  }
+  if (club.error) return <ClubUnavailable error={club.error} />
 
   if (!club.data) {
     return (
@@ -132,102 +49,40 @@ export function ClubPage() {
   }
 
   const c = club.data
-  const guestUrl = guestLinkUrl(window.location.origin, c.guest_code)
+  const memberCount = members.data?.length
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
       <BackLink to="/clubs">내 동아리</BackLink>
 
       <p className="mt-6 text-sm font-semibold tracking-widest text-brand-fg uppercase">CLUB</p>
-      {canManage ? (
-        <div className="mt-1 flex items-center">
-          <InlineEdit
-            value={c.name}
-            label="동아리"
-            maxLength={CLUB_NAME_MAX}
-            pending={rename.isPending}
-            error={rename.error ? toUserMessage(rename.error, '이름을 바꾸지 못했습니다') : null}
-            onSave={async (next) => {
-              await rename.mutateAsync(next)
-            }}
-          />
-        </div>
-      ) : (
-        <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{c.name}</h1>
-      )}
-
+      <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{c.name}</h1>
       {c.description && <p className="mt-2 text-sm text-ink-2">{c.description}</p>}
 
-      {/* ── 동아리 코드 ───────────────────────────────────────────── */}
       {/*
-        운영진에게만 보인다. 대회 초대 코드와 같은 규칙이지만 이유가 하나 더
-        있다 — 동아리 명단은 앞으로 열리는 모든 대회 명단의 원본이라,
-        코드가 새면 모르는 사람이 명단에 남는다.
-        재발급은 없다. 대회와 달리 코드를 자주 바꿀 일이 없고, 바꾸면 아직
-        안 들어온 회원에게 뿌린 코드가 한꺼번에 죽는다.
+        운영진이 가장 자주 하는 일을 맨 위, 가장 큰 면적에 둔다.
+        회원에게는 이 줄이 아예 없다 — 눌러도 안 되는 것을 보여주지 않는다.
       */}
       {canManage && (
-        <section className="mt-6 rounded-2xl border border-border-subtle bg-surface-1 p-5">
-          <h2 className="text-sm font-semibold text-ink-2">동아리 코드</h2>
-          <p className="tabular mt-0.5 text-2xl font-black tracking-[0.2em] text-ink-1">
-            {c.invite_code}
-          </p>
-          <p className="mt-1.5 text-xs text-ink-3">
-            대회 초대 코드와 다릅니다. 회원은 <b>동아리 들어가기</b> 화면에서 이 코드를 넣습니다.
-          </p>
-        </section>
-      )}
-
-      {/* ── 게스트 링크 ───────────────────────────────────────────── */}
-      {/*
-        운영진에게만 보인다. 계정 없는 사람도 이 링크로 오늘 모임에 이름을
-        적고 들어온다 — 로그인을 유도하지 않는 이 앱 유일한 문이다.
-        동아리 코드와 달리 재발급이 있다(`guest_code` 는 매번 다른 사람에게
-        보여주는 상시 링크라, 재발급으로 아직 안 온 회원의 코드가 죽는 문제가
-        없다).
-      */}
-      {canManage && (
-        <section className="mt-4 rounded-2xl border border-border-subtle bg-surface-1 p-5">
-          <h2 className="text-sm font-semibold text-ink-2">게스트 링크</h2>
-          <p className="mt-1.5 text-xs text-ink-3">
-            계정이 없는 사람도 이 링크로 오늘 열린 모임에 이름을 적고 들어옵니다.
-          </p>
-          <p className="tabular mt-2 truncate rounded-lg bg-surface-2 px-3 py-2 text-sm font-semibold text-ink-1">
-            {guestUrl}
-          </p>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleCopyGuestLink(guestUrl)}
-            >
-              <Copy className="size-4" aria-hidden />
-              {copied ? '복사했습니다' : '링크 복사'}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              loading={rotateGuestCode.isPending}
-              onClick={() => void handleRotateGuestCode()}
-            >
-              <RefreshCw className="size-4" aria-hidden />
-              다시 만들기
-            </Button>
-          </div>
-
-          <p className="mt-2 text-xs text-ink-3">
-            다시 만들면 지금 링크는 바로 꺼집니다. 이미 등록된 게스트는 그대로 남습니다.
-          </p>
-
-          {rotateGuestCode.error && (
-            <p role="alert" className="mt-2 text-sm font-medium text-team-b-fg">
-              {toUserMessage(rotateGuestCode.error, '게스트 링크를 다시 만들지 못했습니다')}
-            </p>
-          )}
-        </section>
+        <Link
+          to={`/c/${c.id}/guest`}
+          className="group mt-7 flex min-h-20 items-center gap-4 rounded-3xl bg-brand-600 px-5 py-4
+                     text-white shadow-[var(--shadow-card)] transition-transform
+                     hover:-translate-y-0.5 focus-visible:-translate-y-0.5
+                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        >
+          <Link2 className="size-6 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-black tracking-tight">게스트 링크</span>
+            <span className="mt-0.5 block text-sm text-brand-100">
+              계정 없는 사람을 오늘 모임에 부릅니다
+            </span>
+          </span>
+          <ArrowRight
+            aria-hidden
+            className="size-5 shrink-0 transition-transform group-hover:translate-x-0.5"
+          />
+        </Link>
       )}
 
       <ClubTournamentList
@@ -238,73 +93,69 @@ export function ClubPage() {
         canCreate={canManage}
       />
 
-      {/* ── 명단 ──────────────────────────────────────────────────── */}
-      <div className="mt-8">
-        {members.isPending && (
-          <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
-        )}
-
-        {members.error && (
-          <p role="alert" className="text-sm font-medium text-team-b-fg">
-            {toUserMessage(members.error, '명단을 불러오지 못했습니다')}
-          </p>
-        )}
-
-        {members.data && (
-          <ClubStaffManager
-            clubId={c.id}
-            members={members.data}
-            myMemberId={me?.id}
-            canManage={canManage}
+      <h2 className="mt-10 text-xs font-bold tracking-[0.14em] text-ink-3 uppercase">동아리</h2>
+      <nav className="mt-3 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
+        <HubRow
+          to={`/c/${c.id}/members`}
+          icon={<Users className="size-5" aria-hidden />}
+          title="명단"
+          desc="누가 회원이고 누가 운영진인가"
+          count={memberCount}
+        />
+        {canManage && (
+          <HubRow
+            to={`/c/${c.id}/invite`}
+            icon={<KeyRound className="size-5" aria-hidden />}
+            title="동아리 코드"
+            desc="회원을 명단에 들이는 코드"
           />
         )}
-      </div>
-
-      {/* ── 나가기 · 지우기 ───────────────────────────────────────── */}
-      {/*
-        동아리장은 나갈 수 없다 (`remove_club_member` 가 막는다). 나가면
-        아무도 운영할 수 없는 동아리가 남기 때문이다. 대신 지우는 길이 있다.
-      */}
-      <section className="mt-10 border-t border-border-subtle pt-6">
-        {me && !isOwner && (
-          <>
-            <Button
-              variant="secondary"
-              loading={leave.isPending}
-              onClick={() => void handleLeave()}
-            >
-              <LogOut className="size-4" aria-hidden />
-              동아리 나가기
-            </Button>
-            <p className="mt-2 text-xs text-ink-3">
-              이미 치른 대회의 기록과 명단은 그대로 남습니다.
-            </p>
-            {leave.error && (
-              <p role="alert" className="mt-2 text-sm font-medium text-team-b-fg">
-                {toUserMessage(leave.error, '나가지 못했습니다')}
-              </p>
-            )}
-          </>
-        )}
-
-        {isOwner && (
-          <>
-            <Button variant="danger" loading={remove.isPending} onClick={() => void handleDelete()}>
-              <Trash2 className="size-4" aria-hidden />
-              동아리 지우기
-            </Button>
-            <p className="mt-2 text-xs text-ink-3">
-              산하 대회·모임과 경기 기록은 남고 소속만 풀립니다. 사라지는 것은 동아리와 이
-              명단뿐입니다.
-            </p>
-            {remove.error && (
-              <p role="alert" className="mt-2 text-sm font-medium text-team-b-fg">
-                {toUserMessage(remove.error, '동아리를 지우지 못했습니다')}
-              </p>
-            )}
-          </>
-        )}
-      </section>
+        <HubRow
+          to={`/c/${c.id}/settings`}
+          icon={<Settings className="size-5" aria-hidden />}
+          title="동아리 설정"
+          desc={canManage ? '이름 바꾸기 · 나가기' : '나가기'}
+          last
+        />
+      </nav>
     </main>
+  )
+}
+
+function HubRow({
+  to,
+  icon,
+  title,
+  desc,
+  count,
+  last = false,
+}: {
+  to: string
+  icon: React.ReactNode
+  title: string
+  desc: string
+  /** 셀 수 있는 것만. 아직 모르면 아무것도 안 그린다 — 빈 배지는 고장으로 읽힌다 */
+  count?: number
+  last?: boolean
+}) {
+  return (
+    <Link
+      to={to}
+      className={`flex min-h-16 items-center gap-4 px-5 py-3.5 transition-colors hover:bg-surface-2
+                  focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600
+                  ${last ? '' : 'border-b border-border-subtle'}`}
+    >
+      <span className="shrink-0 text-ink-3">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-bold text-ink-1">
+          {title}
+          {count !== undefined && (
+            <span className="tabular ml-1.5 text-sm font-black text-ink-3">{count}</span>
+          )}
+        </span>
+        <span className="mt-0.5 block text-sm text-ink-2">{desc}</span>
+      </span>
+      <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-3" />
+    </Link>
   )
 }

@@ -57,6 +57,12 @@ const SessionMatchCreatePage = lazyPage(() =>
 const MatchCreatePage = lazyPage(() =>
   import('@/pages/MatchCreatePage').then((m) => ({ default: m.MatchCreatePage })),
 )
+const PastMatchEntryPage = lazyPage(() =>
+  import('@/pages/PastMatchEntryPage').then((m) => ({ default: m.PastMatchEntryPage })),
+)
+const MatchEditPage = lazyPage(() =>
+  import('@/pages/MatchEditPage').then((m) => ({ default: m.MatchEditPage })),
+)
 const MatchScorePage = lazyPage(() =>
   import('@/pages/MatchScorePage').then((m) => ({ default: m.MatchScorePage })),
 )
@@ -110,6 +116,18 @@ const JoinClubPage = lazyPage(() =>
   import('@/pages/JoinClubPage').then((m) => ({ default: m.JoinClubPage })),
 )
 const ClubPage = lazyPage(() => import('@/pages/ClubPage').then((m) => ({ default: m.ClubPage })))
+const ClubGuestLinkPage = lazyPage(() =>
+  import('@/pages/ClubGuestLinkPage').then((m) => ({ default: m.ClubGuestLinkPage })),
+)
+const ClubInvitePage = lazyPage(() =>
+  import('@/pages/ClubInvitePage').then((m) => ({ default: m.ClubInvitePage })),
+)
+const ClubMembersPage = lazyPage(() =>
+  import('@/pages/ClubMembersPage').then((m) => ({ default: m.ClubMembersPage })),
+)
+const ClubSettingsPage = lazyPage(() =>
+  import('@/pages/ClubSettingsPage').then((m) => ({ default: m.ClubSettingsPage })),
+)
 
 /*
  * 게스트 화면 둘은 이 앱에서 **로그인 가드 밖**에 있는 유일한 화면들이다.
@@ -281,6 +299,48 @@ export function AppRoutes() {
           </Protected>
         }
       />
+      {/*
+        동아리도 대회 관리와 같은 모양이다 — 허브 하나에 하위 넷.
+        한 장에 이름·코드 둘·산하 대회·명단 30줄·나가기를 쌓아 뒀더니,
+        체육관에서 가장 자주 쓰는 게스트 링크가 명단 밑으로 밀렸다.
+
+        코드 둘을 일부러 갈라 둔다. 동아리 코드는 명단에 영구히 남기는
+        코드고 게스트 링크는 오늘 하루짜리다 — 나란히 두면 급할 때
+        엉뚱한 것을 복사해 뿌린다. 위의 들어오는 문(`/join` ·
+        `/clubs/join`)을 가른 것과 같은 이유다.
+      */}
+      <Route
+        path="/c/:clubId/guest"
+        element={
+          <Protected>
+            <ClubGuestLinkPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/c/:clubId/invite"
+        element={
+          <Protected>
+            <ClubInvitePage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/c/:clubId/members"
+        element={
+          <Protected>
+            <ClubMembersPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/c/:clubId/settings"
+        element={
+          <Protected>
+            <ClubSettingsPage />
+          </Protected>
+        }
+      />
 
       <Route
         path="/t/:id"
@@ -359,11 +419,33 @@ export function AppRoutes() {
           </Protected>
         }
       />
+      {/*
+        경기를 만들고 고치는 일은 셋이다 — 성격이 달라 주소도 셋이다.
+        앞으로 할 경기(new) · 이미 치른 경기의 결과(record) · 이미 편성한
+        경기 고치기(edit). 한 화면에 토글로 겹쳐 놨더니 급히 다음 판을 짜러
+        온 운영자가 '이미 끝난 경기' 가 눌린 채로 들어와 코트 칸을 못 찾았다.
+      */}
       <Route
         path="/t/:id/matches/new"
         element={
           <Protected>
             <MatchCreatePage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/matches/record"
+        element={
+          <Protected>
+            <PastMatchEntryPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/matches/:matchId/edit"
+        element={
+          <Protected>
+            <MatchEditPage />
           </Protected>
         }
       />
