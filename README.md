@@ -57,11 +57,22 @@
 뿌리는 일을 없애려고 만들었습니다.
 
 ```
-/clubs          내 동아리 목록
-/clubs/new      동아리 만들기
-/clubs/join     동아리 코드 6자리      ← /join(대회 코드) 과 다른 문
-/c/:clubId      동아리 홈 — 이름 · 초대 코드 · 운영진 · 산하 대회/모임
+/clubs                 내 동아리 목록
+/clubs/new             동아리 만들기
+/clubs/join            동아리 코드 6자리      ← /join(대회 코드) 과 다른 문
+
+/c/:clubId             동아리 허브 — 게스트 링크 · 산하 대회 · 아래 문 넷
+   /c/:clubId/guest    게스트 링크 (발급 · 복사 · 재발급)
+   /c/:clubId/invite   동아리 코드 (재발급 없음)
+   /c/:clubId/members  명단 — 누가 회원이고 누가 운영진인가
+   /c/:clubId/settings 이름 바꾸기 · 나가기 · 지우기
 ```
+
+**허브는 문의 목록이지 데이터가 아닙니다.** 전에는 한 장에 다 있었는데, 체육관에서
+운영진이 이 화면을 여는 이유는 거의 언제나 하나(게스트 링크를 카톡에 붙여넣기)인데
+그게 회원 30명 명단 밑에 있었습니다. **코드 둘을 나란히 두지 않는 것도 의도입니다** —
+동아리 코드는 명단에 영구히 남기는 코드, 게스트 링크는 오늘 하루짜리라 급할 때
+엉뚱한 것을 복사해 뿌리게 됩니다.
 
 **동아리는 명단의 원천이지 권한 축이 아닙니다.** 이게 이 계층의 유일한 원칙입니다.
 
@@ -236,11 +247,13 @@ https://<project-ref>.supabase.co/auth/v1/callback
 export SUPABASE_PROJECT_REF=<project-ref>
 npm run db:link     # 원격 프로젝트에 연결 (DB 비밀번호를 한 번 물어봄)
 npm run db:push     # supabase/migrations/*.sql 을 적용
-npm run db:types    # 실제 스키마에서 src/types/database.ts 재생성
+npm run db:types    # 실제 스키마에서 src/types/database.gen.ts 재생성
 ```
 
-> `src/types/database.ts` 는 현재 **수기 임시 정의**입니다.
-> `db:types` 를 한 번 돌리면 실제 스키마 기반으로 교체됩니다.
+> `db:types` 가 만드는 것은 **`src/types/database.gen.ts`** 입니다.
+> `src/types/database.ts` 는 그 위에 얹는 손으로 쓴 층이라 **덮어쓰이지 않습니다** —
+> 생성기가 만들 수 없는 것(jsonb 컬럼의 실제 모양 · RPC 시그니처 · 짧은 별칭)만
+> 여기 있습니다. 스키마를 바꿨으면 `db:push` 뒤에 `db:types` 를 반드시 돌리세요.
 
 ---
 
@@ -261,13 +274,17 @@ npm run test:cov    # 커버리지 (임계 80%)
 
 ```
 src/
-├── app/routes.tsx           라우팅 + 인증 가드
-├── components/
-│   ├── ui/                  Button, Badge(JokerBadge/LiveBadge)
-│   ├── layout/ tournament/ match/ scoring/
+├── app/routes.tsx           라우팅 + 인증 가드  ← **주소 목록의 정본**
+├── components/ui/           Button · Badge · Modal · Toggle · Stepper · InlineEdit · BackLink
 ├── features/auth/           AuthContext · AuthProvider · useAuth
-├── features/club/           동아리 데이터 접근 (api · queries) + 화면 조각
+├── features/admin/          AdminScreen(관리 하위 화면 껍데기) · 조·코트·참가자 관리
+├── features/club/           동아리 데이터 접근 (api · queries) + ClubScreen(하위 화면 껍데기)
+├── features/match/          경기 만들기·고치기 셋의 공통 조각 — MatchEditorScreen ·
+│                            useMatchTeams · TeamSection · CourtPicker · RefereePicker
 ├── features/guest/          게스트 anon 데이터 접근 (api · queries · 폴링)
+├── features/notifications/  웹 푸시 구독(PushToggle) · 인앱 배너
+├── features/tournament/     대회 데이터 접근 · 조 고르기 · 규칙 입력 · 참가 신청 패널
+├── features/scoring/        채점 큐 (localStorage 거울 · 멱등키)
 ├── lib/
 │   ├── env.ts               환경변수 부팅 시 검증 (Zod)
 │   ├── supabase.ts          Supabase 클라이언트
@@ -281,15 +298,42 @@ src/
 │   ├── guestBoard.ts        현황판 판단 (코트별 묶기 · 점수 표시 · 내 다음 경기)
 │   ├── guestMe.ts           게스트가 적은 이름 (localStorage · 강조 전용)
 │   └── standings.ts         ★ 순위 정렬 (승점 → 승자승 → 득실차)
-├── pages/                   화면
-└── types/database.ts        DB 타입 (생성물)
+├── pages/                   화면 (한 주소에 한 파일)
+└── types/
+    ├── database.gen.ts      스키마에서 생성 (db:types)
+    └── database.ts          그 위에 얹는 손으로 쓴 층 — jsonb 모양 · RPC 시그니처 · 별칭
 
-supabase/migrations/
+supabase/migrations/          시각순으로 쌓입니다. 첫 넷이 뼈대입니다
 ├── ..._schema.sql           테이블 · 인덱스 · 트리거
 ├── ..._rls.sql              RLS 헬퍼 + 정책  ← 이 앱의 유일한 보안 경계
 ├── ..._rpc.sql              참가 · 득점 · 취소 · 종료
 └── ..._matches_standings.sql  경기 편성 · 순위 · Realtime
 ```
+
+> **고칠 함수를 찾을 때는 `grep -ln "function 이름"` 으로 전부 찾아 마지막 파일을
+> 보세요.** 같은 함수가 여러 마이그레이션에서 다시 만들어져 있어서, '최신' 을 잘못
+> 짚으면 그 사이에 들어간 검사가 조용히 사라집니다 — 실제로 한 번 밟았습니다.
+
+### 화면 규칙 — 하나에 책임 하나
+
+**각 화면은 책임을 하나만 집니다.** 그 한 문장은 페이지 파일 머리 주석에 박혀
+있습니다 — 칸을 더하기 전에 그 문장부터 읽으세요. 문장을 고쳐야 칸이 들어간다면
+들어갈 자리가 거기가 아닙니다.
+
+그래서 이런 모양이 반복됩니다.
+
+```
+허브 + 하위        /t/:id/admin  + groups · courts · members · rules
+                   /c/:clubId    + guest · invite · members · settings
+
+성격이 다르면      /t/:id/matches/new       편성 (대회 중)
+주소도 다르게      /t/:id/matches/record    지난 결과 (끝난 뒤 정산)
+                   /t/:id/matches/:id/edit  수정
+```
+
+탭 · 모드 토글 · CSS 로 절반 숨기기(`&& 'hidden'`)는 **화면이 둘이라는 신호**입니다.
+전체 목록과 판단 근거는 [`docs/이어서시작.md`](docs/이어서시작.md) 의
+「화면 구조」·「화면 하나에 책임 하나」에 있습니다.
 
 ### 설계상 중요한 두 가지
 
