@@ -1374,6 +1374,156 @@ try {
     milestone3Failed === 0 && milestone3Passed === 67,
     `${milestone3Passed}/${milestone3Passed + milestone3Failed} 통과 (기대 67/67) — 개수가 어긋나면 위쪽 절이 늘거나 줄었다는 뜻이고, 계획서·문서의 절 번호가 정본이 아니게 된다`,
   )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 32. [86~93절] 즉석 모임(starts_at is null)의 시각 창 ──')
+  // ══════════════════════════════════════════════════════════════════
+  // 20260830000001 이전에는 starts_at 이 null 인 즉석 모임이 시각 창을
+  // **무조건** 통과했다 — status='live' 로 남아 있는 한 게스트 링크가
+  // 영원히 열려 있었다(프로덕션에 실제로 그런 모임이 있었다). 이제
+  // 즉석 모임은 만든 때를 시각으로 본다: created_at > now() - 24시간.
+  //
+  // 24시간을 실제로 기다릴 수는 없으므로 created_at 을 손으로 과거로
+  // 민다. create_session 에는 created_at 인자가 없고, 이 스크립트의 DB
+  // 연결은 postgres 롤이라 is_direct_api_call() 이 거짓이 되어
+  // guard_tournament_update 를 그대로 통과한다(위쪽 절이 status 를
+  // 직접 UPDATE 하는 것과 같은 방식이다).
+  const makeInstant = async (name: string, age: string | null): Promise<SessionRow> => {
+    const s = obj(
+      await rpc(ownerA.token, 'create_session', {
+        p_name: name,
+        p_display_name: '동아리A주인',
+        p_court_count: 2,
+        p_club_id: clubA.id,
+      }),
+    ) as unknown as SessionRow
+    if (age) {
+      await db.query(
+        `update tournaments set created_at = now() - ($2::text)::interval where id=$1`,
+        [s.id, age],
+      )
+    }
+    return s
+  }
+  const instantOld = await makeInstant('오래된 즉석 모임', '30 hours')
+  const instantEdge = await makeInstant('아침에 연 즉석 모임', '23 hours')
+  const instantFresh = await makeInstant('방금 연 즉석 모임', null)
+
+  // 이 절이 거짓이면 아래 일곱 절은 아무것도 증명하지 않는다 —
+  // create_session 이 p_starts_at 없이도 시각을 채우기 시작하면
+  // "즉석 모임" 자체가 사라지고 검사가 조용히 무의미해진다.
+  const { rows: instantRows } = await db.query<{ starts_at: string | null; status: string }>(
+    `select starts_at, status::text as status from tournaments where id = any($1::uuid[])`,
+    [[instantOld.id, instantEdge.id, instantFresh.id]],
+  )
+  check(
+    '셋 다 starts_at is null · status=live 인 즉석 모임이다 (아래 절들의 전제)',
+    instantRows.length === 3 &&
+      instantRows.every((r) => r.starts_at === null && r.status === 'live'),
+    instantRows.map((r) => `starts_at=${String(r.starts_at)}/${r.status}`).join(' · '),
+  )
+
+  const candLate = obj(await anonRpc('guest_sessions', { p_code: clubA.guest_code }))
+  const candLateIds = (
+    Array.isArray(candLate['sessions']) ? (candLate['sessions'] as Record<string, unknown>[]) : []
+  ).map((s) => String(s['id']))
+  check(
+    '만든 지 30시간 된 즉석 모임은 등록 후보에서 빠진다 (예전에는 영원히 후보였다)',
+    candLate['ok'] === true && !candLateIds.includes(instantOld.id),
+    `후보 ${candLateIds.length}건 · 오래된 즉석 모임 포함=${candLateIds.includes(instantOld.id)}`,
+  )
+
+  const joinOldInstant = await anonRpc('join_as_guest', {
+    p_code: clubA.guest_code,
+    p_session_id: instantOld.id,
+    p_name: '오래된즉석게스트',
+  })
+  // is_guest 로 좁힌다 — create_session 이 주최자와 동아리 회원을 명단에
+  // 미리 심어 두므로 "행이 0개" 로는 셀 수 없다.
+  const { rows: oldInstantLeak } = await db.query(
+    `select 1 from tournament_members where tournament_id=$1 and is_guest`,
+    [instantOld.id],
+  )
+  check(
+    '그 모임에 직접 등록을 시도해도 session_closed 이고 행이 안 생긴다',
+    obj(joinOldInstant)['ok'] === false &&
+      obj(joinOldInstant)['error'] === 'session_closed' &&
+      oldInstantLeak.length === 0,
+    `${msg(joinOldInstant)} · 남은 행 ${oldInstantLeak.length}개 — 후보에서 빼는 것만으로는 부족하다, 등록 쪽이 스스로 다시 막아야 한다`,
+  )
+
+  const boardOldInstant = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: instantOld.id,
+  })
+  check(
+    '그 모임은 현황판도 board_closed 다 — 읽기 창이 등록 창과 같이 닫혔다',
+    obj(boardOldInstant)['ok'] === false && obj(boardOldInstant)['error'] === 'board_closed',
+    msg(boardOldInstant),
+  )
+
+  const joinEdge = await anonRpc('join_as_guest', {
+    p_code: clubA.guest_code,
+    p_session_id: instantEdge.id,
+    p_name: '아침게스트',
+  })
+  const boardEdge = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: instantEdge.id,
+  })
+  check(
+    '23시간 전에 연 즉석 모임은 등록도 현황판도 된다 (아침에 연 모임이 밤까지 살아 있다)',
+    obj(joinEdge)['ok'] === true && obj(boardEdge)['ok'] === true,
+    `등록=${msg(joinEdge)} 현황판ok=${String(obj(boardEdge)['ok'])} — 좁히다 여기가 깨지면 코트 앞 게스트가 막힌다, 가장 나쁜 실패 모드다`,
+  )
+
+  const joinFresh = await anonRpc('join_as_guest', {
+    p_code: clubA.guest_code,
+    p_session_id: instantFresh.id,
+    p_name: '방금게스트',
+  })
+  const boardFresh = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: instantFresh.id,
+  })
+  check(
+    '방금 연 즉석 모임은 후보로도 오고 등록도 현황판도 된다',
+    candLateIds.includes(instantFresh.id) &&
+      obj(joinFresh)['ok'] === true &&
+      obj(boardFresh)['ok'] === true,
+    `후보포함=${candLateIds.includes(instantFresh.id)} 등록=${msg(joinFresh)} 현황판ok=${String(obj(boardFresh)['ok'])}`,
+  )
+
+  // ── 이 절이 이 블록의 핵심이다 ──────────────────────────────────────
+  // 읽기 필터(guest_board)는 등록 필터(guest_sessions·join_as_guest)의
+  // **정확한 상위집합**이어야 한다. 어긋나면 "등록은 됐는데 현황판이
+  // 안 보인다" 가 되고, 그것이 코트 앞에 선 게스트를 실제로 막는 가장
+  // 나쁜 실패 모드다. 후보로 나온 모임 전부를 현황판으로 열어 본다.
+  const notOnBoard: string[] = []
+  for (const id of candLateIds) {
+    const b = await anonRpc('guest_board', { p_code: clubA.guest_code, p_session_id: id })
+    if (obj(b)['ok'] !== true) notOnBoard.push(`${id}(${String(obj(b)['error'])})`)
+  }
+  check(
+    '상위집합 — 등록 후보로 나온 모임은 하나도 빠짐없이 현황판도 열린다',
+    candLateIds.length >= 3 && notOnBoard.length === 0,
+    notOnBoard.length
+      ? `⚠ 등록은 되는데 현황판이 안 열리는 모임 ${notOnBoard.length}건: ${notOnBoard.join(', ')}`
+      : `후보 ${candLateIds.length}건 전부 현황판 열림 — 시각 창 문자열이 세 함수에서 같다는 증거다`,
+  )
+
+  // 상위집합이 '우연히 같은 집합' 이 아니라 **진짜로 더 넓은지** 도 같이
+  // 본다. 끝난 모임은 등록은 막히고 현황판만 열리는 유일한 차이다
+  // (status 하나만 넓힌 것이 그 차이의 전부여야 한다).
+  const boardFinished = await anonRpc('guest_board', {
+    p_code: clubA.guest_code,
+    p_session_id: sessionFinished.id,
+  })
+  check(
+    '상위집합이 동치가 아니다 — 끝난 모임은 등록에서 빠지고 현황판에서만 열린다 (넓은 것은 status 하나뿐)',
+    !candLateIds.includes(sessionFinished.id) && obj(boardFinished)['ok'] === true,
+    `후보포함=${candLateIds.includes(sessionFinished.id)} 현황판ok=${String(obj(boardFinished)['ok'])}`,
+  )
 } finally {
   // ── 정리 ────────────────────────────────────────────────────────────
   // **프로덕션 DB 다.** 예전에 정리가 통째로 실패해 계정 8개 · 동아리 1개 ·
