@@ -11,6 +11,7 @@ export type ClubRole = 'owner' | 'admin' | 'member'
 export type MatchSource = 'live' | 'manual'
 export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'void'
 export type MemberRole = 'owner' | 'admin' | 'member'
+export type RsvpStatus = 'invited' | 'going' | 'declined'
 export type TeamSide = 'A' | 'B'
 export type TournamentKind = 'tournament' | 'session'
 export type TournamentStatus = 'draft' | 'live' | 'finished'
@@ -47,6 +48,7 @@ export type ClubsRow = {
   owner_id: string
   created_at: string
   updated_at: string
+  guest_code: string
 }
 
 export type CourtsRow = {
@@ -203,6 +205,8 @@ export type TournamentMembersRow = {
   avatar_url: string | null
   joined_at: string
   updated_at: string
+  rsvp: RsvpStatus
+  is_guest: boolean
 }
 
 export type TournamentsRow = {
@@ -217,6 +221,7 @@ export type TournamentsRow = {
   updated_at: string
   kind: TournamentKind
   club_id: string | null
+  starts_at: string | null
 }
 
 export type Database = {
@@ -224,7 +229,7 @@ export type Database = {
     Tables: {
       audit_logs: { Row: AuditLogsRow; Insert: Partial<AuditLogsRow> & Pick<AuditLogsRow, 'action' | 'target_type'>; Update: Partial<AuditLogsRow>; Relationships: [] }
       club_members: { Row: ClubMembersRow; Insert: Partial<ClubMembersRow> & Pick<ClubMembersRow, 'club_id' | 'display_name'>; Update: Partial<ClubMembersRow>; Relationships: [] }
-      clubs: { Row: ClubsRow; Insert: Partial<ClubsRow> & Pick<ClubsRow, 'name' | 'invite_code' | 'owner_id'>; Update: Partial<ClubsRow>; Relationships: [] }
+      clubs: { Row: ClubsRow; Insert: Partial<ClubsRow> & Pick<ClubsRow, 'name' | 'invite_code' | 'owner_id' | 'guest_code'>; Update: Partial<ClubsRow>; Relationships: [] }
       courts: { Row: CourtsRow; Insert: Partial<CourtsRow> & Pick<CourtsRow, 'tournament_id' | 'name' | 'sort_order'>; Update: Partial<CourtsRow>; Relationships: [] }
       groups: { Row: GroupsRow; Insert: Partial<GroupsRow> & Pick<GroupsRow, 'tournament_id' | 'name' | 'sort_order'>; Update: Partial<GroupsRow>; Relationships: [] }
       join_attempts: { Row: JoinAttemptsRow; Insert: Partial<JoinAttemptsRow> & Pick<JoinAttemptsRow, 'user_id' | 'code' | 'succeeded'>; Update: Partial<JoinAttemptsRow>; Relationships: [] }
@@ -247,6 +252,7 @@ export type Database = {
       match_source: MatchSource
       match_status: MatchStatus
       member_role: MemberRole
+      rsvp_status: RsvpStatus
       team_side: TeamSide
       tournament_kind: TournamentKind
       tournament_status: TournamentStatus

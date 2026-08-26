@@ -42,17 +42,37 @@
 
 ---
 
+## 참가 신청 (모임)
+
+동아리 밑에 모임을 **미리** 만들어 두면 회원이 참가/불참을 누릅니다.
+시각이 되면 화면이 코트 현황으로 바뀌고, 참가한 사람이 그대로 경기 짜기 목록이 됩니다.
+
+- 모임 시각을 비워 두면 **즉석 모임** — 참가 신청 없이 곧바로 진행 화면입니다
+- **참가는 게이트가 아닙니다.** 안 누르고 온 사람도 경기에 넣을 수 있습니다
+- 반복 일정 · 정원 마감 · 참가 마감은 **일부러 만들지 않았습니다**
+
 ## 동아리
 
 대회·모임 위에 **동아리**가 한 층 있습니다. 매주 모임을 열 때마다 초대 코드를 다시
 뿌리는 일을 없애려고 만들었습니다.
 
 ```
-/clubs          내 동아리 목록
-/clubs/new      동아리 만들기
-/clubs/join     동아리 코드 6자리      ← /join(대회 코드) 과 다른 문
-/c/:clubId      동아리 홈 — 이름 · 초대 코드 · 운영진 · 산하 대회/모임
+/clubs                 내 동아리 목록
+/clubs/new             동아리 만들기
+/clubs/join            동아리 코드 6자리      ← /join(대회 코드) 과 다른 문
+
+/c/:clubId             동아리 허브 — 게스트 링크 · 산하 대회 · 아래 문 넷
+   /c/:clubId/guest    게스트 링크 (발급 · 복사 · 재발급)
+   /c/:clubId/invite   동아리 코드 (재발급 없음)
+   /c/:clubId/members  명단 — 누가 회원이고 누가 운영진인가
+   /c/:clubId/settings 이름 바꾸기 · 나가기 · 지우기
 ```
+
+**허브는 문의 목록이지 데이터가 아닙니다.** 전에는 한 장에 다 있었는데, 체육관에서
+운영진이 이 화면을 여는 이유는 거의 언제나 하나(게스트 링크를 카톡에 붙여넣기)인데
+그게 회원 30명 명단 밑에 있었습니다. **코드 둘을 나란히 두지 않는 것도 의도입니다** —
+동아리 코드는 명단에 영구히 남기는 코드, 게스트 링크는 오늘 하루짜리라 급할 때
+엉뚱한 것을 복사해 뿌리게 됩니다.
 
 **동아리는 명단의 원천이지 권한 축이 아닙니다.** 이게 이 계층의 유일한 원칙입니다.
 
@@ -77,6 +97,67 @@
 대회 명단은 동아리 명단의 **복제(스냅샷)** 입니다. 참조로 두면 지난 대회의 이름이
 동아리의 *현재* 이름을 가리키게 되고, 그때 그 사람이 뭐라고 불렸는지는 복원할 수
 없습니다.
+
+## 게스트
+
+동아리 회원이 아닌 사람이 **계정 없이** 그날 모임에 들어오고, **계정 없이** 코트를
+봅니다. 운영진 타이핑은 0회입니다.
+
+```
+/g/:guestCode               게스트 등록 — 이름 한 칸
+/g/:guestCode/:sessionId    게스트 현황판 — 코트별 현재 경기 · 대기열 · 내 차례
+```
+
+**두 화면 다 로그인 가드 밖에 있습니다.** 게스트에게는 계정이 없으므로 가드 안으로
+옮기는 순간 `/login` 으로 튕겨 아무것도 못 합니다.
+
+### 등록
+
+동아리 게스트 링크(`guest_code`, 22자)는 **상시 링크**입니다. 코트 앞에서 열면 오늘
+열린 모임 후보가 뜨고, 이름을 적으면 그날 명단에 들어갑니다.
+
+- **게스트 코드와 동아리 코드는 다른 코드입니다.** 게스트에게 동아리 코드를 주면
+  게스트가 **회원이 되어** 명단에 남습니다
+- **게스트 코드는 재발급합니다** (`rotate_guest_code`). 동아리 코드와 반대입니다 —
+  그날 그 자리에서 보여주는 링크라, 바꿔도 죽는 코드가 없습니다
+- 같은 이름이 이미 있으면 **뒤에 글자를 붙여** 가릅니다. 기존 이름은 절대 안 바꿉니다
+- 모임당 게스트 상한은 60명입니다. 이 상한이 유일한 방어선이라 카운트-삽입을
+  직렬화합니다 — 코트 앞에서 여럿이 동시에 링크를 여는 건 정상입니다
+
+### 현황판
+
+등록을 마치면 현황판으로 넘어갑니다. **아무것도 누를 수 없는 화면**입니다 —
+경기로 들어가는 링크도, 코트를 잡는 버튼도 없습니다. 10초마다 다시 읽습니다.
+
+적은 이름은 이 브라우저에만 남아(localStorage) **자기 경기를 강조**하는 데만 쓰입니다.
+서버로 가지 않고, 없어도 현황판은 똑같이 전부 보입니다.
+
+### 게스트에게 나가는 것과 나가지 않는 것
+
+이 화면의 무게는 SQL 줄 수가 아니라 **반환 필드 목록**에 있습니다.
+
+| | |
+|---|---|
+| 나간다 | 동아리 이름 · 모임 이름/시각/상태 · 코트 목록 · **코트에 편성된 사람 이름** · 점수 · 대기 순서 · 끝난 경기 **개수** |
+| 안 나간다 | **명단 전체** · 끝난 경기 목록 · 심판 · 목표 점수 · `member_id`/`user_id` · 초대 코드/게스트 코드 · 자유 입력 칸(`label`) · 운영 메타데이터 |
+
+명단 전체를 실으면 링크 하나로 그날 온 사람 **전원의 표시명**이 나가고, `profiles` 를
+완전 비공개로 유지해 온 것이 그 한 필드로 무의미해집니다. 게스트가 알아야 하는 것은
+"지금 코트에서 누가 치나" 이지 "오늘 누가 왔나" 가 아닙니다.
+
+**필드를 하나 늘리는 것이 곧 노출 표면을 넓히는 것입니다.**
+
+### 게스트는 아무것도 쓰지 못합니다
+
+비로그인 경로는 **RLS 정책 0개 + SECURITY DEFINER RPC** 로만 갑니다. anon 에 정책을
+하나라도 열면 **PostgREST 직접 조회에도 그대로 열리고**, 컬럼 보호 트리거 셋이
+`current_user` 를 보고 "RPC 경로다" 로 오판합니다. 읽기라고 예외가 아닙니다.
+
+같은 이유로 **Realtime 도 못 씁니다** — 구독은 구독 롤의 RLS 를 그대로 타기 때문에
+`matches` 에 anon 정책이 필요해집니다. 그래서 폴링입니다.
+
+anon 이 실행할 수 있는 함수는 **정확히 넷**이고(게스트 RPC 셋 + 가드용 헬퍼 하나),
+`npm run db:verify` 와 `npm run db:smoke:guest` 가 **개수가 아니라 집합**으로 검사합니다.
 
 ---
 
@@ -166,11 +247,13 @@ https://<project-ref>.supabase.co/auth/v1/callback
 export SUPABASE_PROJECT_REF=<project-ref>
 npm run db:link     # 원격 프로젝트에 연결 (DB 비밀번호를 한 번 물어봄)
 npm run db:push     # supabase/migrations/*.sql 을 적용
-npm run db:types    # 실제 스키마에서 src/types/database.ts 재생성
+npm run db:types    # 실제 스키마에서 src/types/database.gen.ts 재생성
 ```
 
-> `src/types/database.ts` 는 현재 **수기 임시 정의**입니다.
-> `db:types` 를 한 번 돌리면 실제 스키마 기반으로 교체됩니다.
+> `db:types` 가 만드는 것은 **`src/types/database.gen.ts`** 입니다.
+> `src/types/database.ts` 는 그 위에 얹는 손으로 쓴 층이라 **덮어쓰이지 않습니다** —
+> 생성기가 만들 수 없는 것(jsonb 컬럼의 실제 모양 · RPC 시그니처 · 짧은 별칭)만
+> 여기 있습니다. 스키마를 바꿨으면 `db:push` 뒤에 `db:types` 를 반드시 돌리세요.
 
 ---
 
@@ -191,12 +274,17 @@ npm run test:cov    # 커버리지 (임계 80%)
 
 ```
 src/
-├── app/routes.tsx           라우팅 + 인증 가드
-├── components/
-│   ├── ui/                  Button, Badge(JokerBadge/LiveBadge)
-│   ├── layout/ tournament/ match/ scoring/
+├── app/routes.tsx           라우팅 + 인증 가드  ← **주소 목록의 정본**
+├── components/ui/           Button · Badge · Modal · Toggle · Stepper · InlineEdit · BackLink
 ├── features/auth/           AuthContext · AuthProvider · useAuth
-├── features/club/           동아리 데이터 접근 (api · queries) + 화면 조각
+├── features/admin/          AdminScreen(관리 하위 화면 껍데기) · 조·코트·참가자 관리
+├── features/club/           동아리 데이터 접근 (api · queries) + ClubScreen(하위 화면 껍데기)
+├── features/match/          경기 만들기·고치기 셋의 공통 조각 — MatchEditorScreen ·
+│                            useMatchTeams · TeamSection · CourtPicker · RefereePicker
+├── features/guest/          게스트 anon 데이터 접근 (api · queries · 폴링)
+├── features/notifications/  웹 푸시 구독(PushToggle) · 인앱 배너
+├── features/tournament/     대회 데이터 접근 · 조 고르기 · 규칙 입력 · 참가 신청 패널
+├── features/scoring/        채점 큐 (localStorage 거울 · 멱등키)
 ├── lib/
 │   ├── env.ts               환경변수 부팅 시 검증 (Zod)
 │   ├── supabase.ts          Supabase 클라이언트
@@ -206,16 +294,46 @@ src/
 │   ├── records.ts           기록 정렬(최신순)과 이름 찾기
 │   ├── session.ts           모임과 대회가 갈리는 지점 (한 곳에 모음)
 │   ├── club.ts              동아리 역할 이름 · 코드 결과 봉투 풀기 (parseJoinResult)
+│   ├── guest.ts             게스트 봉투 파싱 · 오류 문구 · 이름 검증
+│   ├── guestBoard.ts        현황판 판단 (코트별 묶기 · 점수 표시 · 내 다음 경기)
+│   ├── guestMe.ts           게스트가 적은 이름 (localStorage · 강조 전용)
 │   └── standings.ts         ★ 순위 정렬 (승점 → 승자승 → 득실차)
-├── pages/                   화면
-└── types/database.ts        DB 타입 (생성물)
+├── pages/                   화면 (한 주소에 한 파일)
+└── types/
+    ├── database.gen.ts      스키마에서 생성 (db:types)
+    └── database.ts          그 위에 얹는 손으로 쓴 층 — jsonb 모양 · RPC 시그니처 · 별칭
 
-supabase/migrations/
+supabase/migrations/          시각순으로 쌓입니다. 첫 넷이 뼈대입니다
 ├── ..._schema.sql           테이블 · 인덱스 · 트리거
 ├── ..._rls.sql              RLS 헬퍼 + 정책  ← 이 앱의 유일한 보안 경계
 ├── ..._rpc.sql              참가 · 득점 · 취소 · 종료
 └── ..._matches_standings.sql  경기 편성 · 순위 · Realtime
 ```
+
+> **고칠 함수를 찾을 때는 `grep -ln "function 이름"` 으로 전부 찾아 마지막 파일을
+> 보세요.** 같은 함수가 여러 마이그레이션에서 다시 만들어져 있어서, '최신' 을 잘못
+> 짚으면 그 사이에 들어간 검사가 조용히 사라집니다 — 실제로 한 번 밟았습니다.
+
+### 화면 규칙 — 하나에 책임 하나
+
+**각 화면은 책임을 하나만 집니다.** 그 한 문장은 페이지 파일 머리 주석에 박혀
+있습니다 — 칸을 더하기 전에 그 문장부터 읽으세요. 문장을 고쳐야 칸이 들어간다면
+들어갈 자리가 거기가 아닙니다.
+
+그래서 이런 모양이 반복됩니다.
+
+```
+허브 + 하위        /t/:id/admin  + groups · courts · members · rules
+                   /c/:clubId    + guest · invite · members · settings
+
+성격이 다르면      /t/:id/matches/new       편성 (대회 중)
+주소도 다르게      /t/:id/matches/record    지난 결과 (끝난 뒤 정산)
+                   /t/:id/matches/:id/edit  수정
+```
+
+탭 · 모드 토글 · CSS 로 절반 숨기기(`&& 'hidden'`)는 **화면이 둘이라는 신호**입니다.
+전체 목록과 판단 근거는 [`docs/이어서시작.md`](docs/이어서시작.md) 의
+「화면 구조」·「화면 하나에 책임 하나」에 있습니다.
 
 ### 설계상 중요한 두 가지
 
@@ -238,3 +356,9 @@ supabase/migrations/
 - `score_events` 에는 **쓰기 정책이 하나도 없습니다** → RPC 를 우회할 방법이 없음
 - `profiles` 는 본인만 조회 가능 → 남의 이메일·실명이 새지 않음
   (대회 안에서 보이는 이름은 `tournament_members.display_name`)
+- **비로그인(anon)에는 정책이 하나도 없습니다** → 게스트 경로는 전부 SECURITY DEFINER
+  RPC 를 지나고, 그 함수가 무엇을 싣는지가 곧 노출 표면입니다 (위 「게스트」 참고)
+
+> **PostgREST 는 RLS 로 0행이 걸러져도 200 을 냅니다.** 권한 없는 수정·조회가 화면에는
+> '성공' 으로 보입니다. 성패는 HTTP 상태가 아니라 **반환 행 수**로 판정하세요 —
+> 테스트에서 403 을 기대하면 반드시 실패합니다.

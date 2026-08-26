@@ -12,6 +12,7 @@ import {
   fetchTournament,
   joinTournament,
   setMyGroup,
+  setMyRsvp,
   createCourt,
   createMatch,
   deleteCourt,
@@ -45,8 +46,9 @@ import {
   type ManualMatchInput,
   type CreateSessionInput,
   type CreateTournamentInput,
+  type MemberSummary,
 } from './api'
-import type { TournamentConfigPatch, TournamentStatus } from '@/types/database'
+import type { RsvpStatus, TournamentConfigPatch, TournamentStatus } from '@/types/database'
 
 const tournamentKeys = {
   mine: ['tournaments', 'mine'] as const,
@@ -139,6 +141,51 @@ export function useMembers(tournamentId: string | undefined) {
     queryKey: ['tournaments', tournamentId, 'members'],
     queryFn: () => fetchMembers(tournamentId!),
     enabled: Boolean(tournamentId),
+  })
+}
+
+/**
+ * 참가/불참 누르기.
+ *
+ * 명단 캐시를 **먼저** 고쳐 두고 보낸다. 체육관에서 누르는 버튼이라
+ * 왕복을 기다렸다가 숫자가 움직이면 "안 눌렸나" 하고 한 번 더 누른다.
+ * (한 번 더 눌러도 서버는 멱등이라 조용히 200 이다.)
+ *
+ * 확정은 서버가 돌려준 **그 행**으로 한다 — 낙관적으로 넣은 값과 실제
+ * 저장된 값이 갈릴 여지를 남기지 않는다. 실패하면 스냅샷으로 되돌린다.
+ * 마지막에 한 번 무효화하는 건 그 사이 남이 누른 참가 인원까지 맞추기
+ * 위해서다. 내 행만 고치면 "참가 12" 가 내 화면에서만 낡는다.
+ */
+export function useSetMyRsvp(tournamentId: string) {
+  const qc = useQueryClient()
+  const { user } = useAuth()
+  const membersKey = ['tournaments', tournamentId, 'members'] as const
+
+  return useMutation({
+    mutationFn: (rsvp: RsvpStatus) => setMyRsvp(tournamentId, rsvp),
+    onMutate: async (rsvp) => {
+      // 돌고 있는 재조회가 낙관적 값을 덮어쓰지 못하게 먼저 세운다
+      await qc.cancelQueries({ queryKey: membersKey })
+      const previous = qc.getQueryData<MemberSummary[]>(membersKey)
+      if (previous && user) {
+        qc.setQueryData<MemberSummary[]>(
+          membersKey,
+          previous.map((m) => (m.userId === user.id ? { ...m, rsvp } : m)),
+        )
+      }
+      return { previous }
+    },
+    onError: (_err, _rsvp, context) => {
+      if (context?.previous) qc.setQueryData(membersKey, context.previous)
+    },
+    onSuccess: (row) => {
+      qc.setQueryData<MemberSummary[]>(membersKey, (current) =>
+        current?.map((m) => (m.id === row.id ? { ...m, rsvp: row.rsvp } : m)),
+      )
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: membersKey })
+    },
   })
 }
 

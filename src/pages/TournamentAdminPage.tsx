@@ -189,6 +189,27 @@ export function TournamentAdminPage() {
             →
           </span>
         </Link>
+
+        {/*
+          지난 결과 입력은 **다른 일**이라 다른 화면이다 — 편성 화면 안의
+          토글이 아니다. 쓰는 시점부터 다르다: 편성은 대회 중, 이쪽은
+          대회가 끝난 뒤 정산할 때다. 그래서 눈에 띄기는 하되 편성보다
+          한 단 아래에 둔다.
+        */}
+        <Link
+          to={`/t/${id}/matches/record`}
+          className="mt-2 flex items-center justify-between rounded-2xl border border-border-subtle
+                     bg-surface-1 p-4 transition-colors hover:bg-surface-2
+                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        >
+          <div>
+            <p className="text-sm font-black text-ink-1">지난 결과 입력</p>
+            <p className="mt-0.5 text-xs text-ink-3">앱 없이 치른 경기의 점수만 남깁니다</p>
+          </div>
+          <span aria-hidden className="text-lg text-ink-3">
+            →
+          </span>
+        </Link>
       </section>
 
       {/*

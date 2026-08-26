@@ -10,6 +10,7 @@ import {
   useMembers,
   useTournament,
 } from '@/features/tournament/queries'
+import { partitionGoing } from '@/lib/rsvp'
 import { isSession } from '@/lib/session'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -21,9 +22,15 @@ import type { MemberSummary } from '@/features/tournament/api'
  * 대회 편성(MatchCreatePage)과 나눠 둔다. 저쪽은 조를 먼저 고르고 그 조에서
  * 선수를 고르는 두 단계인데, 모임에는 조가 없어서 그 단계 자체가 없다.
  *
- * 화면의 규칙 하나: **지금 뛰고 있는 사람은 고를 수 없다.** 코트에서 내려오지
- * 않은 사람을 다음 경기에 넣어 두면, 시작하려는 순간 서버가 거절하고
- * (한 코트 한 경기) 그때야 다시 짜게 된다. 고를 때 막는 게 낫다.
+ * 화면의 규칙 둘.
+ *
+ *  1. **지금 뛰고 있는 사람은 고를 수 없다.** 코트에서 내려오지 않은 사람을
+ *     다음 경기에 넣어 두면, 시작하려는 순간 서버가 거절하고(한 코트 한 경기)
+ *     그때야 다시 짜게 된다. 고를 때 막는 게 낫다.
+ *  2. **참가를 누른 사람이 먼저 온다.** 그날 온 사람이 대개 그 사람들이라
+ *     스무 명 명단에서 매번 찾아 내려가지 않게 된다. 하지만 참가는
+ *     **게이트가 아니다** — 불참·미응답도 접힌 자리에서 그대로 고를 수 있다.
+ *     누르지 않으면 못 치게 하는 앱은 동아리에서 미움받는다.
  */
 export function SessionMatchCreatePage() {
   const { id } = useParams<{ id: string }>()
@@ -36,6 +43,7 @@ export function SessionMatchCreatePage() {
 
   const [picked, setPicked] = useState<string[]>([])
   const [courtId, setCourtId] = useState<string | null>(null)
+  const [showOthers, setShowOthers] = useState(false)
 
   const squad = tournament.data?.config.format === 'singles' ? 1 : 2
   const need = squad * 2
@@ -55,6 +63,16 @@ export function SessionMatchCreatePage() {
   )
 
   const roster = (members.data ?? []).filter((m) => !playingNames.has(m.displayName))
+
+  /*
+   * 참가한 사람 / 그 외.
+   *
+   * 아무도 안 눌렀으면(즉석 모임이거나 다들 그냥 온 날) 접어 둘 이유가 없다 —
+   * 접힌 채로 두면 "고를 사람이 없다" 로 보인다. 그래서 참가가 0명일 때는
+   * 스스로 펼친 것으로 친다.
+   */
+  const { going, others } = partitionGoing(roster)
+  const othersOpen = showOthers || going.length === 0
 
   function toggle(memberId: string) {
     setPicked((prev) =>
@@ -148,18 +166,50 @@ export function SessionMatchCreatePage() {
             고를 수 있는 사람이 없습니다. 전부 코트에 나가 있거나, 아직 아무도 안 들어왔습니다.
           </p>
         ) : (
-          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-            {roster.map((m) => (
-              <li key={m.id}>
-                <PersonButton
-                  member={m}
-                  order={picked.indexOf(m.id)}
-                  squad={squad}
-                  onClick={() => toggle(m.id)}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            {going.length > 0 && (
+              <>
+                <p className="mt-3 text-xs font-bold text-ink-3">참가 {going.length}명</p>
+                <PersonGrid members={going} picked={picked} squad={squad} onToggle={toggle} />
+              </>
+            )}
+
+            {others.length > 0 &&
+              (othersOpen ? (
+                <>
+                  <div className="mt-4 flex items-baseline justify-between gap-2">
+                    <p className="text-xs font-bold text-ink-3">그 외 {others.length}명</p>
+                    {going.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowOthers(false)}
+                        aria-expanded
+                        className="min-h-11 rounded-lg px-1 text-xs font-semibold text-ink-3 underline
+                                   underline-offset-2 transition-colors hover:text-ink-1
+                                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                      >
+                        접기
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-ink-3">
+                    참가를 안 눌렀어도 고를 수 있습니다. 그냥 온 사람도 칩니다.
+                  </p>
+                  <PersonGrid members={others} picked={picked} squad={squad} onToggle={toggle} />
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowOthers(true)}
+                  aria-expanded={false}
+                  className="mt-3 min-h-12 w-full rounded-xl border border-dashed border-border-subtle
+                             px-3 text-sm font-semibold text-ink-2 transition-colors hover:bg-surface-2
+                             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                >
+                  그 외 회원 {others.length}명 보기 — 참가를 안 눌렀어도 고를 수 있습니다
+                </button>
+              ))}
+          </>
         )}
 
         {playingNames.size > 0 && (
@@ -193,6 +243,34 @@ export function SessionMatchCreatePage() {
   )
 }
 
+/** 고를 사람 묶음 하나. 참가한 사람과 그 외를 같은 모양으로 그린다 */
+function PersonGrid({
+  members,
+  picked,
+  squad,
+  onToggle,
+}: {
+  members: MemberSummary[]
+  picked: string[]
+  squad: number
+  onToggle: (memberId: string) => void
+}) {
+  return (
+    <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+      {members.map((m) => (
+        <li key={m.id}>
+          <PersonButton
+            member={m}
+            order={picked.indexOf(m.id)}
+            squad={squad}
+            onClick={() => onToggle(m.id)}
+          />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 /** 한 편의 자리. 아직 안 고른 자리는 빈칸으로 남겨 몇 명이 필요한지 보인다 */
 function TeamSlot({
   names,
@@ -206,13 +284,7 @@ function TeamSlot({
   return (
     <div className={cn('min-w-0 flex-1', align === 'right' && 'text-right')}>
       {Array.from({ length: size }, (_, i) => (
-        <p
-          key={i}
-          className={cn(
-            'truncate font-bold',
-            names[i] ? 'text-ink-1' : 'text-ink-3/50',
-          )}
-        >
+        <p key={i} className={cn('truncate font-bold', names[i] ? 'text-ink-1' : 'text-ink-3/50')}>
           {names[i] ?? '비어 있음'}
         </p>
       ))}

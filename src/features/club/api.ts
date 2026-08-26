@@ -226,6 +226,20 @@ export async function removeClubMember(memberId: string): Promise<void> {
 }
 
 /**
+ * 게스트 코드 재발급 (운영진만).
+ *
+ * 옛 링크는 즉시 죽는다 — `join_as_guest` 는 그 순간부터 옛 코드를
+ * `bad_code` 로 거절한다. 이미 등록된 게스트 행(`tournament_members`)은
+ * `guest_code` 와 무관하므로 그대로 남는다. 운영진이 아닌 회원이 부르면
+ * 서버가 42501 을 던지고, `toUserMessage` 의 기본 번역이 그대로 맞아
+ * 여기서 따로 덮지 않는다.
+ */
+export async function rotateGuestCode(clubId: string): Promise<ClubRow> {
+  const res = await supabase.rpc('rotate_guest_code', { p_club_id: clubId })
+  return unwrap(res) as ClubRow
+}
+
+/**
  * 동아리 지우기 (주인만).
  *
  * 산하 대회·경기·점수 원장은 남는다 — `tournaments.club_id` 가

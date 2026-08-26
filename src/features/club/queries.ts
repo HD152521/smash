@@ -12,6 +12,7 @@ import {
   joinClub,
   removeClubMember,
   renameClub,
+  rotateGuestCode,
   setClubMemberRole,
   type CreateClubInput,
   type MyClub,
@@ -127,6 +128,23 @@ export function useRemoveClubMember(clubId: string) {
       void qc.invalidateQueries({ queryKey: clubKeys.members(clubId) })
       // 스스로 나간 경우라면 내 동아리 목록에서도 빠져야 한다
       void qc.invalidateQueries({ queryKey: clubKeys.mine })
+    },
+  })
+}
+
+/**
+ * 게스트 코드 재발급.
+ *
+ * `ClubPage` 가 보여주는 게스트 링크가 `useClub` 의 캐시(`clubs.guest_code`)
+ * 에서 나오므로, 재발급 성공 뒤 그 캐시를 무효화해야 화면이 옛 링크를
+ * 계속 보여주지 않는다.
+ */
+export function useRotateGuestCode(clubId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => rotateGuestCode(clubId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: clubKeys.detail(clubId) })
     },
   })
 }

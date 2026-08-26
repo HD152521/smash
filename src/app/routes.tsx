@@ -57,6 +57,12 @@ const SessionMatchCreatePage = lazyPage(() =>
 const MatchCreatePage = lazyPage(() =>
   import('@/pages/MatchCreatePage').then((m) => ({ default: m.MatchCreatePage })),
 )
+const PastMatchEntryPage = lazyPage(() =>
+  import('@/pages/PastMatchEntryPage').then((m) => ({ default: m.PastMatchEntryPage })),
+)
+const MatchEditPage = lazyPage(() =>
+  import('@/pages/MatchEditPage').then((m) => ({ default: m.MatchEditPage })),
+)
 const MatchScorePage = lazyPage(() =>
   import('@/pages/MatchScorePage').then((m) => ({ default: m.MatchScorePage })),
 )
@@ -89,6 +95,17 @@ const AuditLogPage = lazyPage(() =>
  * 동아리는 선택 계층이라 대부분의 참가자는 이 코드를 한 줄도 안 받는다.
  * 나눠 받는 이유가 관리 화면과 같다 — 안 쓰는 사람에게 안 보내는 것.
  */
+/*
+ * 계정·기기 설정. 대회 밑이 아니라 홈 밑에 둔다 — 알림 구독은 브라우저
+ * 하나에 하나라서, 대회 화면에 두면 같은 스위치가 참가한 대회 수만큼
+ * 생기고 한 곳에서 끄면 나머지도 같이 죽는다.
+ */
+const NotificationSettingsPage = lazyPage(() =>
+  import('@/pages/NotificationSettingsPage').then((m) => ({
+    default: m.NotificationSettingsPage,
+  })),
+)
+
 const MyClubsPage = lazyPage(() =>
   import('@/pages/MyClubsPage').then((m) => ({ default: m.MyClubsPage })),
 )
@@ -99,6 +116,30 @@ const JoinClubPage = lazyPage(() =>
   import('@/pages/JoinClubPage').then((m) => ({ default: m.JoinClubPage })),
 )
 const ClubPage = lazyPage(() => import('@/pages/ClubPage').then((m) => ({ default: m.ClubPage })))
+const ClubGuestLinkPage = lazyPage(() =>
+  import('@/pages/ClubGuestLinkPage').then((m) => ({ default: m.ClubGuestLinkPage })),
+)
+const ClubInvitePage = lazyPage(() =>
+  import('@/pages/ClubInvitePage').then((m) => ({ default: m.ClubInvitePage })),
+)
+const ClubMembersPage = lazyPage(() =>
+  import('@/pages/ClubMembersPage').then((m) => ({ default: m.ClubMembersPage })),
+)
+const ClubSettingsPage = lazyPage(() =>
+  import('@/pages/ClubSettingsPage').then((m) => ({ default: m.ClubSettingsPage })),
+)
+
+/*
+ * 게스트 화면 둘은 이 앱에서 **로그인 가드 밖**에 있는 유일한 화면들이다.
+ * 계정 없는 사람이 링크로 바로 여는 화면이라, 다른 코드 스플릿 화면처럼
+ * `Protected` 로 감싸면(RequireAuth 가 안에 있다) 정작 게스트가 못 연다.
+ */
+const GuestJoinPage = lazyPage(() =>
+  import('@/pages/GuestJoinPage').then((m) => ({ default: m.GuestJoinPage })),
+)
+const GuestBoardPage = lazyPage(() =>
+  import('@/pages/GuestBoardPage').then((m) => ({ default: m.GuestBoardPage })),
+)
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
@@ -131,11 +172,46 @@ function Protected({ children }: { children: ReactNode }) {
   )
 }
 
+/** 로그인 확인 없이 청크 로딩만 감싼다 — 가드 밖 화면(`/login` 등)과 같은 자리 */
+function Public({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<FullPageSpinner />}>{children}</Suspense>
+}
+
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      {/*
+        게스트 등록 — 계정 없는 사람이 그날 명단에 스스로 들어오는 유일한 문.
+        `/login` 과 같은 자리에 둔다. `Protected` 안에 넣으면 `RequireAuth` 가
+        먼저 `/login` 으로 돌려보내 게스트가 영영 못 연다.
+      */}
+      <Route
+        path="/g/:guestCode"
+        element={
+          <Public>
+            <GuestJoinPage />
+          </Public>
+        }
+      />
+      {/*
+        게스트 현황판 — 등록을 마친 사람이 코트를 보는 곳. 주소의 두 조각이
+        `guest_board(p_code, p_session_id)` 의 인자와 1:1 로 맞아, 새로고침해도
+        정확히 그 모임으로 돌아온다.
+
+        등록 화면과 **같은 자리**에 둔다. 여기만 `Protected` 로 옮기면 등록은
+        되는데 현황판이 `/login` 으로 튕겨, 코트 앞에 선 게스트를 정확히
+        막는다.
+      */}
+      <Route
+        path="/g/:guestCode/:sessionId"
+        element={
+          <Public>
+            <GuestBoardPage />
+          </Public>
+        }
+      />
 
       <Route
         path="/"
@@ -177,6 +253,14 @@ export function AppRoutes() {
           </Protected>
         }
       />
+      <Route
+        path="/settings/alerts"
+        element={
+          <Protected>
+            <NotificationSettingsPage />
+          </Protected>
+        }
+      />
       {/*
         동아리는 `/clubs`, 대회는 `/t`. 초대 코드가 두 종류가 됐으므로 들어오는
         문도 갈라 둔다 — `/join` 은 대회 코드, `/clubs/join` 은 동아리 코드다.
@@ -212,6 +296,48 @@ export function AppRoutes() {
         element={
           <Protected>
             <ClubPage />
+          </Protected>
+        }
+      />
+      {/*
+        동아리도 대회 관리와 같은 모양이다 — 허브 하나에 하위 넷.
+        한 장에 이름·코드 둘·산하 대회·명단 30줄·나가기를 쌓아 뒀더니,
+        체육관에서 가장 자주 쓰는 게스트 링크가 명단 밑으로 밀렸다.
+
+        코드 둘을 일부러 갈라 둔다. 동아리 코드는 명단에 영구히 남기는
+        코드고 게스트 링크는 오늘 하루짜리다 — 나란히 두면 급할 때
+        엉뚱한 것을 복사해 뿌린다. 위의 들어오는 문(`/join` ·
+        `/clubs/join`)을 가른 것과 같은 이유다.
+      */}
+      <Route
+        path="/c/:clubId/guest"
+        element={
+          <Protected>
+            <ClubGuestLinkPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/c/:clubId/invite"
+        element={
+          <Protected>
+            <ClubInvitePage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/c/:clubId/members"
+        element={
+          <Protected>
+            <ClubMembersPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/c/:clubId/settings"
+        element={
+          <Protected>
+            <ClubSettingsPage />
           </Protected>
         }
       />
@@ -293,11 +419,33 @@ export function AppRoutes() {
           </Protected>
         }
       />
+      {/*
+        경기를 만들고 고치는 일은 셋이다 — 성격이 달라 주소도 셋이다.
+        앞으로 할 경기(new) · 이미 치른 경기의 결과(record) · 이미 편성한
+        경기 고치기(edit). 한 화면에 토글로 겹쳐 놨더니 급히 다음 판을 짜러
+        온 운영자가 '이미 끝난 경기' 가 눌린 채로 들어와 코트 칸을 못 찾았다.
+      */}
       <Route
         path="/t/:id/matches/new"
         element={
           <Protected>
             <MatchCreatePage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/matches/record"
+        element={
+          <Protected>
+            <PastMatchEntryPage />
+          </Protected>
+        }
+      />
+      <Route
+        path="/t/:id/matches/:matchId/edit"
+        element={
+          <Protected>
+            <MatchEditPage />
           </Protected>
         }
       />

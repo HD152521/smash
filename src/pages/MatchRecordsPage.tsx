@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { Link, useParams } from 'react-router-dom'
-import { Search, X } from 'lucide-react'
-import { useAdminGate } from '@/features/admin/useAdminGate'
-import { useGroups, useMatches, useVoidMatch } from '@/features/tournament/queries'
+import { Search } from 'lucide-react'
+import { useGroups, useMatches } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
 import { matchHasPlayer, orderRecords } from '@/lib/records'
 import { isUnscored } from '@/lib/session'
@@ -18,13 +17,20 @@ import type { MatchOverviewRow } from '@/types/database'
  *
  * 순서와 검색 기준은 lib/records.ts 에 있다 — 최근에 끝난 것이 위, 무효는
  * 맨 아래, 검색은 뛴 사람만.
+ *
+ * ⚠ **이 화면의 책임은 찾는 것 하나다. 여기서 기록을 고치지 않는다.**
+ * 전에는 카드마다 무효 처리 X 가 붙어 있었는데, 폰에서 목록을 훑다 손끝이
+ * 스치는 자리가 곧 "순위에서 빼기" 였다. 그 버튼 하나 때문에 카드 여백까지
+ * 비틀어 놨었다.
+ *
+ * 무효는 상세 화면(`/t/:id/records/:matchId`)에만 있다. 그쪽은 "이 경기를
+ * 되짚어 본다" 가 책임이라 판단에 필요한 근거(점수가 어떻게 흘렀는지 ·
+ * 심판)가 이미 다 있고, 결과가 어떻게 되는지도 눌리기 전에 설명한다.
  */
 export function MatchRecordsPage() {
   const { id } = useParams<{ id: string }>()
   const matches = useMatches(id)
   const groups = useGroups(id)
-  const gate = useAdminGate(id)
-  const voidMatch = useVoidMatch(id ?? '')
 
   const [groupFilter, setGroupFilter] = useState('')
   const [query, setQuery] = useState('')
@@ -88,13 +94,6 @@ export function MatchRecordsPage() {
         </p>
       )}
 
-      {/* 무효 처리 실패는 목록 위에 한 번만 띄운다. 카드마다 띄우면 목록이 흔들린다. */}
-      {voidMatch.error && (
-        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
-          {toUserMessage(voidMatch.error, '무효 처리하지 못했습니다')}
-        </p>
-      )}
-
       {matches.isPending ? (
         <div className="mt-6 h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
       ) : filtered.length === 0 ? (
@@ -112,7 +111,6 @@ export function MatchRecordsPage() {
               // 뷰 컬럼은 NOT NULL 이 보존되지 않아 생성 타입이 전부 nullable 이다.
               // 지역 const 로 받아야 콜백 안까지 좁혀진 타입이 살아남는다.
               const matchId = m.id
-              const isAdmin = !gate.denied && !gate.loading
               /*
                * 날짜가 바뀌는 자리에 머리말을 넣는다.
                * 이틀짜리 대회에서 시각만 보이면 어제 경기와 오늘 경기가
@@ -128,16 +126,7 @@ export function MatchRecordsPage() {
                   {showDay && (
                     <h3 className="mt-3 mb-1.5 text-xs font-black text-ink-3 first:mt-0">{day}</h3>
                   )}
-                  <RecordCard
-                    m={m}
-                    tournamentId={id!}
-                    onVoid={
-                      isAdmin && matchId !== null
-                        ? (reason) => voidMatch.mutate({ matchId, reason })
-                        : undefined
-                    }
-                    voiding={voidMatch.isPending && voidMatch.variables?.matchId === matchId}
-                  />
+                  <RecordCard m={m} tournamentId={id!} />
                 </li>
               )
             })}
@@ -157,25 +146,11 @@ function dayLabel(m: MatchOverviewRow): string | null {
   return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
 }
 
-function RecordCard({
-  m,
-  tournamentId,
-  onVoid,
-  voiding,
-}: {
-  m: MatchOverviewRow
-  tournamentId: string
-  /** 관리자일 때만 온다. 없으면 X 를 아예 그리지 않는다. */
-  onVoid?: (reason: string | undefined) => void
-  voiding: boolean
-}) {
+function RecordCard({ m, tournamentId }: { m: MatchOverviewRow; tournamentId: string }) {
   const voided = m.status === 'void'
   const when = m.finished_at ?? m.created_at
-  // 이미 무효인 경기에 X 를 또 띄우면 뭘 더 할 수 있는 것처럼 보인다
-  const canVoid = Boolean(onVoid) && !voided
-
   return (
-    <div className="relative">
+    <>
       {/* 눌러서 점수가 어떻게 흘러갔는지 본다. 최종 점수만으로는
           21:19 도 21:5 도 그냥 '이겼다' 라서 남는 게 없다. */}
       <Link
@@ -185,8 +160,6 @@ function RecordCard({
           'transition-colors hover:bg-surface-2',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
           voided && 'opacity-60',
-          // X 자리를 비워 둔다. 안 그러면 배지가 버튼 밑으로 들어간다.
-          canVoid && 'pr-14',
         )}
       >
         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -251,34 +224,7 @@ function RecordCard({
           <p className="mt-2 text-xs text-ink-3">심판 {m.referees?.join(', ')}</p>
         )}
       </Link>
-
-      {/*
-        링크 '안' 이 아니라 형제로 겹쳐 올린다. a 안에 button 을 넣으면
-        스크린리더가 둘 중 뭘 읽을지 모르고, 탭으로도 빠져나오지 못한다.
-      */}
-      {canVoid && (
-        <button
-          type="button"
-          aria-label={`${m.group_a_name ?? ''} 대 ${m.group_b_name ?? ''} 경기 무효 처리`}
-          disabled={voiding}
-          onClick={() => {
-            /*
-             * 사유를 묻는 창이 확인 창을 겸한다 — 취소하면 아무 일도 없다.
-             * 확인 따로 사유 따로 물으면 X 한 번 누르는 데 세 동작이 든다.
-             */
-            const reason = prompt('무효 처리하면 순위에서 빠집니다.\n사유 (변경 기록에 남습니다)')
-            if (reason === null) return
-            onVoid?.(reason || undefined)
-          }}
-          className="absolute top-1.5 right-1.5 grid size-11 place-items-center rounded-xl
-                     text-ink-3 transition-colors hover:bg-surface-2 hover:text-team-b-fg
-                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
-                     disabled:opacity-40"
-        >
-          <X className="size-4" aria-hidden />
-        </button>
-      )}
-    </div>
+    </>
   )
 }
 

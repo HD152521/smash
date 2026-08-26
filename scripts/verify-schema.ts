@@ -26,6 +26,33 @@ interface Check {
   detail?: (rows: Record<string, unknown>[]) => string
 }
 
+/**
+ * anon 이 EXECUTE 할 수 있는 public 함수 전체. **비로그인 공격 표면의 정본**이다.
+ *
+ * 개수가 아니라 **집합**으로 못 박는다 — 개수만 세면 하나가 빠지고 하나가
+ * 늘어난 교체를 못 잡는다. 인자 이름까지 적는 이유는 PostgREST 가 함수를
+ * **인자 이름 집합**으로 찾기 때문이다. 이름이 바뀌면 같은 함수라도 앱에서
+ * 안 불린다.
+ *
+ * ⚠ is_direct_api_call() 이 여기 있는 것은 의도된 결정이다
+ *   (20260819000001_fix_guard_permission.sql). guard_tournament_update ·
+ *   guard_member_update · guard_member_delete 는 SECURITY INVOKER 여야만
+ *   발동한다 — DEFINER 로 바꾸면 current_user 가 postgres 가 되어 가드가 영영
+ *   안 걸린다. INVOKER 라는 것은 호출자 권한으로 이 함수를 부른다는 뜻이라
+ *   앱 롤에 EXECUTE 가 있어야 한다. 예전에 이 grant 를 걷었다가 **관리자
+ *   수정이 통째로 막힌 적이 있다.** 걷어내지 마라. 노출되는 정보는 "당신이
+ *   authenticated 인가" 불리언 하나뿐이다.
+ *
+ * ⚠ 트리거 함수(prorettype = 'trigger')는 제외한다 — PostgREST 가 노출하지
+ *   않으므로 anon 이 부를 수 있는 표면이 아니다.
+ */
+const ANON_EXECUTABLE_FUNCTIONS = [
+  'guest_board(p_code text, p_session_id uuid)',
+  'guest_sessions(p_code text)',
+  'is_direct_api_call()',
+  'join_as_guest(p_code text, p_session_id uuid, p_name text)',
+]
+
 const checks: Check[] = [
   {
     name: 'auth.users 트리거 (profiles 자동 생성)',
@@ -107,6 +134,24 @@ const checks: Check[] = [
     detail: (r) => {
       const leaked = r.filter((x) => x['anon_ok']).map((x) => x['proname'])
       return leaked.length ? `⚠ anon 에게 노출됨: ${leaked.join(', ')}` : `${r.length}/8 정상`
+    },
+  },
+  {
+    name: 'anon 이 호출 가능한 public 함수가 정확히 그 넷인가 (비로그인 공격 표면)',
+    sql: `select p.proname || '(' || pg_get_function_arguments(p.oid) || ')' as sig
+          from pg_proc p
+          where p.pronamespace = 'public'::regnamespace
+            and p.prorettype <> 'trigger'::regtype
+            and has_function_privilege('anon', p.oid, 'EXECUTE')
+          order by 1`,
+    pass: (r) =>
+      r.map((x) => String(x['sig'])).join(' | ') === ANON_EXECUTABLE_FUNCTIONS.join(' | '),
+    detail: (r) => {
+      const actual = r.map((x) => String(x['sig']))
+      const added = actual.filter((s) => !ANON_EXECUTABLE_FUNCTIONS.includes(s))
+      const removed = ANON_EXECUTABLE_FUNCTIONS.filter((s) => !actual.includes(s))
+      if (!added.length && !removed.length) return `${actual.length}개 — 목록과 일치`
+      return `⚠ 늘어난 것: [${added.join(', ')}] · 사라진 것: [${removed.join(', ')}]`
     },
   },
   {
