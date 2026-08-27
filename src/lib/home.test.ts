@@ -41,10 +41,7 @@ describe('오늘 보여줄 하나 고르기', () => {
 
   test('진행 중이 다음 모임보다 먼저다 — 몸이 이미 체육관에 있다', () => {
     const focus = pickTodayFocus(
-      [
-        t({ id: 'soon', startsAt: '2026-08-27T20:00:00+09:00' }),
-        t({ id: 'now', status: 'live' }),
-      ],
+      [t({ id: 'soon', startsAt: '2026-08-27T20:00:00+09:00' }), t({ id: 'now', status: 'live' })],
       NOW,
     )
     expect(focus?.tournament.id).toBe('now')
@@ -110,9 +107,9 @@ describe('이번 달 참석 횟수', () => {
      * 한꺼번에 심어지므로, 그걸 세면 "내가 나온 횟수" 가 아니라
      * "동아리가 연 횟수" 가 된다.
      */
-    expect(attendanceThisMonth([t({ startsAt: null, joinedAt: '2026-08-10T00:00:00Z' })], NOW)).toBe(
-      0,
-    )
+    expect(
+      attendanceThisMonth([t({ startsAt: null, joinedAt: '2026-08-10T00:00:00Z' })], NOW),
+    ).toBe(0)
   })
 })
 

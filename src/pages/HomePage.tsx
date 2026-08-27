@@ -156,7 +156,9 @@ function FocusCard({ focus, now }: { focus: TodayFocus; now: Date }) {
                   ${live ? 'border-l-state-open' : 'border-l-border-subtle'}`}
     >
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-xl font-black tracking-tight text-ink-1">{t.name}</span>
+        <span className="block truncate text-xl font-black tracking-tight text-ink-1">
+          {t.name}
+        </span>
 
         {live ? (
           <>
@@ -210,9 +212,7 @@ function MyNextLine({ tournamentId }: { tournamentId: string }) {
   const next = myNextInTournament(matches.data, courts.data, myName)
   if (!next) return null
 
-  return (
-    <span className="mt-1.5 block text-sm font-bold text-ink-1">{myNextLabel(next)}</span>
-  )
+  return <span className="mt-1.5 block text-sm font-bold text-ink-1">{myNextLabel(next)}</span>
 }
 
 /**

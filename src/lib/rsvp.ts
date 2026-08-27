@@ -191,18 +191,25 @@ export function partitionGoing<T extends RsvpMember>(
 /**
  * '명단만' 배지를 이 목록에서 보여줄 가치가 있는가.
  *
- * 계정이 없는 사람은 실제로 다르다 — 알림을 못 받는다. 하지만 같은 화면
- * 안에서 **전원**이 계정이 없으면(모임 초대 전 명단을 통째로 넣은 경우 등)
- * 배지가 아무도 갈라주지 못한다. 모두에게 붙는 배지는 배지가 아니라
- * 시각적 잡음이다 — 그때는 숨긴다. 계정 있는 사람과 없는 사람이 섞여
- * 있을 때만 "이 사람은 다르다" 는 뜻이 산다.
+ * 계정이 없는 사람은 실제로 다르다 — 알림을 못 받고 참가 버튼도 못 누른다.
+ * 그래서 **예외일 때** 표시할 값어치가 있다.
  *
- * (경기 짜기 화면의 참가자 목록에서 쓴다 — `SessionMatchCreatePage`.)
+ * ⚠ 처음에는 "전원이 계정 없으면 숨긴다" 였는데 기준선이 어긋나 있었다.
+ * 찍어 보니 9명 중 8명에게 배지가 붙어 있었고, 그러면 배지가 정보가
+ * 아니라 배경이 된다 — 눈이 그냥 건너뛴다. 원칙("모두에게 붙는 배지는
+ * 배지가 아니다")은 맞았고 임계값만 틀렸다.
+ *
+ * 그래서 **소수일 때만** 붙인다(절반 이하). 다수가 계정이 없는 것은
+ * 개인의 예외가 아니라 그 명단 전체의 성격이라, 화면 위쪽 요약줄
+ * ("· 명단만 8")이 이미 말해 준다. 반대로 9명 중 1명만 계정이 없으면
+ * 그 한 명이 운영진이 기억해야 할 예외다.
+ *
+ * (참가자 화면 · 경기 짜기 화면에서 쓴다.)
  */
 export function hasAccountContrast(members: readonly { userId: string | null }[]): boolean {
-  const withAccount = members.some((m) => m.userId !== null)
-  const withoutAccount = members.some((m) => m.userId === null)
-  return withAccount && withoutAccount
+  const withoutAccount = members.filter((m) => m.userId === null).length
+  if (withoutAccount === 0 || withoutAccount === members.length) return false
+  return withoutAccount * 2 <= members.length
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

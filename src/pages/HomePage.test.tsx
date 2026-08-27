@@ -130,9 +130,7 @@ describe('오늘 — 하나만 고른다', () => {
   })
 
   test('진행 중이 셋이어도 카드는 하나뿐이다 — 나머지는 내 목록이 할 일이다', () => {
-    state.data = ['a', 'b', 'c'].map((id) =>
-      tournament({ id, name: `${id} 모임`, status: 'live' }),
-    )
+    state.data = ['a', 'b', 'c'].map((id) => tournament({ id, name: `${id} 모임`, status: 'live' }))
 
     renderHome()
 
@@ -227,8 +225,22 @@ describe('진행 중일 때 — 내 차례 한 줄', () => {
     state.members = [{ rsvp: 'going', userId: 'u1', displayName: '나' }]
     state.courts = [{ id: 'c1', name: '3번 코트' }]
     state.matches = [
-      { id: 'm1', status: 'scheduled', court_id: 'c1', queue_order: 1, players_a: ['남'], players_b: ['남2'] },
-      { id: 'm2', status: 'scheduled', court_id: 'c1', queue_order: 2, players_a: ['나'], players_b: ['상대'] },
+      {
+        id: 'm1',
+        status: 'scheduled',
+        court_id: 'c1',
+        queue_order: 1,
+        players_a: ['남'],
+        players_b: ['남2'],
+      },
+      {
+        id: 'm2',
+        status: 'scheduled',
+        court_id: 'c1',
+        queue_order: 2,
+        players_a: ['나'],
+        players_b: ['상대'],
+      },
     ]
 
     renderHome()
@@ -242,7 +254,14 @@ describe('진행 중일 때 — 내 차례 한 줄', () => {
     state.members = [{ rsvp: 'going', userId: 'u1', displayName: '나' }]
     state.courts = [{ id: 'c1', name: '3번 코트' }]
     state.matches = [
-      { id: 'm1', status: 'scheduled', court_id: 'c1', queue_order: 1, players_a: ['남'], players_b: ['남2'] },
+      {
+        id: 'm1',
+        status: 'scheduled',
+        court_id: 'c1',
+        queue_order: 1,
+        players_a: ['남'],
+        players_b: ['남2'],
+      },
     ]
 
     renderHome()

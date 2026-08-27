@@ -49,10 +49,7 @@ export type TodayFocus =
  * 진행 중이 먼저인 이유는 **몸이 이미 체육관에 있기 때문**이다. 다음 주
  * 모임 안내보다 지금 서 있는 코트가 급하다.
  */
-export function pickTodayFocus(
-  tournaments: readonly MyTournament[],
-  now: Date,
-): TodayFocus | null {
+export function pickTodayFocus(tournaments: readonly MyTournament[], now: Date): TodayFocus | null {
   const live = tournaments.find((t) => t.status === 'live')
   if (live) return { kind: 'live', tournament: live }
 

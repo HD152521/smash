@@ -19,31 +19,42 @@ import type { TournamentTab } from './TournamentNav'
 /**
  * 대회·모임 화면 하단 고정 탭바 (docs/design.md '구조 — 하단탭으로 내린다').
  *
- * ## 왜 4개뿐인가
+ * ## 무엇이 탭에 남고 무엇이 더보기로 가나
  *
  * 대회 화면은 코트·대진표·심판·기록·순위·참가자로 6개다. 하단탭은
- * 엄지 하나가 좌우로 훑는 자리라 4~5개가 한계고, 6개를 다 늘어놓으면
+ * 엄지 하나가 좌우로 훑는 자리라 5개가 한계고, 6개를 다 늘어놓으면
  * 글자가 줄어들어 "글자를 빼지 마라" 원칙과 부딪힌다.
  *
  * 실측 근거(docs/design.md '이 앱이 실제로 쓰이는 상황')는 운영진이
  * 라이브 중 오가는 화면이 **코트 ↔ 대진표** 둘이라고 말한다. 여기에
- * "경기 몇 대 몇이었지" 를 찾는 기록을 더해 셋을 상단탭이었던 자리
- * 그대로 남기고, 나머지 셋(심판·순위·참가자)과 관리·설정·홈은
- * '더보기' 시트 하나로 묶는다. 라우트는 그대로 있다 — 탭에서 빠졌을
- * 뿐 어디서도 도달 못 하게 막지 않는다.
+ * "경기 몇 대 몇이었지" 를 찾는 기록을 더해 셋이 남는다. 나머지
+ * (심판·순위)와 관리·설정·홈은 '더보기' 시트 하나로 묶는다. 라우트는
+ * 그대로 있다 — 탭에서 빠졌을 뿐 어디서도 도달 못 하게 막지 않는다.
  *
- * 모임은 원래 심판·순위가 없다(HIDDEN_IN_SESSION, TournamentNav 참고).
- * 그래서 모임의 '더보기' 에는 참가자·관리·설정·홈만 남는다.
+ * ## 2026-08-27 — 참가자를 탭으로 되돌렸다
+ *
+ * 개편 첫 판에서 참가자를 더보기로 내렸는데, 그게 명단 관리를 오히려
+ * 나쁘게 만들었다(docs/ui-redesign.md '명단 관리가 편하지 않다').
+ * 명단은 저녁 내내 바뀐다 — 늦게 오고, 먼저 가고, "쟤 몇 판 뛰었지" 를
+ * 다음 경기 짤 때마다 본다. 그 화면이 시트 안에 있으면 매번 두 번
+ * 눌러야 도달한다.
+ *
+ * 그래서 다섯 번째 탭으로 되돌린다. 자리는 대진표와 기록 사이다 —
+ * 참가자를 보는 이유가 '다음 경기에 누굴 넣지' 라서 앞을 보는 화면
+ * (코트·대진표) 쪽에 붙고, 지나간 것을 보는 기록이 뒤로 간다.
+ *
+ * 모임은 원래 심판·순위가 없다(TournamentNav 참고). 그래서 모임의
+ * '더보기' 에는 관리·설정·홈만 남는다.
  */
-
 const PRIMARY_TABS = [
   { key: 'court', label: '코트', path: '', icon: LayoutGrid },
   { key: 'schedule', label: '대진표', path: '/schedule', icon: ListOrdered },
+  { key: 'members', label: '참가자', path: '/members', icon: Users },
   { key: 'records', label: '기록', path: '/records', icon: ScrollText },
 ] as const satisfies readonly { key: TournamentTab; label: string; path: string; icon: unknown }[]
 
 /** '더보기' 시트 안으로 옮겨간 탭. 이 중 하나가 active 면 더보기 탭이 대신 켜진다. */
-const MORE_TABS: readonly TournamentTab[] = ['referee', 'standings', 'members']
+const MORE_TABS: readonly TournamentTab[] = ['referee', 'standings']
 
 export function TournamentTabBar({
   id,
@@ -143,12 +154,8 @@ export function TournamentTabBar({
               순위
             </MoreLink>
           )}
-          <MoreLink to={`/t/${id}/members`} icon={Users} onClick={closeMore}>
-            참가자
-          </MoreLink>
-
           {/* 보는 것과 바꾸는 것을 가른다 — 위는 탭에서 옮겨온 화면, 아래는 원래도 탭이 아니었다 */}
-          <hr className="my-1.5 border-border-subtle" />
+          {!isSession && <hr className="my-1.5 border-border-subtle" />}
 
           {isAdmin && (
             <MoreLink to={`/t/${id}/admin`} icon={Sliders} onClick={closeMore}>

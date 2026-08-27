@@ -1,12 +1,11 @@
-import { useState } from 'react'
-import { Plus, Shield, ShieldOff, UserMinus } from 'lucide-react'
+import { Shield, ShieldOff, UserMinus } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
+import { AddMemberForm } from '@/features/tournament/AddMemberForm'
 import { NameEditor } from '@/features/tournament/NameEditor'
 import { toUserMessage } from '@/lib/errors'
+import { namesInAnyMatch } from '@/lib/roster'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/Button'
 import {
-  useAddRosterMember,
   useLinkMemberAccount,
   useRemoveMember,
   useSetMemberGroup,
@@ -34,13 +33,10 @@ export function MemberManager({
 }: MemberManagerProps) {
   const setRole = useSetMemberRole(tournamentId)
   const setGroup = useSetMemberGroup(tournamentId)
-  const addMember = useAddRosterMember(tournamentId)
   const removeMember = useRemoveMember(tournamentId)
   const linkAccount = useLinkMemberAccount(tournamentId)
-  const [newName, setNewName] = useState('')
 
-  const error =
-    setRole.error ?? setGroup.error ?? addMember.error ?? removeMember.error ?? linkAccount.error
+  const error = setRole.error ?? setGroup.error ?? removeMember.error ?? linkAccount.error
 
   const ungrouped = members.filter((m) => !m.groupId)
   const pending = members.filter((m) => !m.userId)
@@ -52,32 +48,10 @@ export function MemberManager({
   const linkable = members.filter((m) => m.userId && m.role !== 'owner')
 
   /*
-   * 경기에 한 번이라도 나간 사람은 서버가 삭제를 막는다 — 지우면 그 경기에서도
-   * 사라지기 때문이다. 그런데 오류는 이 목록 맨 위에 뜬다. 20명짜리 목록에서
-   * 아래쪽 버튼을 누르면 화면 밖이라 왜 안 되는지 보이지 않는다.
-   * 눌러보고 실패하게 두지 말고 애초에 못 누르게 한다.
-   *
-   * 이름으로 맞춘다 — match_overview 는 선수를 이름으로 준다.
-   * 대회 안에서 표시 이름은 유일하다(서버가 중복을 막는다).
+   * 경기에 걸린 사람은 서버가 삭제를 막는다. 눌러보고 실패하게 두지 말고
+   * 애초에 못 누르게 한다 — 규칙과 근거는 `src/lib/roster.ts` 에 있다.
    */
-  const playedNames = new Set<string>()
-  for (const mt of matches) {
-    if (mt.status === 'void') continue
-    for (const n of [...(mt.players_a ?? []), ...(mt.players_b ?? []), ...(mt.referees ?? [])]) {
-      playedNames.add(n)
-    }
-  }
-
-  async function add() {
-    const name = newName.trim()
-    if (!name) return
-    try {
-      await addMember.mutateAsync(name)
-      setNewName('')
-    } catch {
-      // 오류는 위에 표시된다 (중복 이름 등)
-    }
-  }
+  const playedNames = namesInAnyMatch(matches)
 
   return (
     <section>
@@ -102,29 +76,8 @@ export function MemberManager({
       )}
 
       {/* 명단에 미리 넣기 — 대회 날 아침에 20명이 각자 코드를 치길 기다릴 수 없다 */}
-      <div className="mt-4 flex gap-2">
-        <input
-          value={newName}
-          maxLength={20}
-          placeholder="이름으로 참가자 추가"
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void add()
-          }}
-          aria-label="추가할 참가자 이름"
-          className="min-h-11 min-w-0 flex-1 rounded-xl border border-border-subtle bg-surface-1 px-3
-                     text-base text-ink-1
-                     focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-600"
-        />
-        <Button
-          onClick={() => void add()}
-          loading={addMember.isPending}
-          disabled={newName.trim().length === 0}
-          className="shrink-0"
-        >
-          <Plus className="size-4" aria-hidden />
-          추가
-        </Button>
+      <div className="mt-4">
+        <AddMemberForm tournamentId={tournamentId} />
       </div>
 
       <ul className="mt-4 flex flex-col gap-2">

@@ -225,7 +225,7 @@ describe('partitionGoing — 참가는 게이트가 아니라 순서다', () => 
   })
 })
 
-describe('hasAccountContrast — 모두에게 붙는 배지는 배지가 아니다', () => {
+describe('hasAccountContrast — 소수일 때만 배지가 정보다', () => {
   it('전원 계정이 없으면 배지가 아무도 갈라주지 못한다 — 숨긴다', () => {
     expect(hasAccountContrast([{ userId: null }, { userId: null }])).toBe(false)
   })
@@ -236,6 +236,22 @@ describe('hasAccountContrast — 모두에게 붙는 배지는 배지가 아니�
 
   it('섞여 있으면 계정 없는 사람이 실제로 다르다 — 보여준다', () => {
     expect(hasAccountContrast([{ userId: 'a' }, { userId: null }])).toBe(true)
+  })
+
+  test('다수가 계정이 없으면 안 붙인다 — 배지가 배경이 된다', () => {
+    /*
+     * 실제로 이랬다. 9명 중 8명에게 '미가입' 이 붙어 눈이 그냥 건너뛰었다.
+     * 다수가 계정이 없는 것은 개인의 예외가 아니라 그 명단 전체의 성격이고,
+     * 화면 위쪽 요약줄("· 명단만 8")이 이미 말해 준다.
+     */
+    const many = [{ userId: 'a' }, ...Array.from({ length: 8 }, () => ({ userId: null }))]
+    expect(hasAccountContrast(many)).toBe(false)
+  })
+
+  test('반반이면 붙인다 — 절반은 아직 갈라 준다', () => {
+    expect(
+      hasAccountContrast([{ userId: 'a' }, { userId: 'b' }, { userId: null }, { userId: null }]),
+    ).toBe(true)
   })
 
   it('빈 목록이면 갈라줄 것이 없다', () => {
