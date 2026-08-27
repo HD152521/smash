@@ -30,11 +30,17 @@ export function LiveBoardPage() {
         껍데기가 `p-4` 라 `px-5 pt-6` 을 전제로 한 기본값을 여기에 맞춘다.
       */}
       <BackBar to={`/t/${id}`} label="나가기" className="-mx-4 -mt-4 gap-3 px-4" topPad="1rem">
-        <div className="flex items-center gap-2">
+        {/*
+          `min-w-0` — 이게 없으면 flex 항목이 내용보다 작아지지 않아서
+          안쪽 `truncate` 가 죽고 대회 이름이 머리말을 밀어낸다. 오른쪽에
+          홈 버튼이 서면서 남는 폭이 줄어 실제로 넘치기 시작한다.
+        */}
+        <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-bold text-ink-2">{tournament.data?.name}</span>
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold',
+              // 배지도 줄바꿈되면 글자 하나씩 세로로 쌓인다 — 폭이 모자라면 이름이 밀린다
+              'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-bold whitespace-nowrap',
               realtime === 'live' ? 'bg-live/15 text-live-fg' : 'bg-surface-2 text-ink-3',
             )}
             title={realtime === 'live' ? '실시간 연결됨' : '연결이 끊겨 주기적으로 새로고침 중'}

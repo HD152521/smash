@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, test } from 'vitest'
 import { BackBar } from './BackBar'
 
@@ -82,5 +83,79 @@ describe('BackBar — 하단탭이 없는 화면', () => {
     expect(bar.className).toContain('-mx-4')
     expect(bar.className).not.toContain('-mx-5')
     expect(bar.getAttribute('style')).toContain('1rem')
+  })
+})
+
+/**
+ * 홈은 **더하는 것**이지 뒤로가기를 대신하는 것이 아니다. 뒤로가 한 칸씩
+ * 되짚는 동안 홈은 한 번에 처음으로 보낸다 — 동아리 명단에서 메인까지
+ * 서너 번 누르던 것이 한 번이 된다.
+ *
+ * 기본값이 켬이라는 것이 이 묶음의 핵심이다. 새 화면을 만드는 사람이
+ * 홈을 따로 챙기지 않아도 출구가 둘 생긴다. 끄는 곳만 근거가 있어야 한다.
+ */
+describe('BackBar — 홈', () => {
+  test('아무 것도 안 해도 홈이 선다 (기본값이 켬)', () => {
+    renderBar()
+    expect(screen.getByRole('button', { name: '홈으로 가기' })).toBeInTheDocument()
+  })
+
+  test('뒤로가기를 밀어내지 않는다 — 둘 다 있다', () => {
+    const { button } = renderBar()
+    expect(button).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '홈으로 가기' })).toBeInTheDocument()
+  })
+
+  test('머리말의 맨 오른쪽에 선다', () => {
+    const { bar } = renderBar({ to: '/my', label: '내 대회', children: <span>저녁 정기전</span> })
+    const home = screen.getByRole('button', { name: '홈으로 가기' })
+    expect(bar.lastElementChild).toBe(home)
+  })
+
+  test('이미 홈으로 가는 길이 있는 화면은 끌 수 있다 (대회는 하단탭 더보기에 홈이 있다)', () => {
+    renderBar({ to: '/my', label: '내 대회', home: false })
+    expect(screen.queryByRole('button', { name: '홈으로 가기' })).not.toBeInTheDocument()
+  })
+
+  /*
+   * 링크로 바로 들어와 되짚을 히스토리가 없으면 뒤로가기는 `to` 로 간다.
+   * 그 `to` 가 메인이면 나란히 선 두 버튼이 같은 일을 한다. 그때만 감춘다.
+   * `to` 만 보고 끄면 안 된다 — 같은 화면도 동아리에서 들어오면
+   * (`/new/session?club=…`) 히스토리가 있어 메인까지 여러 번이다.
+   */
+  test('뒤로가기가 마침 메인으로 향할 때는 홈을 겹쳐 세우지 않는다', () => {
+    render(
+      <MemoryRouter initialEntries={['/new/session']}>
+        <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
+          <BackBar to="/" label="메인으로" />
+        </main>
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('button', { name: '메인으로' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '홈으로 가기' })).not.toBeInTheDocument()
+  })
+
+  test('같은 화면이라도 되짚을 히스토리가 있으면 홈이 선다', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/c/1']}>
+        <Routes>
+          <Route path="/c/1" element={<Link to="/new/session?club=1">모임 열기</Link>} />
+          <Route
+            path="/new/session"
+            element={
+              <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
+                <BackBar to="/" label="메인으로" />
+              </main>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByText('모임 열기'))
+    // 뒤로는 동아리로 되짚는다 = 메인까지는 아직 멀다 = 홈이 필요하다
+    expect(screen.getByRole('button', { name: '뒤로' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '홈으로 가기' })).toBeInTheDocument()
   })
 })

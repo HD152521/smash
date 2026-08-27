@@ -1,5 +1,6 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { useCanGoBack } from '@/hooks/useCanGoBack'
 import { cn } from '@/lib/utils'
 
 /**
@@ -39,15 +40,16 @@ export function BackLink({
   fixed?: boolean
 }) {
   const navigate = useNavigate()
-  const location = useLocation()
-  const canGoBack = !fixed && location.key !== 'default'
+  const canGoBack = useCanGoBack(fixed)
 
   return (
     <button
       type="button"
       onClick={() => (canGoBack ? navigate(-1) : navigate(to))}
       className={cn(
-        '-ml-3 inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3',
+        // `shrink-0 whitespace-nowrap` — 출구가 줄바꿈되면 안 된다. 오른쪽에
+        // 홈까지 서면서 좁은 폰(320px)에서 '나가기' 가 세 줄로 접혔다.
+        '-ml-3 inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-lg px-3 whitespace-nowrap',
         'text-sm font-medium text-ink-2 transition-colors hover:text-ink-1',
         // 눌렀다는 표시. 폰에서는 hover 가 없다.
         'active:bg-surface-2 active:text-ink-1',
