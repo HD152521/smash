@@ -10,7 +10,7 @@ import {
   useMembers,
   useTournament,
 } from '@/features/tournament/queries'
-import { partitionGoing } from '@/lib/rsvp'
+import { hasAccountContrast, partitionGoing } from '@/lib/rsvp'
 import { removePick, splitTeams, togglePick } from '@/lib/matchPicker'
 import { isSession } from '@/lib/session'
 import { toUserMessage } from '@/lib/errors'
@@ -104,26 +104,25 @@ export function SessionMatchCreatePage() {
   const nameOf = (memberId: string) =>
     members.data?.find((m) => m.id === memberId)?.displayName ?? '?'
 
+  const selectedCourt = courtId ? (courts.data ?? []).find((c) => c.id === courtId) : undefined
+  const courtLabel = selectedCourt?.name ?? '나중에'
+
+  // '명단만' 배지는 계정 있는 사람과 없는 사람이 섞여 있을 때만 뜻이 산다 —
+  // 참가/그 외 각 목록 안에서 따로 판단한다 (`hasAccountContrast`)
+  const showGoingBadge = hasAccountContrast(going)
+  const showOthersBadge = hasAccountContrast(others)
+
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-48">
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-44">
       <BackLink to={`/t/${id}`}>모임으로</BackLink>
 
-      {/* 코트 — 안 정해도 된다. 공용 대기에 두면 먼저 비는 코트가 집어간다 */}
-      <section aria-label="코트" className="mt-5">
-        <h2 className="text-sm font-semibold text-ink-2">코트</h2>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Chip active={courtId === null} onClick={() => setCourtId(null)}>
-            나중에 (공용 대기)
-          </Chip>
-          {(courts.data ?? []).map((c) => (
-            <Chip key={c.id} active={courtId === c.id} onClick={() => setCourtId(c.id)}>
-              {c.name}
-            </Chip>
-          ))}
-        </div>
-      </section>
-
-      <section aria-label="참가자" className="mt-6">
+      {/*
+        사람 고르기가 먼저다. 이 화면에서 매번 하는 일은 "누가 칠지 고르는
+        것" 뿐이고, 코트는 대개 기본값("나중에 · 공용 대기")을 그대로 둔다 —
+        비는 코트가 알아서 집어가기 때문이다. 자주 바뀌는 것을 위에, 거의
+        안 바뀌는 것을 아래(그것도 접어서) 두는 게 스크롤을 줄인다.
+      */}
+      <section aria-label="참가자" className="mt-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-sm font-semibold text-ink-2">누가 칠까요</h2>
           <span className="tabular text-xs font-black text-ink-3">
@@ -140,7 +139,13 @@ export function SessionMatchCreatePage() {
             {going.length > 0 && (
               <>
                 <p className="mt-3 text-xs font-bold text-ink-3">참가 {going.length}명</p>
-                <PersonGrid members={going} picked={picked} squad={squad} onToggle={toggle} />
+                <PersonGrid
+                  members={going}
+                  picked={picked}
+                  squad={squad}
+                  showAccountBadge={showGoingBadge}
+                  onToggle={toggle}
+                />
               </>
             )}
 
@@ -157,7 +162,13 @@ export function SessionMatchCreatePage() {
                     · 참가를 안 눌렀어도 고를 수 있습니다
                   </span>
                 </div>
-                <PersonGrid members={others} picked={picked} squad={squad} onToggle={toggle} />
+                <PersonGrid
+                  members={others}
+                  picked={picked}
+                  squad={squad}
+                  showAccountBadge={showOthersBadge}
+                  onToggle={toggle}
+                />
               </>
             )}
           </>
@@ -168,6 +179,34 @@ export function SessionMatchCreatePage() {
             지금 뛰고 있는 {playingNames.size}명은 목록에 없습니다.
           </p>
         )}
+      </section>
+
+      {/*
+        코트는 예외적으로만 건드린다 — 안 정해도 된다. 공용 대기에 두면
+        먼저 비는 코트가 집어간다. 그래서 기본은 접어 두고 한 줄만 보여준다.
+        (참가자와 반대: 참가자는 매번 골라야 하니 펼치고, 코트는 대개 안
+        건드리니 접는다.)
+      */}
+      <section aria-label="코트" className="mt-6">
+        <details>
+          <summary
+            className="min-h-11 w-fit cursor-pointer list-none rounded-lg px-1 py-2 text-sm
+                       font-semibold text-ink-2 transition-colors hover:text-ink-1
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            코트: {courtLabel} <span aria-hidden>▾</span>
+          </summary>
+          <div className="mt-2 flex flex-wrap gap-2 px-1">
+            <Chip active={courtId === null} onClick={() => setCourtId(null)}>
+              나중에 (공용 대기)
+            </Chip>
+            {(courts.data ?? []).map((c) => (
+              <Chip key={c.id} active={courtId === c.id} onClick={() => setCourtId(c.id)}>
+                {c.name}
+              </Chip>
+            ))}
+          </div>
+        </details>
       </section>
 
       {create.error && (
@@ -181,12 +220,12 @@ export function SessionMatchCreatePage() {
         지금까지 고른 편이 그대로 보이고, 잘못 골랐으면 여기서 바로 뺀다.
         제출 버튼도 같은 자리라 엄지 한 번으로 끝난다.
       */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-1/95 p-4 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-1/95 px-4 pt-3 pb-3 backdrop-blur">
         <div className="mx-auto max-w-2xl">
           <PickedBar teamA={teamA} teamB={teamB} squad={squad} nameOf={nameOf} onRemove={remove} />
           <Button
             size="xl"
-            className="mt-3 w-full"
+            className="mt-2 w-full"
             loading={create.isPending}
             disabled={!ready}
             onClick={() => void submit()}
@@ -204,11 +243,14 @@ function PersonGrid({
   members,
   picked,
   squad,
+  showAccountBadge,
   onToggle,
 }: {
   members: MemberSummary[]
   picked: string[]
   squad: number
+  /** 이 묶음 안에 계정 있는 사람과 없는 사람이 섞여 있을 때만 true (`hasAccountContrast`) */
+  showAccountBadge: boolean
   onToggle: (memberId: string) => void
 }) {
   return (
@@ -219,6 +261,7 @@ function PersonGrid({
             member={m}
             order={picked.indexOf(m.id)}
             squad={squad}
+            showAccountBadge={showAccountBadge}
             onClick={() => onToggle(m.id)}
           />
         </li>
@@ -228,11 +271,13 @@ function PersonGrid({
 }
 
 /**
- * 하단 고정 바의 대진 요약 — "이름 · 이름  vs  이름 · 이름".
+ * 하단 고정 바의 대진 요약 — 고른 사람은 이름 칩, 안 고른 자리는 번호만.
  *
- * 아직 안 고른 자리는 점선 칸으로 남겨 채워질 자리로 보이게 한다. 고른
- * 사람은 눌러서 바로 뺄 수 있다 — 잘못 고른 사람을 다시 목록까지 스크롤해
- * 찾지 않아도 된다.
+ * 빈 자리에 "비어 있음" 을 매번 적지 않는다 — 점선 자체가 이미 빈 칸이라고
+ * 말하고 있어서 네 칸 모두 같은 글자를 반복하면 잡음만 는다. 대신 번호
+ * (1 2 │ 3 4) 를 넣는다 — "앞 둘이 한 편" 규칙이 숫자만으로도 보인다.
+ * 고른 사람은 눌러서 바로 뺄 수 있다 — 잘못 고른 사람을 다시 목록까지
+ * 스크롤해 찾지 않아도 된다.
  */
 function PickedBar({
   teamA,
@@ -249,13 +294,14 @@ function PickedBar({
 }) {
   return (
     <div aria-label="고른 사람" className="flex items-center gap-2">
-      <PickedSlots ids={teamA} squad={squad} side="a" nameOf={nameOf} onRemove={onRemove} />
+      <PickedSlots ids={teamA} squad={squad} side="a" numberFrom={1} nameOf={nameOf} onRemove={onRemove} />
       <ArrowLeftRight className="size-4 shrink-0 text-ink-3" aria-hidden />
       <PickedSlots
         ids={teamB}
         squad={squad}
         side="b"
         align="right"
+        numberFrom={squad + 1}
         nameOf={nameOf}
         onRemove={onRemove}
       />
@@ -268,6 +314,7 @@ function PickedSlots({
   squad,
   side,
   align = 'left',
+  numberFrom,
   nameOf,
   onRemove,
 }: {
@@ -275,23 +322,29 @@ function PickedSlots({
   squad: number
   side: 'a' | 'b'
   align?: 'left' | 'right'
+  /** 이 팀의 첫 자리가 전체에서 몇 번째인가 (A팀 1, B팀 squad+1) */
+  numberFrom: number
   nameOf: (memberId: string) => string
   onRemove: (memberId: string) => void
 }) {
   return (
     <div
-      className={cn('flex min-w-0 flex-1 flex-wrap gap-1.5', align === 'right' && 'justify-end')}
+      className={cn('flex min-w-0 flex-1 items-center gap-1.5', align === 'right' && 'justify-end')}
     >
       {Array.from({ length: squad }, (_, i) => {
         const memberId = ids[i]
+        const slotNumber = numberFrom + i
         if (!memberId) {
           return (
             <span
               key={i}
-              className="flex h-11 min-w-0 shrink items-center justify-center rounded-lg
-                         border border-dashed border-border-subtle px-2.5 text-xs font-medium text-ink-3"
+              aria-label={`${slotNumber}번 자리 — 비어 있음`}
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed text-xs font-bold',
+                side === 'a' ? 'border-team-a/40 text-team-a/60' : 'border-team-b/40 text-team-b/60',
+              )}
             >
-              비어 있음
+              {slotNumber}
             </span>
           )
         }
@@ -322,12 +375,15 @@ function PersonButton({
   member,
   order,
   squad,
+  showAccountBadge,
   onClick,
 }: {
   member: MemberSummary
   /** 몇 번째로 골랐나. -1 이면 안 골랐다 */
   order: number
   squad: number
+  /** 이 목록 안에 계정 있는 사람도 섞여 있을 때만 true — 아니면 배지가 아무 정보도 안 준다 */
+  showAccountBadge: boolean
   onClick: () => void
 }) {
   const picked = order >= 0
@@ -348,8 +404,8 @@ function PersonButton({
       )}
     >
       <span className="min-w-0 flex-1 truncate font-bold text-ink-1">{member.displayName}</span>
-      {/* 앱에 안 들어온 사람(게스트·명단만)은 알림을 못 받는다 */}
-      {!member.userId && (
+      {/* 앱에 안 들어온 사람(게스트·명단만)은 알림을 못 받는다 — 이 목록이 섞여 있을 때만 말해 준다 */}
+      {showAccountBadge && !member.userId && (
         <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-ink-3">
           명단만
         </span>

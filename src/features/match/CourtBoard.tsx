@@ -65,15 +65,48 @@ export function CourtBoard({
       ))}
 
       {/*
-        공용 대기는 코트 카드 안이 아니라 여기, 한 번만.
-        "이 코트에 N경기 있다" 가 아니라 "코트를 아직 안 정한 경기가 N개
-        있고, 먼저 비는 코트가 집어간다" 는 사실을 그대로 말한다.
+        공용 대기는 코트 카드 안이 아니라 여기, 한 번만 — 그리고 숫자로만
+        뭉개지 않고 실제 경기를 보여준다.
+        (코디네이터 피드백 2026-08-27 '빈 공간') 예전엔 이 자리가 "코트
+        미정 N경기" 한 줄뿐이라 화면 아래 절반이 비었다. 운영진이 코트
+        화면에서 다음으로 알고 싶은 건 "대기에 뭐가 있나" 인데 그걸 보려면
+        대진표 탭으로 넘어가야 했다 — 타다의 "찔러보지 않고 안다" 원칙과
+        반대다. 여기서 곧바로 누구 vs 누구인지 몇 줄 보여주면 코트 화면
+        하나로 "지금 뭐가 돌고 다음에 뭐가 있나" 가 다 읽힌다.
+
+        읽기 전용이다 — 눌러서 시작하는 자리는 위 코트 카드다. 이 목록의
+        경기 하나가 정확히 어느 코트로 갈지는 아직 안 정해졌으므로(먼저
+        비는 코트가 집어간다), 여기서 시작 버튼을 달면 "어느 코트로
+        가나" 라는 새 질문이 생긴다.
       */}
       {shared.length > 0 && (
-        <p className="px-1 text-xs text-ink-3">
-          코트 미정 {shared.length}경기 · 빈 코트를 누르면 시작됩니다
-        </p>
+        <section className="mt-1">
+          <h3 className="px-1 text-xs font-bold text-ink-3">
+            코트 미정 {shared.length}경기 · 빈 코트를 누르면 시작됩니다
+          </h3>
+          <ul className="mt-2 flex flex-col gap-2">
+            {shared.map((m) => (
+              <li key={m.id}>
+                <SharedQueueRow m={m} />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
+    </div>
+  )
+}
+
+/** 코트 미정 대기 한 줄 — 누르지 않는다, 그냥 읽는다(찔러보지 않고 안다) */
+function SharedQueueRow({ m }: { m: MatchOverviewRow }) {
+  return (
+    <div className="flex min-h-11 items-center gap-3 rounded-xl border border-border-subtle bg-surface-1 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-ink-1">{matchTitle(m)}</p>
+        {(m.referees?.length ?? 0) > 0 && (
+          <p className="mt-0.5 truncate text-xs text-ink-3">심판 {m.referees?.join(', ')}</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -316,9 +349,11 @@ function LiveHead({
  * 첫 화면을 넘긴다. 초록은 왼쪽 띠(부모 section)로만 표시한다 — 배경
  * 전체를 칠하면 빈 코트가 여럿일 때 화면이 초록 벽이 되어 오히려 안 튄다.
  *
- * 문구는 **실제로 집는 경기**에 맞춘다 — 이 코트 대기가 있으면 "대기 N경기",
- * 없고 공용 대기뿐이면 "공용 대기 N경기" 라고 밝힌다. 안 그러면 카드는
- * "대기 0" 처럼 보이는데 눌렀을 때 공용 것이 시작되는 모순이 생긴다.
+ * 문구는 **이 코트만** 말한다 — 이 코트 대기가 있으면 "대기 N경기" 를
+ * 밝힌다. 공용 대기뿐일 때는 카드에 숫자를 또 안 찍는다 — 그 숫자는
+ * 코트 목록 아래 요약(그리고 이제 목록)이 이미 한 번 말했다. 코트가
+ * 셋 넷일 때 "공용 대기 2경기" 가 카드마다 반복돼 화면이 시끄러웠다
+ * (코디네이터 피드백 2026-08-27 '[반복]').
  */
 function OpenRow({
   court,
@@ -335,13 +370,16 @@ function OpenRow({
   loading: boolean
   onStart: () => void
 }) {
-  const statusText = `${fromShared ? '공용 대기' : '대기'} ${count}경기`
+  // 이 코트 자기 대기만 카드에 적는다. 공용 대기뿐이면 "비었습니다" 만.
+  const statusText = fromShared ? '비었습니다' : `비었습니다 · 대기 ${count}경기`
+  // 화면 글자는 줄여도 스크린리더에게는 어디서 오는 경기인지 그대로 알려준다.
+  const startLabel = `${court.name} 비었습니다. 눌러서 ${fromShared ? '공용 대기' : '대기'} 맨 앞 경기 바로 시작`
 
   if (!runnable) {
     return (
       <div className="flex items-center justify-between gap-3 px-4 py-3.5">
         <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
-        <p className="shrink-0 text-sm font-bold text-state-open-fg">비었습니다 · {statusText}</p>
+        <p className="shrink-0 text-sm font-bold text-state-open-fg">{statusText}</p>
       </div>
     )
   }
@@ -351,7 +389,7 @@ function OpenRow({
       type="button"
       onClick={onStart}
       disabled={loading}
-      aria-label={`${court.name} 비었습니다. 눌러서 ${fromShared ? '공용 대기' : '대기'} 맨 앞 경기 바로 시작`}
+      aria-label={startLabel}
       className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left
                  transition-colors hover:bg-surface-2 disabled:opacity-60
                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-state-open"
@@ -363,7 +401,7 @@ function OpenRow({
         ) : (
           <Play className="size-4" aria-hidden />
         )}
-        비었습니다 · {statusText}
+        {statusText}
       </p>
     </button>
   )

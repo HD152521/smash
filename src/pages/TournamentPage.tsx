@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, WifiOff } from 'lucide-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
@@ -137,7 +137,20 @@ export function TournamentPage() {
       */}
       {!beforeStart && (
         <section className="mt-5">
-          {realtime === 'live' && <p className="mb-2 text-xs font-semibold text-ok-fg">실시간</p>}
+          {/*
+            정상(live·connecting)일 때는 조용히 둔다 — 실시간 연결은
+            운영진이 신경 쓸 일이 아니라 당연히 되는 일이다. 초록 "실시간"
+            글자가 상태인지 버튼인지 제목인지 모호하다는 지적을 받았다
+            (코디네이터 피드백 2026-08-27 '["실시간" 라벨]'). 정보가 필요한
+            순간은 딱 하나, **끊겼을 때**뿐이다 — 그때는 화면이 갱신을
+            멈췄다는 뜻이라 알아야 새로고침이라도 한다.
+          */}
+          {realtime === 'offline' && (
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-warn-fg">
+              <WifiOff className="size-3.5" aria-hidden />
+              실시간 연결이 끊겼습니다 · 새로고침해 주세요
+            </p>
+          )}
           {matches.isPending || courts.isPending ? (
             <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
           ) : (

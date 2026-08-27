@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   countRsvp,
   groupRsvp,
+  hasAccountContrast,
   hasStarted,
   partitionGoing,
   rsvpCountsText,
@@ -221,6 +222,28 @@ describe('partitionGoing — 참가는 게이트가 아니라 순서다', () => 
       { userId: 'b', rsvp: 'going' as const, name: '나' },
     ]
     expect(partitionGoing(many).going.map((m) => m.name)).toEqual(['가', '나'])
+  })
+})
+
+describe('hasAccountContrast — 모두에게 붙는 배지는 배지가 아니다', () => {
+  it('전원 계정이 없으면 배지가 아무도 갈라주지 못한다 — 숨긴다', () => {
+    expect(hasAccountContrast([{ userId: null }, { userId: null }])).toBe(false)
+  })
+
+  it('전원 계정이 있으면 배지가 아무도 갈라주지 못한다 — 숨긴다', () => {
+    expect(hasAccountContrast([{ userId: 'a' }, { userId: 'b' }])).toBe(false)
+  })
+
+  it('섞여 있으면 계정 없는 사람이 실제로 다르다 — 보여준다', () => {
+    expect(hasAccountContrast([{ userId: 'a' }, { userId: null }])).toBe(true)
+  })
+
+  it('빈 목록이면 갈라줄 것이 없다', () => {
+    expect(hasAccountContrast([])).toBe(false)
+  })
+
+  it('한 명뿐이면 대비가 없다', () => {
+    expect(hasAccountContrast([{ userId: null }])).toBe(false)
   })
 })
 

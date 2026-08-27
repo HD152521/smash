@@ -188,6 +188,23 @@ export function partitionGoing<T extends RsvpMember>(
   }
 }
 
+/**
+ * '명단만' 배지를 이 목록에서 보여줄 가치가 있는가.
+ *
+ * 계정이 없는 사람은 실제로 다르다 — 알림을 못 받는다. 하지만 같은 화면
+ * 안에서 **전원**이 계정이 없으면(모임 초대 전 명단을 통째로 넣은 경우 등)
+ * 배지가 아무도 갈라주지 못한다. 모두에게 붙는 배지는 배지가 아니라
+ * 시각적 잡음이다 — 그때는 숨긴다. 계정 있는 사람과 없는 사람이 섞여
+ * 있을 때만 "이 사람은 다르다" 는 뜻이 산다.
+ *
+ * (경기 짜기 화면의 참가자 목록에서 쓴다 — `SessionMatchCreatePage`.)
+ */
+export function hasAccountContrast(members: readonly { userId: string | null }[]): boolean {
+  const withAccount = members.some((m) => m.userId !== null)
+  const withoutAccount = members.some((m) => m.userId === null)
+  return withAccount && withoutAccount
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
