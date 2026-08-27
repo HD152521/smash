@@ -228,3 +228,33 @@ describe('다시 입력하기 — 끊긴 링크를 잇는다', () => {
     expect(screen.queryByText('재입력 화면')).not.toBeInTheDocument()
   })
 })
+
+describe('점수를 안 센 모임 경기', () => {
+  /*
+   * 목록(MatchRecordsPage)과 같은 판단이 상세에도 있어야 한다. 한쪽만
+   * 고치면 '점수 없음' 을 눌러 들어갔더니 '0 : 0' 이 뜬다.
+   */
+  test("'0 : 0' 대신 '점수 없음' 으로 보이고, 빈 그래프를 그리지 않는다", () => {
+    state.match = match({
+      group_a_name: null,
+      group_b_name: null,
+      score_a: 0,
+      score_b: 0,
+      winner_side: null,
+      scored: false,
+    })
+    renderDetail()
+
+    expect(screen.queryByText('0 : 0')).not.toBeInTheDocument()
+    expect(screen.getByText('점수 없음')).toBeInTheDocument()
+    expect(screen.queryByText('점수 진행')).not.toBeInTheDocument()
+  })
+
+  test('점수를 센 경기는 그대로다', () => {
+    state.match = match({ scored: true })
+    renderDetail()
+
+    expect(screen.getByText('21 : 19')).toBeInTheDocument()
+    expect(screen.getByText('점수 진행')).toBeInTheDocument()
+  })
+})

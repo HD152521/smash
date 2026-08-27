@@ -194,3 +194,34 @@ describe('이름으로 찾기', () => {
     expect(screen.getByText('조건에 맞는 경기가 없습니다.')).toBeInTheDocument()
   })
 })
+
+describe('점수를 안 센 모임 경기', () => {
+  /*
+   * 모임은 '끝났다' 만으로 경기가 끝난다(scored = false). 그걸 '0 : 0' 으로
+   * 그리면 0대 0으로 비긴 경기처럼 읽힌다 — 안 센 것과 0점은 다른 이야기다.
+   */
+  test("목록에서 '0 : 0' 대신 '점수 없음' 으로 보인다", () => {
+    matches.data = [
+      match({
+        group_a_name: null,
+        group_b_name: null,
+        score_a: 0,
+        score_b: 0,
+        winner_side: null,
+        scored: false,
+      }),
+    ]
+    renderRecords()
+
+    expect(screen.queryByText('0 : 0')).not.toBeInTheDocument()
+    expect(screen.getByText('점수 없음')).toBeInTheDocument()
+  })
+
+  test('점수를 센 경기는 그대로 점수를 보여준다', () => {
+    matches.data = [match({ score_a: 21, score_b: 19, scored: true })]
+    renderRecords()
+
+    expect(screen.getByText('21 : 19')).toBeInTheDocument()
+    expect(screen.queryByText('점수 없음')).not.toBeInTheDocument()
+  })
+})

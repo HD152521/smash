@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/useAuth'
 import { kickPushSender } from '@/features/notifications/push'
-import { startMatch } from '@/features/scoring/api'
+import { finishMatch, startMatch } from '@/features/scoring/api'
 import {
   createSession,
   createSessionMatch,
@@ -519,5 +519,25 @@ export function useStartMatch(tournamentId: string) {
   return useMutation({
     mutationFn: (matchId: string) => startMatch(matchId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] }),
+  })
+}
+
+/**
+ * 코트 화면에서 경기를 끝낸다 — 모임의 기본 동작.
+ *
+ * 승자를 안 보낸다. `finish_match` 는 점수를 한 번도 안 넣은 모임 경기를
+ * 승자 없이(`scored = false`) 끝낼 수 있다. 점수를 세다 동점으로 멈춘
+ * 경우에만 서버가 승리 팀을 묻는 오류를 돌려준다 — 그때는 점수판으로
+ * 가야 하므로 여기서 삼키지 않고 화면에 그대로 띄운다.
+ */
+export function useFinishMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (matchId: string) => finishMatch(matchId),
+    onSuccess: (_data, matchId) => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+      // 점수판이 열려 있던 기기에서도 끝난 것으로 보여야 한다
+      void qc.invalidateQueries({ queryKey: ['match', matchId] })
+    },
   })
 }

@@ -161,10 +161,13 @@ export function TournamentPage() {
               myDisplayName={me?.displayName}
               /*
                * 모임에는 지정 심판이 없다. 뛰는 사람이 자기 경기를 시작하고
-               * 끝낸다(can_run_match). 여기서 admin 만 열어 두면 화살표가 안 보여
-               * 아무도 코트에 못 들어간다.
+               * 끝낸다 — 그 판단은 `lib/matchAccess.ts` 가 서버의 can_run_match
+               * 와 똑같이 한다. 예전엔 여기서 `canScore={isAdmin || session}` 로
+               * 모임 참가자 **전원**에게 열어 줬는데, 서버는 '그 경기에 뛰는
+               * 사람' 만 받으므로 남의 코트를 눌렀다 권한 오류를 보게 됐다.
                */
-              canScore={isAdmin || session}
+              isAdmin={isAdmin}
+              isSession={session}
             />
           )}
         </section>

@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, ListOrdered, Loader2, Play } from 'lucide-react'
 import { useClaimCourt, useStartMatch } from '@/features/tournament/queries'
+import { LiveCourtBody } from './LiveCourtBody'
+import { SessionLiveCard } from './SessionLiveCard'
 import { matchTitle } from '@/lib/schedule'
 import { courtQueue, courtState, unassignedQueue } from '@/lib/court'
+import { canRunMatch, type MatchRunAccess } from '@/lib/matchAccess'
 import { cn } from '@/lib/utils'
 import { toUserMessage } from '@/lib/errors'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
@@ -13,7 +16,16 @@ interface CourtBoardProps {
   courts: CourtRow[]
   matches: MatchOverviewRow[]
   myDisplayName: string | undefined
-  canScore: boolean
+  isAdmin: boolean
+  /**
+   * 모임인가.
+   *
+   * 진행 중인 코트의 **기본 동작이 갈리는 유일한 지점**이다. 대회는 카드를
+   * 누르면 심판용 점수판으로 가고, 모임은 그 자리에서 경기가 끝난다.
+   * 모임은 점수를 안 세므로 점수판이 기본 경로에 있을 이유가 없다
+   * (docs/이어서시작.md '대회와 모임').
+   */
+  isSession: boolean
 }
 
 /**
@@ -38,7 +50,8 @@ export function CourtBoard({
   courts,
   matches,
   myDisplayName,
-  canScore,
+  isAdmin,
+  isSession,
 }: CourtBoardProps) {
   if (courts.length === 0) {
     return (
@@ -49,6 +62,8 @@ export function CourtBoard({
   }
 
   const shared = unassignedQueue(matches)
+  // 서버의 can_run_match 와 같은 판단을 카드마다 다시 세지 않고 한 번만 묶는다
+  const access: MatchRunAccess = { isAdmin, isSession, myName: myDisplayName }
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -59,8 +74,7 @@ export function CourtBoard({
           matches={matches}
           shared={shared}
           tournamentId={tournamentId}
-          myDisplayName={myDisplayName}
-          canScore={canScore}
+          access={access}
         />
       ))}
 
@@ -111,12 +125,6 @@ function SharedQueueRow({ m }: { m: MatchOverviewRow }) {
   )
 }
 
-/** 이 사람이 이 경기를 시작/채점할 수 있나 — 관리자·모임 전체 허용, 아니면 지정 심판만 */
-function canRun(m: MatchOverviewRow, canScore: boolean, myDisplayName: string | undefined) {
-  const iAmReferee = myDisplayName ? Boolean(m.referees?.includes(myDisplayName)) : false
-  return (canScore || iAmReferee) && m.status !== 'void'
-}
-
 /**
  * 코트 하나.
  *
@@ -128,16 +136,14 @@ function CourtCard({
   matches,
   shared,
   tournamentId,
-  myDisplayName,
-  canScore,
+  access,
 }: {
   court: CourtRow
   matches: MatchOverviewRow[]
   /** 코트를 아직 안 정한 공용 대기 — CourtBoard 가 한 번만 계산해 내려준다 */
   shared: MatchOverviewRow[]
   tournamentId: string
-  myDisplayName: string | undefined
-  canScore: boolean
+  access: MatchRunAccess
 }) {
   const [expanded, setExpanded] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -151,7 +157,7 @@ function CourtCard({
   // 이 코트 대기가 있으면 그걸 먼저 집는다. 없으면 공용 대기 맨 앞.
   const front = own[0] ?? shared[0] ?? null
   const frontFromShared = own.length === 0 && shared.length > 0
-  const frontRunnable = front ? canRun(front, canScore, myDisplayName) : false
+  const frontRunnable = front ? canRunMatch(front, access) : false
   const busy = claim.isPending || start.isPending
 
   /** 대기 경기를 이 코트에서 바로 시작한다 — 공용 대기면 먼저 코트를 잡는다 */
@@ -165,7 +171,12 @@ function CourtCard({
       setError(toUserMessage(e, '경기를 시작하지 못했습니다'))
       return
     }
-    navigate(`/t/${tournamentId}/matches/${m.id}`)
+    /*
+     * 대회만 점수판으로 넘어간다 — 시작한 사람이 곧 점수를 넣을 심판이다.
+     * 모임은 코트 화면에 남는다. 점수를 안 세는데 점수판으로 끌고 가면
+     * 시작할 때마다 '나가기' 를 한 번씩 더 누르게 된다.
+     */
+    if (!access.isSession) navigate(`/t/${tournamentId}/matches/${m.id}`)
   }
 
   return (
@@ -180,13 +191,17 @@ function CourtCard({
       )}
     >
       {live ? (
-        <LiveHead
-          court={court}
-          match={live}
-          tournamentId={tournamentId}
-          myDisplayName={myDisplayName}
-          canScore={canScore}
-        />
+        access.isSession ? (
+          <SessionLiveCard
+            tournamentId={tournamentId}
+            courtName={court.name}
+            match={live}
+            myDisplayName={access.myName}
+            runnable={canRunMatch(live, access)}
+          />
+        ) : (
+          <LiveHead court={court} match={live} tournamentId={tournamentId} access={access} />
+        )
       ) : state === 'open' ? (
         <OpenRow
           court={court}
@@ -252,7 +267,7 @@ function CourtCard({
                     m={m}
                     upNext={i === 1}
                     loading={busy}
-                    runnable={canRun(m, canScore, myDisplayName)}
+                    runnable={canRunMatch(m, access)}
                     onStart={() => void startAndGo(m)}
                   />
                 </li>
@@ -260,9 +275,15 @@ function CourtCard({
             </ul>
           )}
 
-          {expanded && !canScore && (
+          {/*
+            눌러도 안 되는 이유를 미리 말한다. 모임과 대회가 서로 다른
+            이유로 막히므로 문장도 갈린다(can_run_match 와 같은 판단).
+          */}
+          {expanded && !access.isAdmin && (
             <p className="border-t border-border-subtle px-4 py-2 text-xs text-ink-3">
-              심판으로 지정된 경기만 눌러서 시작할 수 있습니다.
+              {access.isSession
+                ? '내가 뛰는 경기만 눌러서 시작할 수 있습니다.'
+                : '심판으로 지정된 경기만 눌러서 시작할 수 있습니다.'}
             </p>
           )}
         </div>
@@ -276,56 +297,39 @@ function CourtCard({
 }
 
 /**
- * 진행 중 — 코트를 진짜 코트처럼. 가로 띠 위에 코트 이름·점수, 그 아래
- * 가운데 세로선(네트)으로 갈린 양 팀. "진행 중" 은 정상 상태라 색을
- * 더 얹지 않는다(docs/design.md).
+ * 진행 중 — **대회**의 코트 카드. 카드 전체가 심판용 점수판으로 가는 링크다.
+ *
+ * 대회는 점수가 필수다. 그래서 코트 이름 오른쪽 가장 큰 자리에 점수가
+ * 앉고, 누르면 점수를 넣는 화면으로 간다. 모임은 같은 자리에서 다른 일을
+ * 하므로 카드도 따로다(SessionLiveCard) — 여기에 `if (session)` 을 넣어
+ * 둘을 겹치지 않는다.
+ *
+ * "진행 중" 은 정상 상태라 색을 더 얹지 않는다(docs/design.md).
  */
 function LiveHead({
   court,
   match,
   tournamentId,
-  myDisplayName,
-  canScore,
+  access,
 }: {
   court: CourtRow
   match: MatchOverviewRow
   tournamentId: string
-  myDisplayName: string | undefined
-  canScore: boolean
+  access: MatchRunAccess
 }) {
-  const runnable = canRun(match, canScore, myDisplayName)
-  const iAmReferee = myDisplayName ? Boolean(match.referees?.includes(myDisplayName)) : false
+  const runnable = canRunMatch(match, access)
 
   const content = (
-    <>
-      <div className="flex items-baseline justify-between gap-3 px-4 pt-3.5">
-        <h3 className="truncate text-lg font-black text-ink-1">{court.name}</h3>
+    <LiveCourtBody
+      courtName={court.name}
+      match={match}
+      myDisplayName={access.myName}
+      trailing={
         <span className="tabular shrink-0 text-2xl font-black text-ink-1">
           {match.score_a ?? 0} : {match.score_b ?? 0}
         </span>
-      </div>
-      <div className="flex items-stretch gap-3 px-4 pt-1.5 pb-3.5">
-        <TeamNames
-          name={match.group_a_name}
-          joker={match.group_a_joker}
-          players={match.players_a}
-          align="left"
-        />
-        <div aria-hidden className="w-px shrink-0 bg-border-subtle" />
-        <TeamNames
-          name={match.group_b_name}
-          joker={match.group_b_joker}
-          players={match.players_b}
-          align="right"
-        />
-      </div>
-      {(iAmReferee || (match.referees?.length ?? 0) > 0) && (
-        <p className="px-4 pb-3 text-xs text-ink-3">
-          심판 {match.referees?.join(', ') || '미지정'}
-          {iAmReferee && <span className="ml-1.5 font-bold text-brand-fg">내가 심판</span>}
-        </p>
-      )}
-    </>
+      }
+    />
   )
 
   const label = `${court.name} 진행 중 · ${match.score_a ?? 0} 대 ${match.score_b ?? 0}`
@@ -473,29 +477,5 @@ function QueueRow({
     >
       {inner}
     </button>
-  )
-}
-
-function TeamNames({
-  name,
-  joker,
-  players,
-  align,
-}: {
-  name: string | null
-  joker: boolean | null
-  players: string[] | null
-  align: 'left' | 'right'
-}) {
-  return (
-    <div className={cn('min-w-0 flex-1', align === 'right' && 'text-right')}>
-      <p className="truncate text-sm font-bold text-ink-1">
-        {joker && <span aria-hidden>🃏 </span>}
-        {name ?? players?.join(' · ') ?? '—'}
-      </p>
-      {name && players && players.length > 0 && (
-        <p className="truncate text-xs text-ink-3">{players.join(' · ')}</p>
-      )}
-    </div>
   )
 }

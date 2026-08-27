@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { useMatches, useMembers, useScoreEvents, useVoidMatch } from '@/features/tournament/queries'
 import { buildProgress, type ScoreEvent } from '@/lib/scoreProgress'
 import { buildRematchPrefill } from '@/lib/rematch'
+import { isUnscored } from '@/lib/session'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
@@ -93,9 +94,20 @@ export function MatchDetailPage() {
                 players={m.players_a}
                 won={m.winner_side === 'A'}
               />
-              <span className="tabular shrink-0 text-3xl font-black text-ink-1">
-                {m.score_a ?? 0} : {m.score_b ?? 0}
-              </span>
+              {/*
+                모임 경기는 점수를 안 세고 끝날 수 있다. 그때 '0 : 0' 을 크게
+                띄우면 0대 0으로 끝난 경기처럼 읽힌다 — 안 센 것과 0점은 다른
+                이야기다(MatchRecordsPage 의 목록 카드와 같은 판단).
+              */}
+              {isUnscored(m) ? (
+                <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1 text-sm font-bold text-ink-3">
+                  점수 없음
+                </span>
+              ) : (
+                <span className="tabular shrink-0 text-3xl font-black text-ink-1">
+                  {m.score_a ?? 0} : {m.score_b ?? 0}
+                </span>
+              )}
               <TeamName
                 name={m.group_b_name}
                 joker={m.group_b_joker}
@@ -106,18 +118,23 @@ export function MatchDetailPage() {
             </div>
           </header>
 
-          {/* 그래프 */}
-          <section className="mt-7">
-            <h2 className="text-sm font-bold text-ink-2">점수 진행</h2>
-            <div className="mt-3">
-              <ScoreChart
-                progress={progress}
-                nameA={m.group_a_name ?? 'A팀'}
-                nameB={m.group_b_name ?? 'B팀'}
-                target={Math.max(m.target_a ?? 0, m.target_b ?? 0) || undefined}
-              />
-            </div>
-          </section>
+          {/*
+            그래프. 점수를 안 센 경기에는 그릴 것이 없다 — 빈 축만 남은
+            '점수 진행' 은 바로 위 '점수 없음' 과 서로 반대되는 말을 한다.
+          */}
+          {!isUnscored(m) && (
+            <section className="mt-7">
+              <h2 className="text-sm font-bold text-ink-2">점수 진행</h2>
+              <div className="mt-3">
+                <ScoreChart
+                  progress={progress}
+                  nameA={m.group_a_name ?? 'A팀'}
+                  nameB={m.group_b_name ?? 'B팀'}
+                  target={Math.max(m.target_a ?? 0, m.target_b ?? 0) || undefined}
+                />
+              </div>
+            </section>
+          )}
 
           {/* 흐름 요약 */}
           {progress.rallies.length > 0 && (
