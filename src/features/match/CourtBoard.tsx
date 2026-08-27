@@ -203,7 +203,10 @@ function CourtCard({
                 : own.length}
             </span>
             <ChevronRight
-              className={cn('size-4 shrink-0 text-ink-3 transition-transform', expanded && 'rotate-90')}
+              className={cn(
+                'size-4 shrink-0 text-ink-3 transition-transform',
+                expanded && 'rotate-90',
+              )}
               aria-hidden
             />
           </button>

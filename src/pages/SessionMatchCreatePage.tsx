@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeftRight, Check } from 'lucide-react'
+import { ArrowLeftRight, X } from 'lucide-react'
 import { BackLink } from '@/components/ui/BackLink'
 import { Button } from '@/components/ui/Button'
 import {
@@ -11,6 +11,7 @@ import {
   useTournament,
 } from '@/features/tournament/queries'
 import { partitionGoing } from '@/lib/rsvp'
+import { removePick, splitTeams, togglePick } from '@/lib/matchPicker'
 import { isSession } from '@/lib/session'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
@@ -29,8 +30,13 @@ import type { MemberSummary } from '@/features/tournament/api'
  *     그때야 다시 짜게 된다. 고를 때 막는 게 낫다.
  *  2. **참가를 누른 사람이 먼저 온다.** 그날 온 사람이 대개 그 사람들이라
  *     스무 명 명단에서 매번 찾아 내려가지 않게 된다. 하지만 참가는
- *     **게이트가 아니다** — 불참·미응답도 접힌 자리에서 그대로 고를 수 있다.
+ *     **게이트가 아니다** — 불참·미응답도 그대로 펼쳐 두고 고를 수 있다.
  *     누르지 않으면 못 치게 하는 앱은 동아리에서 미움받는다.
+ *
+ * 참가자 목록은 **기본이 펼침**이다. 접는 건 예외지 규칙이 아니다 — 아무도
+ * 참가를 안 눌렀는데 전원이 숨어 있으면 경기를 짜려고 매번 한 번 더 눌러야
+ * 한다. 고른 사람은 하단 고정 바에 편이 갈린 모양으로 계속 보이고, 거기서
+ * 바로 뺄 수 있다(타다 패턴 — `docs/design.md`).
  */
 export function SessionMatchCreatePage() {
   const { id } = useParams<{ id: string }>()
@@ -43,7 +49,6 @@ export function SessionMatchCreatePage() {
 
   const [picked, setPicked] = useState<string[]>([])
   const [courtId, setCourtId] = useState<string | null>(null)
-  const [showOthers, setShowOthers] = useState(false)
 
   const squad = tournament.data?.config.format === 'singles' ? 1 : 2
   const need = squad * 2
@@ -67,27 +72,20 @@ export function SessionMatchCreatePage() {
   /*
    * 참가한 사람 / 그 외.
    *
-   * 아무도 안 눌렀으면(즉석 모임이거나 다들 그냥 온 날) 접어 둘 이유가 없다 —
-   * 접힌 채로 두면 "고를 사람이 없다" 로 보인다. 그래서 참가가 0명일 때는
-   * 스스로 펼친 것으로 친다.
+   * 둘 다 항상 펼쳐서 보여준다 — 각 그룹 안에서는 서버가 이름순으로 내려준
+   * 순서를 그대로 쓴다.
    */
   const { going, others } = partitionGoing(roster)
-  const othersOpen = showOthers || going.length === 0
 
   function toggle(memberId: string) {
-    setPicked((prev) =>
-      prev.includes(memberId)
-        ? prev.filter((x) => x !== memberId)
-        : prev.length >= need
-          ? prev // 다 찼으면 더 안 받는다. 조용히 앞을 밀어내면 누가 빠졌는지 모른다
-          : [...prev, memberId],
-    )
+    setPicked((prev) => togglePick(prev, memberId, need))
   }
 
-  /** 고른 순서대로 앞 절반이 A, 뒤 절반이 B */
-  const teamA = picked.slice(0, squad)
-  const teamB = picked.slice(squad, need)
-  const ready = picked.length === need
+  function remove(memberId: string) {
+    setPicked((prev) => removePick(prev, memberId))
+  }
+
+  const { teamA, teamB, ready } = splitTeams(picked, squad)
 
   async function submit() {
     try {
@@ -107,39 +105,11 @@ export function SessionMatchCreatePage() {
     members.data?.find((m) => m.id === memberId)?.displayName ?? '?'
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-32">
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-48">
       <BackLink to={`/t/${id}`}>모임으로</BackLink>
 
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">경기 짜기</h1>
-      <p className="mt-2 text-sm text-ink-2">
-        {need}명을 고르면 앞 {squad}명이 한 편, 뒤 {squad}명이 다른 편이 됩니다.
-      </p>
-
-      {/* 고른 사람을 대진 모양으로 먼저 보여준다 — 편이 어떻게 갈렸는지 */}
-      <section
-        aria-label="고른 사람"
-        className="mt-5 rounded-2xl border border-border-subtle bg-surface-1 p-4"
-      >
-        <div className="flex items-center gap-3">
-          <TeamSlot names={teamA.map(nameOf)} size={squad} />
-          <ArrowLeftRight className="size-5 shrink-0 text-ink-3" aria-hidden />
-          <TeamSlot names={teamB.map(nameOf)} size={squad} align="right" />
-        </div>
-        {picked.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setPicked([])}
-            className="mt-3 rounded-lg px-1 py-0.5 text-xs font-semibold text-ink-3 underline
-                       underline-offset-2 transition-colors hover:text-ink-1
-                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            다시 고르기
-          </button>
-        )}
-      </section>
-
       {/* 코트 — 안 정해도 된다. 공용 대기에 두면 먼저 비는 코트가 집어간다 */}
-      <section aria-label="코트" className="mt-6">
+      <section aria-label="코트" className="mt-5">
         <h2 className="text-sm font-semibold text-ink-2">코트</h2>
         <div className="mt-2 flex flex-wrap gap-2">
           <Chip active={courtId === null} onClick={() => setCourtId(null)}>
@@ -174,41 +144,22 @@ export function SessionMatchCreatePage() {
               </>
             )}
 
-            {others.length > 0 &&
-              (othersOpen ? (
-                <>
-                  <div className="mt-4 flex items-baseline justify-between gap-2">
-                    <p className="text-xs font-bold text-ink-3">그 외 {others.length}명</p>
-                    {going.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setShowOthers(false)}
-                        aria-expanded
-                        className="min-h-11 rounded-lg px-1 text-xs font-semibold text-ink-3 underline
-                                   underline-offset-2 transition-colors hover:text-ink-1
-                                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-                      >
-                        접기
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-ink-3">
-                    참가를 안 눌렀어도 고를 수 있습니다. 그냥 온 사람도 칩니다.
-                  </p>
-                  <PersonGrid members={others} picked={picked} squad={squad} onToggle={toggle} />
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowOthers(true)}
-                  aria-expanded={false}
-                  className="mt-3 min-h-12 w-full rounded-xl border border-dashed border-border-subtle
-                             px-3 text-sm font-semibold text-ink-2 transition-colors hover:bg-surface-2
-                             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            {others.length > 0 && (
+              <>
+                <div
+                  className={cn(
+                    'flex items-center gap-2 text-xs font-bold text-ink-3',
+                    going.length > 0 ? 'mt-5 border-t border-border-subtle pt-4' : 'mt-3',
+                  )}
                 >
-                  그 외 회원 {others.length}명 보기 — 참가를 안 눌렀어도 고를 수 있습니다
-                </button>
-              ))}
+                  <span>그 외 {others.length}명</span>
+                  <span className="font-normal text-ink-3/80">
+                    · 참가를 안 눌렀어도 고를 수 있습니다
+                  </span>
+                </div>
+                <PersonGrid members={others} picked={picked} squad={squad} onToggle={toggle} />
+              </>
+            )}
           </>
         )}
 
@@ -225,12 +176,17 @@ export function SessionMatchCreatePage() {
         </p>
       )}
 
-      {/* 사람을 고르려면 목록을 내려야 한다. 버튼이 목록 끝에 있으면 못 찾는다 */}
+      {/*
+        고른 사람을 대진 모양으로 하단에 고정한다 — 목록을 아무리 내려도
+        지금까지 고른 편이 그대로 보이고, 잘못 골랐으면 여기서 바로 뺀다.
+        제출 버튼도 같은 자리라 엄지 한 번으로 끝난다.
+      */}
       <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-1/95 p-4 backdrop-blur">
         <div className="mx-auto max-w-2xl">
+          <PickedBar teamA={teamA} teamB={teamB} squad={squad} nameOf={nameOf} onRemove={remove} />
           <Button
             size="xl"
-            className="w-full"
+            className="mt-3 w-full"
             loading={create.isPending}
             disabled={!ready}
             onClick={() => void submit()}
@@ -271,23 +227,93 @@ function PersonGrid({
   )
 }
 
-/** 한 편의 자리. 아직 안 고른 자리는 빈칸으로 남겨 몇 명이 필요한지 보인다 */
-function TeamSlot({
-  names,
-  size,
-  align = 'left',
+/**
+ * 하단 고정 바의 대진 요약 — "이름 · 이름  vs  이름 · 이름".
+ *
+ * 아직 안 고른 자리는 점선 칸으로 남겨 채워질 자리로 보이게 한다. 고른
+ * 사람은 눌러서 바로 뺄 수 있다 — 잘못 고른 사람을 다시 목록까지 스크롤해
+ * 찾지 않아도 된다.
+ */
+function PickedBar({
+  teamA,
+  teamB,
+  squad,
+  nameOf,
+  onRemove,
 }: {
-  names: string[]
-  size: number
-  align?: 'left' | 'right'
+  teamA: string[]
+  teamB: string[]
+  squad: number
+  nameOf: (memberId: string) => string
+  onRemove: (memberId: string) => void
 }) {
   return (
-    <div className={cn('min-w-0 flex-1', align === 'right' && 'text-right')}>
-      {Array.from({ length: size }, (_, i) => (
-        <p key={i} className={cn('truncate font-bold', names[i] ? 'text-ink-1' : 'text-ink-3/50')}>
-          {names[i] ?? '비어 있음'}
-        </p>
-      ))}
+    <div aria-label="고른 사람" className="flex items-center gap-2">
+      <PickedSlots ids={teamA} squad={squad} side="a" nameOf={nameOf} onRemove={onRemove} />
+      <ArrowLeftRight className="size-4 shrink-0 text-ink-3" aria-hidden />
+      <PickedSlots
+        ids={teamB}
+        squad={squad}
+        side="b"
+        align="right"
+        nameOf={nameOf}
+        onRemove={onRemove}
+      />
+    </div>
+  )
+}
+
+function PickedSlots({
+  ids,
+  squad,
+  side,
+  align = 'left',
+  nameOf,
+  onRemove,
+}: {
+  ids: string[]
+  squad: number
+  side: 'a' | 'b'
+  align?: 'left' | 'right'
+  nameOf: (memberId: string) => string
+  onRemove: (memberId: string) => void
+}) {
+  return (
+    <div
+      className={cn('flex min-w-0 flex-1 flex-wrap gap-1.5', align === 'right' && 'justify-end')}
+    >
+      {Array.from({ length: squad }, (_, i) => {
+        const memberId = ids[i]
+        if (!memberId) {
+          return (
+            <span
+              key={i}
+              className="flex h-11 min-w-0 shrink items-center justify-center rounded-lg
+                         border border-dashed border-border-subtle px-2.5 text-xs font-medium text-ink-3"
+            >
+              비어 있음
+            </span>
+          )
+        }
+        return (
+          <button
+            key={memberId}
+            type="button"
+            onClick={() => onRemove(memberId)}
+            aria-label={`${nameOf(memberId)} 빼기`}
+            className={cn(
+              'flex h-11 min-w-0 items-center gap-1 rounded-lg border pl-2.5 pr-2 text-xs font-bold',
+              'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+              side === 'a'
+                ? 'border-team-a bg-team-a/10 text-team-a hover:bg-team-a/15'
+                : 'border-team-b bg-team-b/10 text-team-b hover:bg-team-b/15',
+            )}
+          >
+            <span className="max-w-24 truncate">{nameOf(memberId)}</span>
+            <X className="size-3.5 shrink-0" aria-hidden />
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -328,7 +354,17 @@ function PersonButton({
           명단만
         </span>
       )}
-      {picked && <Check className="size-4 shrink-0 text-brand-fg" aria-hidden />}
+      {picked && (
+        <span
+          aria-hidden
+          className={cn(
+            'flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white',
+            sideA ? 'bg-team-a' : 'bg-team-b',
+          )}
+        >
+          {order + 1}
+        </span>
+      )}
     </button>
   )
 }

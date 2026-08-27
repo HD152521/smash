@@ -10,7 +10,6 @@ import { useCourts, useMatches, useMembers, useTournament } from '@/features/tou
 import { toUserMessage } from '@/lib/errors'
 import { hasStarted } from '@/lib/rsvp'
 import { isSession } from '@/lib/session'
-import { cn } from '@/lib/utils'
 
 /**
  * 시작 시각을 얼마나 자주 다시 보나.
@@ -167,7 +166,17 @@ export function TournamentPage() {
         (create_session_match 가 '뛰는 사람 본인' 을 허용한다).
       */}
       {showCreateButton && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-1/95 p-4 backdrop-blur">
+        <div
+          className="fixed inset-x-0 z-30 border-t border-border-subtle bg-surface-1/95 p-4 backdrop-blur"
+          /*
+            하단탭(TournamentTabBar) 바로 위에 붙인다 — 둘 다 fixed bottom
+            이라 그대로 두면 겹친다(docs 작업 지시 '3. 하단 고정 버튼과
+            겹치지 않게'). 4rem 은 탭바 한 줄의 내용 높이(min-h-16)와 같다.
+            safe-area 는 탭바가 자기 padding-bottom 으로 한 번 더 까므로
+            여기서 한 번만 더해야 둘이 정확히 맞붙는다.
+          */
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+        >
           <Link
             to={`/t/${id}/matches/new-session`}
             className="mx-auto flex min-h-14 max-w-2xl items-center justify-center gap-2 rounded-2xl
@@ -196,7 +205,17 @@ function Shell({
 }) {
   return (
     <main
-      className={cn('mx-auto w-full max-w-2xl px-5 pt-6', padForFixedButton ? 'pb-28' : 'pb-16')}
+      className="mx-auto w-full max-w-2xl px-5 pt-6"
+      /*
+        하단탭이 이제 모든 대회 화면에 고정으로 깔린다. '경기 짜기' 버튼이
+        더 뜨면 그 위에 한 겹 더 쌓이므로 본문 여백도 그만큼 늘어난다.
+        수치 근거는 위 CTA 컨테이너 주석과 TournamentTabBar 주석에 있다.
+      */
+      style={{
+        paddingBottom: padForFixedButton
+          ? 'calc(9.5rem + env(safe-area-inset-bottom))'
+          : 'calc(5.5rem + env(safe-area-inset-bottom))',
+      }}
     >
       {id && <TournamentNav id={id} active="court" />}
       {children}
