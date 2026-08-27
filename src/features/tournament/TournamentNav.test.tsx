@@ -64,6 +64,28 @@ describe('상단은 뒤로가기 · 제목 · 배지만 남는다', () => {
     renderNav()
     expect(screen.getByRole('button', { name: /내 대회/ })).toBeInTheDocument()
   })
+
+  /*
+   * 대회 화면은 전부 길다 — 대진표·기록·참가자는 스크롤이 기본이다.
+   * 머리말이 흐름에 그냥 있으면 뒤로가기가 위로 사라져서, 나가려고 맨
+   * 위까지 되감아야 했다. 여기서 고정을 못 박는다.
+   */
+  test('머리말이 스크롤을 내려도 남는다', () => {
+    renderNav()
+    const bar = screen.getByRole('button', { name: /내 대회/ }).closest('header')
+    expect(bar?.className).toMatch(/(^|\s)sticky(\s|$)/)
+    expect(bar?.className).toMatch(/(^|\s)top-0(\s|$)/)
+  })
+
+  test('머리말은 하단탭보다 아래 층이다', () => {
+    renderNav()
+    const bar = screen.getByRole('button', { name: /내 대회/ }).closest('header')
+    const tabs = screen.getByRole('navigation', { name: '대회 메뉴' })
+    const layer = (el: Element | null | undefined) =>
+      Number(/(?:^|\s)z-(\d+)(?:\s|$)/.exec(el?.className ?? '')?.[1] ?? NaN)
+    // 겹칠 자리는 아니지만, 겹치는 날이 오면 손이 자주 가는 쪽이 위여야 한다
+    expect(layer(bar)).toBeLessThan(layer(tabs))
+  })
 })
 
 describe('하단탭', () => {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeftRight, X } from 'lucide-react'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Button } from '@/components/ui/Button'
 import {
   useCourts,
@@ -114,7 +114,7 @@ export function SessionMatchCreatePage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-44">
-      <BackLink to={`/t/${id}`}>모임으로</BackLink>
+      <BackBar to={`/t/${id}`} label="모임으로" />
 
       {/*
         코트는 예외적으로만 건드린다 — 안 정해도 된다. 공용 대기에 두면

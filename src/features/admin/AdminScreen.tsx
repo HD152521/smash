@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { useAdminGate } from './useAdminGate'
 
 interface AdminScreenProps {
@@ -37,7 +37,7 @@ export function AdminScreen({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${tournamentId}/admin`}>관리</BackLink>
+      <BackBar to={`/t/${tournamentId}/admin`} label="관리" />
 
       <h1 className="mt-4 text-3xl font-black tracking-tight text-ink-1">{title}</h1>
       {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}

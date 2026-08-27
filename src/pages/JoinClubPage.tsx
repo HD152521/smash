@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Button } from '@/components/ui/Button'
 import { useJoinClub } from '@/features/club/queries'
 import { useProfileName } from '@/features/tournament/queries'
@@ -47,7 +47,7 @@ export function JoinClubPage() {
 
   return (
     <main className="mx-auto w-full max-w-md px-5 pt-6 pb-16">
-      <BackLink to="/clubs">내 동아리</BackLink>
+      <BackBar to="/clubs" label="내 동아리" />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">동아리 들어가기</h1>
       <p className="mt-2 text-sm text-ink-2">

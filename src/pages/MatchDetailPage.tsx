@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { ScoreChart } from '@/features/records/ScoreChart'
@@ -59,7 +59,7 @@ export function MatchDetailPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}/records`}>경기 기록</BackLink>
+      <BackBar to={`/t/${id}/records`} label="경기 기록" />
       <h1 className="sr-only">경기 상세</h1>
 
       {error && (

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { useAdminGate } from '@/features/admin/useAdminGate'
 import { cn } from '@/lib/utils'
 
@@ -49,9 +49,7 @@ export function MatchEditorScreen({
 
   return (
     <main className={cn('mx-auto w-full max-w-2xl px-5 pt-6', bottomBar ? 'pb-40' : 'pb-16')}>
-      <BackLink to={backTo} fixed={fixedBack}>
-        {backLabel}
-      </BackLink>
+      <BackBar to={backTo} label={backLabel} fixed={fixedBack} />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">{title}</h1>
       {description && <div className="mt-2 text-sm text-ink-2">{description}</div>}
