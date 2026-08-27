@@ -46,47 +46,57 @@ import { countRsvp, startsAtLabel } from '@/lib/rsvp'
  * (`enabled`).
  */
 export function HomePage() {
-  const { user, signOut } = useAuth()
-  // 계정 이름. 대회 안에서 바꾸는 이름(display_name)은 그 대회에만 남으므로
-  // 여기는 따라 바뀌지 않는다.
-  const displayName =
-    (user?.user_metadata?.['name'] as string | undefined) ?? user?.email?.split('@')[0] ?? '참가자'
+  const { signOut } = useAuth()
 
   return (
     <div className="min-h-dvh bg-surface-0">
-      <Header name={displayName} onSignOut={() => void signOut()} />
+      <Header />
       <main className="mx-auto w-full max-w-2xl px-5 pb-16">
         <Today />
 
-        <SectionLabel>시작하기</SectionLabel>
-
-        {/* 가장 자주 하는 일 — 모임 열기. 그래서 가장 크다 */}
+        {/*
+          가장 자주 하는 일 하나만 버튼으로 남긴다.
+          모임은 매주 열리고, 대회는 시즌에 몇 번, 초대 코드로 참가하는 쪽은
+          그보다도 드물다. 전에는 셋을 같은 크기 카드로 늘어놔서 화면 절반이
+          **한 달에 한 번도 안 눌리는 버튼**이었다.
+        */}
         <Link
           to="/new/session"
-          className="mt-3 block rounded-2xl border border-border-subtle bg-surface-1 p-6
-                     transition-colors hover:bg-surface-2 focus-visible:outline-2
-                     focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          className="mt-6 flex min-h-16 items-center justify-between gap-3 rounded-2xl
+                     bg-brand-600 px-5 py-4 text-white transition-transform
+                     hover:-translate-y-0.5 focus-visible:-translate-y-0.5
+                     focus-visible:outline-2 focus-visible:outline-offset-2
+                     focus-visible:outline-brand-600"
         >
-          <p className="text-xl font-black tracking-tight text-ink-1">모임 열기</p>
-          <p className="mt-1 text-sm text-ink-2">오늘 모여서 치는 날. 코트만 정하면 시작</p>
+          <span className="text-lg font-black tracking-tight">모임 열기</span>
+          <ArrowRight aria-hidden className="size-5 shrink-0" />
         </Link>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <DoorCard to="/new" title="대회 만들기" desc="조를 나누고 순위를 매기는 날" />
-          <DoorCard to="/join" title="대회 참가하기" desc="6자리 코드를 입력하면 바로 들어갑니다" />
-        </div>
-
-        <SectionLabel>내 것 보기</SectionLabel>
-
-        <div className="mt-3 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
-          <QuietRow to="/my" title="내 목록" desc="참가했던 대회와 모임" />
-          <QuietRow to="/clubs" title="내 동아리" desc="동아리 명단과 그 밑에 연 모임" />
+        {/*
+          나머지는 전부 한 칸에 작은 줄로. 자주 안 누르는 것에 큰 면적을
+          주면 매일 보는 것(오늘)이 밀려 내려간다.
+        */}
+        <nav className="mt-3 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
+          <SmallRow to="/my" title="내 목록" />
+          <SmallRow to="/clubs" title="내 동아리" />
+          <SmallRow to="/new" title="대회 만들기" />
+          <SmallRow to="/join" title="대회 참가하기" />
           {/*
             알림은 대회가 아니라 이 브라우저에 붙는다. 대회 설정 안에 두면
             참가한 대회 수만큼 같은 스위치가 생기고, 아직 어느 대회에도 안
             들어간 사람은 켤 자리가 없다.
           */}
-          <QuietRow to="/settings/alerts" title="알림" desc="내 차례가 오면 알려주기" last />
+          <SmallRow to="/settings/alerts" title="알림" last />
+        </nav>
+
+        {/*
+          로그아웃은 몇 달에 한 번 누른다. 화면 맨 위가 아니라 여기가 맞다.
+          링크가 아니라 동작이라 줄 목록 밖에 따로 둔다.
+        */}
+        <div className="mt-6 flex justify-center">
+          <Button size="sm" variant="ghost" onClick={() => void signOut()}>
+            로그아웃
+          </Button>
         </div>
       </main>
     </div>
@@ -288,71 +298,41 @@ function useNow(): Date {
 
 // ── 머리 · 문 ─────────────────────────────────────────────────────────
 
-function Header({ name, onSignOut }: { name: string; onSignOut: () => void }) {
+/**
+ * 머리에는 표식 하나뿐이다.
+ *
+ * 전에는 이름과 로그아웃 버튼이 같이 있었는데, 첫 화면에서 가장 위 —
+ * 가장 비싼 자리 — 를 **아무도 안 쓰는 것 둘**이 차지하고 있었다.
+ * 자기 이름은 이미 알고, 로그아웃은 몇 달에 한 번 누른다.
+ *
+ * 로고 이미지를 따로 받지 않는 이유는 첫 화면에서 네트워크를 한 번이라도
+ * 덜 쓰기 위해서다 — 체육관 회선은 대체로 느리다.
+ */
+function Header() {
   return (
-    <header className="flex items-center justify-between px-5 pt-6 pb-4">
-      <p className="flex items-center gap-2">
-        {/*
-          전광판 느낌의 표식 하나. 로고 이미지를 따로 받지 않는 이유는
-          첫 화면에서 네트워크를 한 번이라도 덜 쓰기 위해서다 —
-          체육관 회선은 대체로 느리다.
-        */}
-        <span aria-hidden className="h-4 w-1 rounded-full bg-brand-600" />
-        <span className="text-sm font-black tracking-[0.25em] text-ink-1 uppercase">Smash</span>
-      </p>
-      <div className="flex items-center gap-3">
-        {/* 이름은 여기, 작게. 이 화면의 주인공은 인사가 아니라 오늘이다 */}
-        <span className="hidden text-xs font-semibold text-ink-3 sm:inline">{name}</span>
-        <Button size="sm" variant="ghost" onClick={onSignOut}>
-          로그아웃
-        </Button>
-      </div>
+    <header className="flex items-center gap-2 px-5 pt-5 pb-1">
+      <span aria-hidden className="h-4 w-1 rounded-full bg-brand-600" />
+      <span className="text-sm font-black tracking-[0.25em] text-ink-1 uppercase">Smash</span>
     </header>
   )
 }
 
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <h2 className="mt-9 text-xs font-bold tracking-[0.14em] text-ink-3 uppercase">{children}</h2>
-  )
-}
-
-function DoorCard({ to, title, desc }: { to: string; title: string; desc: string }) {
-  return (
-    <Link
-      to={to}
-      className="rounded-2xl border border-border-subtle bg-surface-1 p-5 transition-colors
-                 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2
-                 focus-visible:outline-brand-600"
-    >
-      <p className="text-lg font-black tracking-tight text-ink-1">{title}</p>
-      <p className="mt-1 text-sm text-ink-2">{desc}</p>
-    </Link>
-  )
-}
-
-function QuietRow({
-  to,
-  title,
-  desc,
-  last = false,
-}: {
-  to: string
-  title: string
-  desc: string
-  last?: boolean
-}) {
+/**
+ * 설명 한 줄을 붙이지 않는다.
+ *
+ * "내 목록 — 참가했던 대회와 모임" 처럼 이름이 이미 말하는 것을 또 적으면
+ * 줄 높이가 두 배가 되고, 그만큼 오늘이 화면 밖으로 밀린다. 눌러 보면
+ * 아는 것을 미리 설명하지 않는다.
+ */
+function SmallRow({ to, title, last = false }: { to: string; title: string; last?: boolean }) {
   return (
     <Link
       to={to}
-      className={`flex min-h-16 items-center gap-3 px-5 py-3.5 transition-colors
+      className={`flex min-h-12 items-center gap-3 px-5 py-2.5 text-sm transition-colors
                   hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2
                   focus-visible:outline-brand-600 ${last ? '' : 'border-b border-border-subtle'}`}
     >
-      <span className="min-w-0 flex-1">
-        <span className="block font-bold text-ink-1">{title}</span>
-        <span className="mt-0.5 block text-sm text-ink-2">{desc}</span>
-      </span>
+      <span className="min-w-0 flex-1 font-bold text-ink-1">{title}</span>
       <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-3" />
     </Link>
   )
