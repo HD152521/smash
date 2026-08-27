@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronRight, Flag } from 'lucide-react'
+import { Flag } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { useFinishMatch } from '@/features/tournament/queries'
@@ -98,25 +97,6 @@ export function SessionLiveCard({
           }
         />
       </button>
-
-      {/*
-        점수를 세고 싶은 사람의 길. 기본 경로에서 빼되 없애지는 않는다 —
-        한 모임 안에서도 어떤 게임은 세고 어떤 게임은 안 센다.
-        작게, 카드 맨 아래 오른쪽에 둔다.
-      */}
-      <div className="border-t border-border-subtle">
-        <Link
-          to={`/t/${tournamentId}/matches/${matchId}`}
-          className="flex min-h-10 items-center gap-2 px-4 py-2 text-xs font-semibold text-ink-3
-                     transition-colors hover:bg-surface-2 hover:text-ink-1
-                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-        >
-          {/* 바로 아래 '대기 N경기' 줄과 같은 문법(왼쪽 글자 · 오른쪽 화살표)을
-              쓴다. 오른쪽에만 작게 띄우면 줄의 왼쪽 절반이 빈 띠로 남는다. */}
-          <span className="flex-1">점수 기록</span>
-          <ChevronRight className="size-4 shrink-0" aria-hidden />
-        </Link>
-      </div>
 
       <FinishConfirm
         open={confirming}

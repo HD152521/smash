@@ -109,11 +109,18 @@ describe('모임 — 코트 화면에서 바로 끝낸다', () => {
     expect(finish.mutate).not.toHaveBeenCalled()
   })
 
-  test('점수를 매기고 싶은 사람의 길은 남아 있다 — 다만 보조 링크다', () => {
+  test('모임에는 점수판으로 가는 길이 아예 없다', () => {
+    /*
+     * 처음에는 '필요한 사람만 기록' 이라는 옛 원칙을 따라 보조 링크로
+     * 남겨 뒀는데, 사용자가 그것도 빼라고 했다 — "정기모임은 그냥 시작
+     * 종료만 한다".
+     *
+     * 링크만 지우면 주소로 들어올 수 있어서 라우트(`TournamentOnly`)에서도
+     * 막는다. 여기서는 문이 없다는 것만 지킨다.
+     */
     renderBoard()
 
-    // 기본 동작(카드 전체)은 끝내기이고, 점수판은 그 아래 작은 링크로 물러나 있다
-    expect(scoreLink()).toHaveAttribute('href', `/t/${TOURNAMENT_ID}/matches/${MATCH_ID}`)
+    expect(scoreLink()).toBeNull()
   })
 
   test('점수를 안 센 진행 중 경기를 0 : 0 으로 그리지 않는다', () => {

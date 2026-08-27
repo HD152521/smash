@@ -7,6 +7,7 @@ import {
   useDeleteMatch,
   useMatches,
   useSetCourtQueue,
+  useStartMatch,
   useTournament,
 } from '@/features/tournament/queries'
 import { useTournamentNav } from '@/features/tournament/useTournamentNav'
@@ -32,6 +33,11 @@ export function SchedulePage() {
   const courts = useCourts(id)
   const removeMatch = useDeleteMatch(id ?? '')
   const setQueue = useSetCourtQueue(id ?? '')
+  /*
+   * 모임의 '시작' 은 여기서 끝난다. 대회는 점수판으로 가므로 이 뮤테이션을
+   * 안 쓴다 — 시작하자마자 채점을 시작하기 때문이다.
+   */
+  const startMatch = useStartMatch(id ?? '')
   const tournament = useTournament(id)
   const nav = useTournamentNav(id)
   const isAdmin = nav.isAdmin
@@ -131,6 +137,15 @@ export function SchedulePage() {
       {error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
           {toUserMessage(error, '대진표를 불러오지 못했습니다')}
+        </p>
+      )}
+      {/*
+        모임의 '시작' 은 이 화면에 남으므로, 실패하면 여기서 말해야 한다.
+        대회는 점수판으로 넘어가 그쪽이 자기 오류를 띄운다.
+      */}
+      {startMatch.error && (
+        <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
+          {toUserMessage(startMatch.error, '경기를 시작하지 못했습니다')}
         </p>
       )}
       {setQueue.error && (
@@ -244,9 +259,12 @@ export function SchedulePage() {
                     }
                     tournamentId={id!}
                     isAdmin={isAdmin}
+                    session={nav.isSession}
                     canDrag={canDrag}
                     drag={drag}
                     onDelete={(mid) => removeMatch.mutate(mid)}
+                    onStart={(mid) => startMatch.mutate(mid)}
+                    startingId={startMatch.isPending ? (startMatch.variables ?? null) : null}
                     pendingDelete={removeMatch.isPending}
                   />
                 </div>
@@ -270,9 +288,12 @@ export function SchedulePage() {
                   emptyText="모든 경기가 코트에 배정됐습니다."
                   tournamentId={id!}
                   isAdmin={isAdmin}
+                  session={nav.isSession}
                   canDrag={canDrag}
                   drag={drag}
                   onDelete={(mid) => removeMatch.mutate(mid)}
+                  onStart={(mid) => startMatch.mutate(mid)}
+                  startingId={startMatch.isPending ? (startMatch.variables ?? null) : null}
                   pendingDelete={removeMatch.isPending}
                 />
               </section>
@@ -315,9 +336,12 @@ function Queue({
   emptyText,
   tournamentId,
   isAdmin,
+  session,
   canDrag,
   drag,
   onDelete,
+  onStart,
+  startingId,
   pendingDelete,
 }: {
   courtId: string | null
@@ -325,6 +349,11 @@ function Queue({
   emptyText: string
   tournamentId: string
   isAdmin: boolean
+  /** 모임인가 — 모임의 '시작' 은 점수판으로 가지 않고 이 자리에서 끝난다 */
+  session: boolean
+  onStart: (matchId: string) => void
+  /** 지금 시작 중인 경기 — 두 번 눌리지 않게 */
+  startingId: string | null
   /** 끌어서 옮길 수 있나. 관리자여도 필터를 켜면 잠긴다 */
   canDrag: boolean
   drag: ReturnType<typeof useDragQueue>
@@ -369,6 +398,9 @@ function Queue({
             upNext={r.upNext}
             mine={r.mine}
             admin
+            session={session}
+            onStart={() => r.m.id && onStart(r.m.id)}
+            starting={startingId !== null && startingId === r.m.id}
             onDelete={() => r.m.id && onDelete(r.m.id)}
             pendingDelete={pendingDelete}
             handleProps={r.m.id ? drag.handleProps(r.m.id, courtId) : undefined}
@@ -428,6 +460,9 @@ function MatchCard({
   upNext = false,
   mine = null,
   admin = false,
+  session = false,
+  onStart,
+  starting = false,
   onDelete,
   pendingDelete,
   handleProps,
@@ -442,6 +477,11 @@ function MatchCard({
   mine?: MyMatchRole
   /** 관리자만 손잡이·수정·삭제를 본다 */
   admin?: boolean
+  /** 모임인가 — 모임에는 점수판이 없어서 '시작' 이 이 자리에서 끝난다 */
+  session?: boolean
+  /** 모임에서 '시작' 을 눌렀을 때. 대회는 점수판으로 간다 */
+  onStart?: () => void
+  starting?: boolean
   onDelete?: () => void
   pendingDelete?: boolean
   handleProps?: {
@@ -510,13 +550,31 @@ function MatchCard({
 
       {admin && m.id && (
         <>
-          <Link
-            to={`/t/${tournamentId}/matches/${m.id}`}
-            className="shrink-0 px-2 text-sm font-bold text-brand-fg
-                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            시작
-          </Link>
+          {/*
+            대회는 점수판으로 간다 — 시작하자마자 채점을 시작하기 때문이다.
+            모임에는 점수판이 없으므로 여기서 시작하고 이 자리에 남는다.
+            경기를 여러 개 연달아 올리는 자리라, 매번 화면이 바뀌면
+            돌아오는 데만 탭이 하나씩 더 든다.
+          */}
+          {session ? (
+            <button
+              type="button"
+              disabled={starting}
+              onClick={onStart}
+              className="shrink-0 px-2 text-sm font-bold text-brand-fg disabled:opacity-40
+                         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              시작
+            </button>
+          ) : (
+            <Link
+              to={`/t/${tournamentId}/matches/${m.id}`}
+              className="shrink-0 px-2 text-sm font-bold text-brand-fg
+                         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              시작
+            </Link>
+          )}
           <Link
             to={`/t/${tournamentId}/matches/${m.id}/edit`}
             aria-label={`${matchTitle(m)} 수정`}

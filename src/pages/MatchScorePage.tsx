@@ -37,6 +37,7 @@ export function MatchScorePage() {
   const navigate = useNavigate()
   const scoring = useMatchScoring(matchId)
   const tournament = useTournament(id)
+
   const m = scoring.match
   const isLive = m?.status === 'live'
   useWakeLock(isLive)
