@@ -11,6 +11,7 @@ import {
   useTournament,
 } from '@/features/tournament/queries'
 import { hasAccountContrast, partitionGoing } from '@/lib/rsvp'
+import { buildBusyMap, busyLabel, busyReason, type BusyInfo } from '@/lib/busy'
 import { removePick, splitTeams, togglePick } from '@/lib/matchPicker'
 import { isSession } from '@/lib/session'
 import { toUserMessage } from '@/lib/errors'
@@ -25,9 +26,12 @@ import type { MemberSummary } from '@/features/tournament/api'
  *
  * 화면의 규칙 둘.
  *
- *  1. **지금 뛰고 있는 사람은 고를 수 없다.** 코트에서 내려오지 않은 사람을
- *     다음 경기에 넣어 두면, 시작하려는 순간 서버가 거절하고(한 코트 한 경기)
- *     그때야 다시 짜게 된다. 고를 때 막는 게 낫다.
+ *  1. **다른 경기에 묶인 사람은 고를 수 없다.** 지금 뛰는 중이거나(live),
+ *     이미 다음 경기에 편성돼 기다리는 중(scheduled)이면 잠근다. 넣어 두면
+ *     시작하는 순간 서버가 거절하거나(한 사람 두 코트) 그 사람이 두 코트에서
+ *     동시에 불려 간다. 고를 때 막는 게 낫다. 다만 **목록에서 지우지는
+ *     않는다** — 사람이 조용히 사라지면 "쟤 어디 갔지" 가 된다. 흐리게 두고
+ *     어느 코트에 있는지 옆에 적는다(`src/lib/busy.ts`).
  *  2. **참가를 누른 사람이 먼저 온다.** 그날 온 사람이 대개 그 사람들이라
  *     스무 명 명단에서 매번 찾아 내려가지 않게 된다. 하지만 참가는
  *     **게이트가 아니다** — 불참·미응답도 그대로 펼쳐 두고 고를 수 있다.
@@ -54,20 +58,15 @@ export function SessionMatchCreatePage() {
   const need = squad * 2
 
   /*
-   * 지금 코트에 있는 사람.
+   * 다른 경기에 묶인 사람 (진행 중 · 대기 중). 판단은 `src/lib/busy.ts` 에 있다.
    *
-   * 이름으로 맞춘다 — match_overview 가 내려주는 건 display_name 뿐이다.
-   * 이 앱의 다른 곳(myMatchRole · 머리말의 심판 배지)도 같은 기준을 쓴다.
-   * 같은 이름이 둘 있으면 둘 다 목록에서 빠진다. 모임 명단에서 동명이인은
-   * '김철수(A)' 처럼 구분해 넣는 것이 맞다.
+   * **명단에서 빼지 않는다.** 지우면 화면이 아무 말도 없이 사람을 없애서,
+   * 왜 안 보이는지 알 길이 없다. 흐리게 두고 사정을 옆에 적는다.
    */
-  const playingNames = new Set(
-    (matches.data ?? [])
-      .filter((m) => m.status === 'live')
-      .flatMap((m) => [...(m.players_a ?? []), ...(m.players_b ?? [])]),
-  )
+  const busy = buildBusyMap(matches.data ?? [])
 
-  const roster = (members.data ?? []).filter((m) => !playingNames.has(m.displayName))
+  const roster = members.data ?? []
+  const busyCount = roster.filter((m) => busy.has(m.displayName)).length
 
   /*
    * 참가한 사람 / 그 외.
@@ -164,7 +163,7 @@ export function SessionMatchCreatePage() {
 
         {roster.length === 0 ? (
           <p className="mt-3 rounded-2xl border border-dashed border-border-subtle p-6 text-center text-sm text-ink-2">
-            고를 수 있는 사람이 없습니다. 전부 코트에 나가 있거나, 아직 아무도 안 들어왔습니다.
+            아직 명단에 아무도 없습니다.
           </p>
         ) : (
           <>
@@ -174,6 +173,7 @@ export function SessionMatchCreatePage() {
                 <PersonGrid
                   members={going}
                   picked={picked}
+                  busy={busy}
                   squad={squad}
                   showAccountBadge={showGoingBadge}
                   onToggle={toggle}
@@ -197,6 +197,7 @@ export function SessionMatchCreatePage() {
                 <PersonGrid
                   members={others}
                   picked={picked}
+                  busy={busy}
                   squad={squad}
                   showAccountBadge={showOthersBadge}
                   onToggle={toggle}
@@ -206,9 +207,13 @@ export function SessionMatchCreatePage() {
           </>
         )}
 
-        {playingNames.size > 0 && (
+        {/*
+          명단에는 있는데 못 고르는 사람이 몇인지 한 줄로 미리 말해 준다 —
+          흐린 칸을 하나씩 눌러 보고 나서야 알게 되면 늦다.
+        */}
+        {busyCount > 0 && (
           <p className="mt-3 text-xs text-ink-3">
-            지금 뛰고 있는 {playingNames.size}명은 목록에 없습니다.
+            {busyCount}명은 다른 경기에 들어가 있어 고를 수 없습니다.
           </p>
         )}
       </section>
@@ -246,12 +251,15 @@ export function SessionMatchCreatePage() {
 function PersonGrid({
   members,
   picked,
+  busy,
   squad,
   showAccountBadge,
   onToggle,
 }: {
   members: MemberSummary[]
   picked: string[]
+  /** 이름 → 다른 경기에 묶인 사정 (`buildBusyMap`) */
+  busy: Map<string, BusyInfo>
   squad: number
   /** 이 묶음 안에 계정 있는 사람과 없는 사람이 섞여 있을 때만 true (`hasAccountContrast`) */
   showAccountBadge: boolean
@@ -264,6 +272,7 @@ function PersonGrid({
           <PersonButton
             member={m}
             order={picked.indexOf(m.id)}
+            busy={busy.get(m.displayName) ?? null}
             squad={squad}
             showAccountBadge={showAccountBadge}
             onClick={() => onToggle(m.id)}
@@ -384,9 +393,21 @@ function PickedSlots({
   )
 }
 
+/**
+ * 사람 한 칸.
+ *
+ * 다른 경기에 묶인 사람은 **지우지 않고 잠근다**. 이름은 그대로 두고, 흐리게
+ * 만든 뒤 어느 코트에 있는지를 오른쪽에 적는다. 지워 버리면 명단을 아무리
+ * 훑어도 그 사람이 없어서 "빠졌나, 내가 잘못 봤나" 를 확인할 방법이 없다.
+ * 잠가 두면 "아, 3번 코트에 있구나" 로 끝난다 — 화면이 답까지 준다.
+ *
+ * 이미 고른 사람은 묶여 있어도 누를 수 있게 둔다. 고른 뒤에 다른 사람이
+ * 그를 편성해 버린 드문 경우, 잠가 버리면 목록에서 뺄 방법이 없어진다.
+ */
 function PersonButton({
   member,
   order,
+  busy,
   squad,
   showAccountBadge,
   onClick,
@@ -394,6 +415,8 @@ function PersonButton({
   member: MemberSummary
   /** 몇 번째로 골랐나. -1 이면 안 골랐다 */
   order: number
+  /** 다른 경기에 묶여 있으면 그 사정, 아니면 null */
+  busy: BusyInfo | null
   squad: number
   /** 이 목록 안에 계정 있는 사람도 섞여 있을 때만 true — 아니면 배지가 아무 정보도 안 준다 */
   showAccountBadge: boolean
@@ -402,21 +425,41 @@ function PersonButton({
   const picked = order >= 0
   // 앞쪽 절반은 A편, 뒤쪽은 B편. 색으로 어느 편인지 바로 보이게 한다
   const sideA = picked && order < squad
+  const locked = Boolean(busy) && !picked
 
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={locked}
       aria-pressed={picked}
+      aria-label={locked && busy ? `${member.displayName} — ${busyReason(busy)}` : undefined}
       className={cn(
         'flex min-h-12 w-full items-center gap-2 rounded-xl border px-3 text-left',
         'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-        !picked && 'border-border-subtle bg-surface-1 hover:bg-surface-2',
+        !picked && !locked && 'border-border-subtle bg-surface-1 hover:bg-surface-2',
+        locked && 'cursor-not-allowed border-border-subtle border-dashed bg-surface-2/40',
         picked && sideA && 'border-team-a bg-team-a/10',
         picked && !sideA && 'border-team-b bg-team-b/10',
       )}
     >
-      <span className="min-w-0 flex-1 truncate font-bold text-ink-1">{member.displayName}</span>
+      <span
+        className={cn('min-w-0 flex-1 truncate font-bold', locked ? 'text-ink-3' : 'text-ink-1')}
+      >
+        {member.displayName}
+      </span>
+      {/*
+        왜 못 고르는지 옆에 적는다 — 코트 이름이 있으면 코트를 부른다.
+        "3번 코트" 는 상태이면서 동시에 그 사람을 찾아갈 자리다.
+      */}
+      {busy && (
+        <span
+          aria-hidden
+          className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-ink-3"
+        >
+          {busyLabel(busy)}
+        </span>
+      )}
       {/* 앱에 안 들어온 사람(게스트·명단만)은 알림을 못 받는다 — 이 목록이 섞여 있을 때만 말해 준다 */}
       {showAccountBadge && !member.userId && (
         <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-ink-3">
