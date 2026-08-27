@@ -11,6 +11,7 @@ export type ClubRole = 'owner' | 'admin' | 'member'
 export type MatchSource = 'live' | 'manual'
 export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'void'
 export type MemberRole = 'owner' | 'admin' | 'member'
+export type PlayerGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'beginner'
 export type RsvpStatus = 'invited' | 'going' | 'declined'
 export type TeamSide = 'A' | 'B'
 export type TournamentKind = 'tournament' | 'session'
@@ -170,6 +171,7 @@ export type ProfilesRow = {
   avatar_url: string | null
   created_at: string
   updated_at: string
+  grade: PlayerGrade | null
 }
 
 export type PushSubscriptionsRow = {
@@ -207,6 +209,7 @@ export type TournamentMembersRow = {
   updated_at: string
   rsvp: RsvpStatus
   is_guest: boolean
+  grade: PlayerGrade | null
 }
 
 export type TournamentsRow = {
@@ -252,6 +255,7 @@ export type Database = {
       match_source: MatchSource
       match_status: MatchStatus
       member_role: MemberRole
+      player_grade: PlayerGrade
       rsvp_status: RsvpStatus
       team_side: TeamSide
       tournament_kind: TournamentKind

@@ -1,5 +1,6 @@
 import { createContext } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
+import type { PlayerGrade } from '@/types/database'
 
 export type SocialProvider = 'google' | 'kakao'
 
@@ -9,7 +10,17 @@ export interface AuthState {
   /** 최초 세션 복원이 끝났는지. 이게 false 인 동안은 로그인 여부를 판단하면 안 된다. */
   ready: boolean
   signInWithPassword: (email: string, password: string) => Promise<void>
-  signUpWithPassword: (email: string, password: string, name: string) => Promise<void>
+  /**
+   * `grade` 는 **선택**이다 — null 이면 메타데이터에 키 자체를 안 싣는다.
+   * 서버 트리거(handle_new_user)가 없는 키를 null 로 읽으므로 결과는 같지만,
+   * 빈 값을 굳이 실어 보내지 않는 편이 "안 골랐다" 를 정직하게 말한다.
+   */
+  signUpWithPassword: (
+    email: string,
+    password: string,
+    name: string,
+    grade: PlayerGrade | null,
+  ) => Promise<void>
   signInWithSocial: (provider: SocialProvider) => Promise<void>
   signOut: () => Promise<void>
 }

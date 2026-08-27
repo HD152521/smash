@@ -1,4 +1,4 @@
-import type { MatchOverviewRow, RsvpStatus } from '@/types/database'
+import type { MatchOverviewRow, PlayerGrade, RsvpStatus } from '@/types/database'
 
 /**
  * 명단 화면의 판단 — "오늘 누가 왔고 누가 어떤 상태인가".
@@ -180,4 +180,26 @@ export function hasRsvpContrast(members: readonly RosterMember[]): boolean {
    */
   const answerable = members.filter((m) => m.userId !== null)
   return answerable.some((m) => m.rsvp === 'going') && answerable.some((m) => m.rsvp !== 'going')
+}
+
+/**
+ * 급수 배지를 이 목록에서 띄울 값어치가 있는가.
+ *
+ * `hasRsvpContrast` · `hasAccountContrast` 와 **같은 판단**이다 — 모두에게
+ * 붙는 배지는 배지가 아니라 잡음이다. 여기서 그 규율이 특히 중요한 이유가
+ * 둘 있다:
+ *
+ *  - 아직 아무도 급수를 안 골랐으면(전원 null) 그릴 것이 없다. 그런데
+ *    "전원이 같은 급수" 도 똑같이 아무도 갈라 주지 못한다 — B 급수만 모인
+ *    동아리 모임에서 20줄 전부에 'B' 가 붙으면 이름만 읽기 어려워진다.
+ *  - 반대로 일부만 급수가 있으면 **그것이 곧 대비**다. 그때는 값이 있는
+ *    줄에만 배지가 붙어 정확히 갈라 준다.
+ *
+ * 그래서 기준은 "값이 있는가" 가 아니라 **"값이 두 가지 이상인가"** 다.
+ * null(모른다)도 한 가지 값으로 센다.
+ */
+export function hasGradeContrast(members: readonly { grade: PlayerGrade | null }[]): boolean {
+  const kinds = new Set(members.map((m) => m.grade))
+  // 전원 null 이면 size 가 1 이라 자연히 걸러진다 — 따로 분기하지 않는다
+  return kinds.size >= 2
 }

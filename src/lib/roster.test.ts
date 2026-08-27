@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildRosterStats,
+  hasGradeContrast,
   hasRsvpContrast,
   namesInAnyMatch,
   orderRoster,
   presenceTier,
   rosterStat,
 } from './roster'
-import type { MatchOverviewRow, RsvpStatus } from '@/types/database'
+import type { MatchOverviewRow, PlayerGrade, RsvpStatus } from '@/types/database'
 
 function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
   return {
@@ -193,5 +194,34 @@ describe('hasRsvpContrast — 모두에게 붙는 배지는 배지가 아니다'
     expect(hasRsvpContrast([member('가나', 'going'), member('명단만', 'invited', null)])).toBe(
       false,
     )
+  })
+})
+
+describe('hasGradeContrast — 급수 배지도 같은 규율이다', () => {
+  const g = (grade: PlayerGrade | null) => ({ grade })
+
+  it('아무도 급수를 안 골랐으면 띄우지 않는다', () => {
+    expect(hasGradeContrast([g(null), g(null), g(null)])).toBe(false)
+  })
+
+  /*
+   * '값이 있는가' 가 아니라 '값이 두 가지 이상인가' 로 판단하는 이유가
+   * 여기 있다. B 만 모인 동아리 모임에서 20줄 전부에 'B' 가 붙으면 아무도
+   * 갈라 주지 못하면서 이름만 읽기 어려워진다.
+   */
+  it('전원이 같은 급수면 띄우지 않는다 — 아무도 갈라 주지 못한다', () => {
+    expect(hasGradeContrast([g('B'), g('B'), g('B')])).toBe(false)
+  })
+
+  it('급수가 섞여 있으면 띄운다', () => {
+    expect(hasGradeContrast([g('S'), g('B')])).toBe(true)
+  })
+
+  it("일부만 급수가 있으면 그것이 곧 대비다 — null 도 한 가지 값으로 센다", () => {
+    expect(hasGradeContrast([g('B'), g(null)])).toBe(true)
+  })
+
+  it('빈 명단은 띄울 것이 없다', () => {
+    expect(hasGradeContrast([])).toBe(false)
   })
 })

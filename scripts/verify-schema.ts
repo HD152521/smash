@@ -50,7 +50,11 @@ const ANON_EXECUTABLE_FUNCTIONS = [
   'guest_board(p_code text, p_session_id uuid)',
   'guest_sessions(p_code text)',
   'is_direct_api_call()',
-  'join_as_guest(p_code text, p_session_id uuid, p_name text)',
+  // p_grade 는 20260901000001 에서 **맨 뒤 default null** 로 붙었다. 옛
+  // 3인자 함수는 같은 파일에서 drop 했다 — 남겨 두면 이름이 같은 함수가 둘이
+  // 되어 PostgREST 가 `function is not unique` 로 떨어지고 게스트 등록이
+  // 통째로 막힌다. 이 줄이 그 drop 이 실제로 됐는지까지 함께 지킨다.
+  'join_as_guest(p_code text, p_session_id uuid, p_name text, p_grade text DEFAULT NULL::text)',
 ]
 
 const checks: Check[] = [
@@ -167,6 +171,53 @@ const checks: Check[] = [
       const open = r.filter((x) => x['auth_ok'] || x['anon_ok']).map((x) => x['proname'])
       return open.length ? `⚠ 호출 가능: ${open.join(', ')}` : '둘 다 차단됨'
     },
+  },
+  {
+    /*
+     * not null 로 굳으면 이미 있는 행 전부와, 명단에 사람을 넣는 모든
+     * 경로가 "채울 책임" 을 진다 — 마일스톤 3 이 정확히 그것으로
+     * 프로덕션을 깼다(docs/todo.md 🔴 절). 급수를 모르는 사람은 모르는
+     * 채로 두는 것이 설계다. 나중에 누가 "비어 있으니 default 를 주자" 고
+     * 굳히는 순간 이 검사가 막는다.
+     */
+    name: '급수 컬럼 둘이 nullable 인가 (default 도 없는가)',
+    sql: `select table_name, is_nullable, column_default, udt_name
+          from information_schema.columns
+          where table_schema = 'public' and column_name = 'grade'
+          order by table_name`,
+    pass: (r) =>
+      r.length === 2 &&
+      r.every(
+        (x) =>
+          x['is_nullable'] === 'YES' &&
+          x['column_default'] === null &&
+          x['udt_name'] === 'player_grade',
+      ),
+    detail: (r) =>
+      r.length
+        ? r
+            .map(
+              (x) =>
+                `${x['table_name']}.grade ${x['udt_name']} ${x['is_nullable'] === 'YES' ? 'nullable' : '⚠ NOT NULL'}${x['column_default'] ? ` ⚠ default=${x['column_default']}` : ''}`,
+            )
+            .join(' · ')
+        : '⚠ grade 컬럼이 하나도 없다',
+  },
+  {
+    /*
+     * 순서(S > A > B > C > D > 초심)가 곧 실력 순서라 `order by grade` 가
+     * 그대로 동작한다. src/lib/grade.ts 의 PLAYER_GRADES 와 **글자 그대로
+     * 같아야** 서버 정렬과 화면 정렬이 안 어긋난다. 그리고 라벨에 한글이
+     * 섞이면 나중에 문구를 못 바꾼다 — '초심' 은 화면에서만 산다.
+     */
+    name: 'player_grade 순서가 S>A>B>C>D>beginner 이고 한글이 없는가',
+    sql: `select array_agg(e.enumlabel::text order by e.enumsortorder) as labels
+          from pg_type t join pg_enum e on e.enumtypid = t.oid
+          where t.typnamespace = 'public'::regnamespace and t.typname = 'player_grade'`,
+    pass: (r) =>
+      JSON.stringify(r[0]?.['labels'] ?? []) ===
+      JSON.stringify(['S', 'A', 'B', 'C', 'D', 'beginner']),
+    detail: (r) => `순서: ${JSON.stringify(r[0]?.['labels'] ?? '(없음)')}`,
   },
   {
     name: 'get_standings 가 실제로 실행되는가',

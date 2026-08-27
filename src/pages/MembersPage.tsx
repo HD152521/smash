@@ -15,8 +15,10 @@ import {
 import { toUserMessage } from '@/lib/errors'
 import { isSession } from '@/lib/session'
 import { countRsvp, hasAccountContrast, rsvpCountsText, rsvpLabel } from '@/lib/rsvp'
+import { gradeLabel } from '@/lib/grade'
 import {
   buildRosterStats,
+  hasGradeContrast,
   hasRsvpContrast,
   namesInAnyMatch,
   orderRoster,
@@ -83,6 +85,12 @@ export function MembersPage() {
     showPlayed: stats.size > 0,
     showAccount: hasAccountContrast(all),
     showRsvp: session && hasRsvpContrast(all),
+    /*
+     * 급수는 대회에도 모임에도 뜻이 있다 — 참가 여부(showRsvp)와 달리
+     * `session` 으로 가르지 않는다. 대비가 있을 때만 그린다는 판단은
+     * roster.ts 가 한다.
+     */
+    showGrade: hasGradeContrast(all),
     onRemove: (m) => {
       if (confirm(`${m.displayName}님을 이 명단에서 뺄까요?`)) removeMember.mutate(m.id)
     },
@@ -234,6 +242,7 @@ interface RosterView {
   showPlayed: boolean
   showAccount: boolean
   showRsvp: boolean
+  showGrade: boolean
   onRemove: (m: MemberSummary) => void
   removing: boolean
 }
@@ -327,6 +336,25 @@ function RosterRow({ member: m, view }: { member: MemberSummary; view: RosterVie
         )}
 
         {isMe && <span className="shrink-0 text-xs font-bold text-brand-fg">나</span>}
+        {/*
+          급수를 배지 중 **맨 앞**에 둔다. 이 화면을 여는 가장 잦은 이유가
+          "다음 경기에 누굴 넣지" 이고, 거기서 이름 다음으로 보는 것이
+          급수다 — 역할·게스트 여부보다 먼저 눈에 닿아야 한다.
+
+          색으로 말하지 않는다. 급수는 **언제나 글자**로 적혀 있고, 다른
+          중립 배지와는 색이 아니라 굵기로 갈린다(docs/design.md — 체육관
+          조명·햇빛·색맹에서 색이 제일 먼저 무너진다).
+
+          `sr-only` 로 '급수' 를 앞에 붙이는 이유: 눈으로 보면 배드민턴
+          맥락에서 'S' 한 글자가 곧 급수지만, 소리로 들으면 'S' 하나만
+          읽혀 무엇의 S 인지 알 수 없다.
+        */}
+        {view.showGrade && gradeLabel(m.grade) && (
+          <Badge className="font-black">
+            <span className="sr-only">급수 </span>
+            {gradeLabel(m.grade)}
+          </Badge>
+        )}
         {m.role === 'owner' && <Badge>주최</Badge>}
         {m.role === 'admin' && <Badge tone="ok">관리</Badge>}
         {/*

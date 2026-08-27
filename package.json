@@ -22,6 +22,7 @@
     "db:confirm": "tsx scripts/confirm-emails.ts",
     "db:smoke:security": "tsx scripts/smoke-security.ts",
     "db:smoke:club": "tsx scripts/smoke-club.ts",
+    "db:smoke:grade": "tsx scripts/smoke-grade.ts",
     "db:smoke:guest": "tsx scripts/smoke-guest.ts",
     "db:smoke:match": "tsx scripts/smoke-match.ts",
     "db:smoke:notify": "tsx scripts/smoke-notify.ts",

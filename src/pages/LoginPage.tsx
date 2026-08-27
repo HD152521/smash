@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
+import { GradePicker } from '@/components/ui/GradePicker'
 import { useAuth, type SocialProvider } from '@/features/auth/useAuth'
 import { useAuthSettings } from '@/features/auth/useAuthSettings'
 import { enabledSocialProviders } from '@/features/auth/providers'
+import type { PlayerGrade } from '@/types/database'
 
 type Mode = 'signin' | 'signup'
 
@@ -35,6 +37,12 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  /*
+   * 급수는 **선택**이다. 기본값은 '안 골랐다'(null)이지 초심이 아니다 —
+   * 안 고른 사람과 진짜 초심인 사람은 다른 사람이고, 서버도 그 둘을
+   * null 과 'beginner' 로 나눠 저장한다(20260901000001).
+   */
+  const [grade, setGrade] = useState<PlayerGrade | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState<'local' | SocialProvider | null>(null)
@@ -50,7 +58,7 @@ export function LoginPage() {
       if (mode === 'signin') {
         await signInWithPassword(email, password)
       } else {
-        await signUpWithPassword(email, password, name.trim())
+        await signUpWithPassword(email, password, name.trim(), grade)
         // 이메일 확인이 켜져 있으면 가입 직후 세션이 안 생긴다.
         // 아무 반응이 없는 것처럼 보이므로 무슨 일이 일어났는지 알려준다.
         if (!settings?.mailer_autoconfirm) {
@@ -122,14 +130,33 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             {mode === 'signup' && (
-              <Field
-                label="이름"
-                value={name}
-                onChange={setName}
-                autoComplete="name"
-                placeholder="대회에서 보일 이름"
-                required
-              />
+              <>
+                <Field
+                  label="이름"
+                  value={name}
+                  onChange={setName}
+                  autoComplete="name"
+                  placeholder="대회에서 보일 이름"
+                  required
+                />
+                {/*
+                  ⚠ **필수로 만들지 않는다.** 가입을 막는 칸을 하나 늘릴
+                  때마다 사람이 샌다. 급수를 모르는 채로도 앱은 전부
+                  동작하므로(배지를 안 그릴 뿐이다) 지금 반드시 답을 받아야
+                  할 이유가 없다 — 서버도 profiles.grade 를 nullable 로 둬서
+                  같은 판단을 구조로 못 박아 뒀다(20260901000001).
+
+                  안내 문구로 "나중에 바꿀 수 있다" 고 말하지 않는다.
+                  프로필에서 급수를 고치는 화면이 아직 없어서 그건 거짓말이
+                  된다. 그 화면이 생기면 그때 이 문구를 고친다.
+                */}
+                <GradePicker
+                  value={grade}
+                  onChange={setGrade}
+                  disabled={busy !== null}
+                  hint="선택입니다 — 안 고르셔도 가입됩니다."
+                />
+              </>
             )}
             <Field
               label="이메일"
