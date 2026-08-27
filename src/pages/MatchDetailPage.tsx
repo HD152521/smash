@@ -1,11 +1,14 @@
-import { useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { BackLink } from '@/components/ui/BackLink'
 import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
 import { ScoreChart } from '@/features/records/ScoreChart'
 import { useAuth } from '@/features/auth/useAuth'
 import { Button } from '@/components/ui/Button'
 import { useMatches, useMembers, useScoreEvents, useVoidMatch } from '@/features/tournament/queries'
 import { buildProgress, type ScoreEvent } from '@/lib/scoreProgress'
+import { buildRematchPrefill } from '@/lib/rematch'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
@@ -17,11 +20,30 @@ import { cn } from '@/lib/utils'
  */
 export function MatchDetailPage() {
   const { id, matchId } = useParams<{ id: string; matchId: string }>()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const matches = useMatches(id)
   const members = useMembers(id)
   const events = useScoreEvents(matchId)
   const voidMatch = useVoidMatch(id ?? '')
+
+  const [reasonOpen, setReasonOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  // 방금 이 세션에서 무효 처리했나 — 안내 문구만 바꾼다(둘 다 다시 입력은 된다)
+  const [justVoided, setJustVoided] = useState(false)
+
+  /*
+   * 다른 경기로 넘어오면 이전 경기의 '방금 무효 처리했습니다' 문구가 남지
+   * 않게 한다. MatchEditPage 의 filledFrom 과 같은 판단 — 렌더 중에 한 번
+   * 맞추면 useEffect 로 인한 한 박자 늦은 깜빡임이 없다.
+   */
+  const [resetFor, setResetFor] = useState(matchId)
+  if (matchId !== resetFor) {
+    setResetFor(matchId)
+    setJustVoided(false)
+    setReason('')
+    setReasonOpen(false)
+  }
 
   const me = members.data?.find((x) => x.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
@@ -137,28 +159,91 @@ export function MatchDetailPage() {
               <p className="mt-1 text-sm text-ink-2">
                 순위 집계에서 빠집니다. 점수와 출전 기록은 그대로 남고, 변경 기록에도 남습니다.
               </p>
-              {voidMatch.error && (
-                <p role="alert" className="mt-2 text-sm font-medium text-team-b-fg">
-                  {toUserMessage(voidMatch.error, '무효 처리하지 못했습니다')}
-                </p>
-              )}
               <Button
                 variant="secondary"
                 size="sm"
                 className="mt-3"
-                loading={voidMatch.isPending}
-                onClick={() => {
-                  const reason = prompt('무효 사유 (변경 기록에 남습니다)')
-                  if (reason === null) return
-                  voidMatch.mutate({ matchId: matchId!, reason: reason || undefined })
-                }}
+                onClick={() => setReasonOpen(true)}
               >
                 경기 무효 처리
               </Button>
             </div>
           )}
+
+          {/*
+            끊긴 링크를 여기서 잇는다. 무효 처리 직후에도, 나중에 이 경기를
+            다시 들어와도 같은 자리에서 다시 입력을 시작할 수 있다.
+            강제로 넘기지 않는다 — 다시 입력을 원치 않을 수도 있다.
+          */}
+          {isAdmin && m.status === 'void' && (
+            <div className="mt-8 rounded-2xl border border-border-subtle bg-surface-2 p-4">
+              <p className="font-bold text-ink-1">
+                {justVoided ? '무효 처리했습니다.' : '무효 처리된 경기입니다.'}
+              </p>
+              <p className="mt-1 text-sm text-ink-2">
+                조·선수·점수를 채운 채로 다시 입력할 수 있습니다. 기존 경기를 고치는 게 아니라{' '}
+                <b className="text-ink-1">새 경기로 다시 기록</b>됩니다.
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-3"
+                onClick={() =>
+                  navigate(`/t/${id}/matches/record`, { state: buildRematchPrefill(m) })
+                }
+              >
+                다시 입력하기
+              </Button>
+            </div>
+          )}
         </>
       )}
+
+      <Modal open={reasonOpen} onClose={() => setReasonOpen(false)} title="경기 무효 처리">
+        <p className="text-sm text-ink-2">
+          사유는 남기지 않아도 됩니다 — 남기면 변경 기록에 함께 남습니다.
+        </p>
+        <label className="mt-4 block">
+          <span className="text-sm font-semibold text-ink-2">무효 사유</span>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="예: 심판 착오 (생략 가능)"
+            className="mt-1.5 h-12 w-full rounded-xl border border-border-subtle bg-surface-1 px-3.5
+                       text-ink-1 outline-none placeholder:text-ink-3
+                       focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
+          />
+        </label>
+        {voidMatch.error && (
+          <p role="alert" className="mt-3 text-sm font-medium text-team-b-fg">
+            {toUserMessage(voidMatch.error, '무효 처리하지 못했습니다')}
+          </p>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setReasonOpen(false)}>
+            취소
+          </Button>
+          <Button
+            variant="secondary"
+            loading={voidMatch.isPending}
+            onClick={() => {
+              voidMatch.mutate(
+                { matchId: matchId!, reason: reason.trim() || undefined },
+                {
+                  onSuccess: () => {
+                    setReasonOpen(false)
+                    setJustVoided(true)
+                    setReason('')
+                  },
+                },
+              )
+            }}
+          >
+            무효 처리
+          </Button>
+        </div>
+      </Modal>
     </main>
   )
 }

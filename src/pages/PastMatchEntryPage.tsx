@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MatchEditorScreen } from '@/features/match/MatchEditorScreen'
 import { MatchSubmitBar } from '@/features/match/MatchSubmitBar'
 import { TeamSection } from '@/features/match/TeamSection'
@@ -11,6 +11,7 @@ import {
   useTournament,
 } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
+import { parseRematchPrefill, resolvePlayerIds } from '@/lib/rematch'
 
 /**
  * 지난 결과 입력 — 앱 없이 이미 치른 경기의 **결과만** 남긴다.
@@ -28,6 +29,7 @@ import { toUserMessage } from '@/lib/errors'
 export function PastMatchEntryPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const tournament = useTournament(id)
   const groups = useGroups(id)
@@ -37,10 +39,34 @@ export function PastMatchEntryPage() {
   const config = tournament.data?.config
   const squadSize = config?.format === 'singles' ? 1 : 2
 
-  const [scoreA, setScoreA] = useState('')
-  const [scoreB, setScoreB] = useState('')
+  /*
+   * 무효 처리한 경기에서 왔다면 조·선수·점수가 이미 채워져 있다.
+   * 값을 여기서 한 번 읽는다 — location.state 는 검증이 필요한 남의 입력이라
+   * (히스토리 조작 등) `parseRematchPrefill` 을 거친다. 모양이 다르면
+   * 조용히 빈 폼으로 취급한다.
+   */
+  const prefill = parseRematchPrefill(location.state)
+
+  const [scoreA, setScoreA] = useState(prefill?.scoreA != null ? String(prefill.scoreA) : '')
+  const [scoreB, setScoreB] = useState(prefill?.scoreB != null ? String(prefill.scoreB) : '')
 
   const teams = useMatchTeams({ squadSize })
+
+  /*
+   * 조·선수는 명단이 와야 이름을 id 로 되짚을 수 있다(MatchEditPage 와 같은
+   * 판단). 명단이 오기 전에 채우면 선수 선택이 통째로 비어 버리고, 그 뒤로는
+   * 다시 채울 계기가 없다.
+   */
+  const [prefillApplied, setPrefillApplied] = useState(false)
+  if (prefill && members.data && !prefillApplied) {
+    setPrefillApplied(true)
+    teams.fill({
+      groupA: prefill.groupA,
+      groupB: prefill.groupB,
+      playersA: resolvePlayerIds(prefill.playersANames, members.data),
+      playersB: resolvePlayerIds(prefill.playersBNames, members.data),
+    })
+  }
 
   const groupList = groups.data ?? []
   const roster = members.data ?? []
@@ -86,10 +112,17 @@ export function PastMatchEntryPage() {
       tournamentId={id ?? ''}
       title="지난 결과 입력"
       description={
-        <>
-          앱 없이 치른 경기의 결과만 넣습니다. 점수가 한 점씩 들어온 기록은 남지 않으므로
-          <b className="text-ink-1"> 직접 입력</b>으로 표시됩니다.
-        </>
+        prefill ? (
+          <>
+            무효 처리한 경기를 <b className="text-ink-1">다시 기록합니다</b>. 기존 경기를 고치는 게
+            아니라 새 경기로 남습니다 — 조·선수·점수는 그대로 채워 뒀으니 바뀐 값만 고치세요.
+          </>
+        ) : (
+          <>
+            앱 없이 치른 경기의 결과만 넣습니다. 점수가 한 점씩 들어온 기록은 남지 않으므로
+            <b className="text-ink-1"> 직접 입력</b>으로 표시됩니다.
+          </>
+        )
       }
       backTo={`/t/${id}/admin`}
       backLabel="관리로"
