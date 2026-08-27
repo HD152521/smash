@@ -117,12 +117,44 @@ export function SessionMatchCreatePage() {
       <BackLink to={`/t/${id}`}>모임으로</BackLink>
 
       {/*
-        사람 고르기가 먼저다. 이 화면에서 매번 하는 일은 "누가 칠지 고르는
-        것" 뿐이고, 코트는 대개 기본값("나중에 · 공용 대기")을 그대로 둔다 —
-        비는 코트가 알아서 집어가기 때문이다. 자주 바뀌는 것을 위에, 거의
-        안 바뀌는 것을 아래(그것도 접어서) 두는 게 스크롤을 줄인다.
+        코트는 예외적으로만 건드린다 — 안 정해도 된다. 공용 대기에 두면
+        먼저 비는 코트가 집어간다. 그래서 두 줄짜리 칩 그리드 대신 한 줄
+        요약("코트: 나중에 ▾")만 두고 접어 둔다. (참가자와 반대: 참가자는
+        매번 골라야 하니 펼치고, 코트는 대개 안 건드리니 접는다.)
+        *
+        아래쪽 대신 여기(맨 위)에 둔 이유: 하단에는 이미 고정 바가 화면의
+        일부를 차지한다. 참가자가 적은 모임에서는 본문 전체 높이가 뷰포트보다
+        살짝만 크거나 작아지는데, 그 경계에서 아래쪽 요소가 스크롤 없이는
+        고정 바 뒤에 완전히 가려 버린다(실측으로 확인함). 맨 위, 참가자
+        목록보다 먼저 오는 한 줄이면 목록 길이와 상관없이 항상 보인다.
       */}
-      <section aria-label="참가자" className="mt-5">
+      <section aria-label="코트" className="mt-5">
+        <details>
+          <summary
+            className="min-h-11 w-fit cursor-pointer list-none rounded-lg px-1 py-2 text-sm
+                       font-semibold text-ink-2 transition-colors hover:text-ink-1
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            코트: {courtLabel} <span aria-hidden>▾</span>
+          </summary>
+          <div className="mt-2 flex flex-wrap gap-2 px-1">
+            <Chip active={courtId === null} onClick={() => setCourtId(null)}>
+              나중에 (공용 대기)
+            </Chip>
+            {(courts.data ?? []).map((c) => (
+              <Chip key={c.id} active={courtId === c.id} onClick={() => setCourtId(c.id)}>
+                {c.name}
+              </Chip>
+            ))}
+          </div>
+        </details>
+      </section>
+
+      {/*
+        사람 고르기가 본 작업이다. 코트 한 줄 다음에 바로 이름이 와야
+        스크롤 없이 보인다.
+      */}
+      <section aria-label="참가자" className="mt-4">
         <div className="flex items-baseline justify-between">
           <h2 className="text-sm font-semibold text-ink-2">누가 칠까요</h2>
           <span className="tabular text-xs font-black text-ink-3">
@@ -179,34 +211,6 @@ export function SessionMatchCreatePage() {
             지금 뛰고 있는 {playingNames.size}명은 목록에 없습니다.
           </p>
         )}
-      </section>
-
-      {/*
-        코트는 예외적으로만 건드린다 — 안 정해도 된다. 공용 대기에 두면
-        먼저 비는 코트가 집어간다. 그래서 기본은 접어 두고 한 줄만 보여준다.
-        (참가자와 반대: 참가자는 매번 골라야 하니 펼치고, 코트는 대개 안
-        건드리니 접는다.)
-      */}
-      <section aria-label="코트" className="mt-6">
-        <details>
-          <summary
-            className="min-h-11 w-fit cursor-pointer list-none rounded-lg px-1 py-2 text-sm
-                       font-semibold text-ink-2 transition-colors hover:text-ink-1
-                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            코트: {courtLabel} <span aria-hidden>▾</span>
-          </summary>
-          <div className="mt-2 flex flex-wrap gap-2 px-1">
-            <Chip active={courtId === null} onClick={() => setCourtId(null)}>
-              나중에 (공용 대기)
-            </Chip>
-            {(courts.data ?? []).map((c) => (
-              <Chip key={c.id} active={courtId === c.id} onClick={() => setCourtId(c.id)}>
-                {c.name}
-              </Chip>
-            ))}
-          </div>
-        </details>
       </section>
 
       {create.error && (
@@ -294,7 +298,14 @@ function PickedBar({
 }) {
   return (
     <div aria-label="고른 사람" className="flex items-center gap-2">
-      <PickedSlots ids={teamA} squad={squad} side="a" numberFrom={1} nameOf={nameOf} onRemove={onRemove} />
+      <PickedSlots
+        ids={teamA}
+        squad={squad}
+        side="a"
+        numberFrom={1}
+        nameOf={nameOf}
+        onRemove={onRemove}
+      />
       <ArrowLeftRight className="size-4 shrink-0 text-ink-3" aria-hidden />
       <PickedSlots
         ids={teamB}
@@ -341,7 +352,9 @@ function PickedSlots({
               aria-label={`${slotNumber}번 자리 — 비어 있음`}
               className={cn(
                 'flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed text-xs font-bold',
-                side === 'a' ? 'border-team-a/40 text-team-a/60' : 'border-team-b/40 text-team-b/60',
+                side === 'a'
+                  ? 'border-team-a/40 text-team-a/60'
+                  : 'border-team-b/40 text-team-b/60',
               )}
             >
               {slotNumber}
