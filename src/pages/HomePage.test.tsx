@@ -33,10 +33,15 @@ const state = {
   members: undefined as { rsvp: string; userId: string | null; displayName?: string }[] | undefined,
   matches: undefined as unknown[] | undefined,
   courts: undefined as unknown[] | undefined,
+  clubs: [] as { id: string; name: string }[],
 }
 
 vi.mock('@/features/auth/useAuth', () => ({
   useAuth: () => ({ user: { id: 'u1', email: '안용식@example.com' }, signOut: vi.fn() }),
+}))
+
+vi.mock('@/features/club/queries', () => ({
+  useMyClubs: () => ({ data: state.clubs, isPending: false }),
 }))
 
 vi.mock('@/features/tournament/queries', () => ({
@@ -79,6 +84,7 @@ beforeEach(() => {
   state.members = undefined
   state.matches = undefined
   state.courts = undefined
+  state.clubs = []
   // 화면이 마운트 시각으로 "오늘/내일" 을 센다. 날짜를 고정하지 않으면
   // 이 파일이 실제 오늘 날짜에 따라 흔들린다.
   vi.useFakeTimers()
@@ -278,5 +284,41 @@ describe('진행 중일 때 — 내 차례 한 줄', () => {
 
     expect(screen.getByRole('link', { name: /오늘 모임/ })).toBeInTheDocument()
     expect(screen.queryByText(/앞에/)).toBeNull()
+  })
+})
+
+describe('동아리로 가는 문이 가장 크다', () => {
+  test('동아리가 하나면 목록을 거치지 않고 바로 그 동아리로', () => {
+    // 고를 것이 하나뿐인 목록을 한 번 더 보여주는 것은 탭만 하나 늘리는 일이다
+    state.clubs = [{ id: 'c1', name: '수요 배드민턴' }]
+
+    renderHome()
+
+    expect(screen.getByRole('link', { name: /수요 배드민턴/ })).toHaveAttribute('href', '/c/c1')
+  })
+
+  test('여럿이면 목록으로', () => {
+    state.clubs = [
+      { id: 'c1', name: '수요 배드민턴' },
+      { id: 'c2', name: '금요 클럽' },
+    ]
+
+    renderHome()
+
+    expect(screen.getByRole('link', { name: /내 동아리/ })).toHaveAttribute('href', '/clubs')
+  })
+
+  test('아직 없으면 만드는 곳으로 — 빈 목록을 열게 하지 않는다', () => {
+    state.clubs = []
+
+    renderHome()
+
+    expect(screen.getByRole('link', { name: /동아리 만들기/ })).toHaveAttribute('href', '/clubs')
+  })
+
+  test('모임 열기는 작은 줄로 내려간다', () => {
+    renderHome()
+
+    expect(screen.getByRole('link', { name: /모임 열기/ })).toHaveAttribute('href', '/new/session')
   })
 })

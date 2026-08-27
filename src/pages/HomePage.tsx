@@ -13,6 +13,7 @@ import {
   type TodayFocus,
 } from '@/lib/home'
 import { countRsvp, startsAtLabel } from '@/lib/rsvp'
+import { useMyClubs } from '@/features/club/queries'
 
 /**
  * 메인 — **오늘을 보여주는 곳.** 이 화면의 책임은 그 하나다.
@@ -54,31 +55,15 @@ export function HomePage() {
       <main className="mx-auto w-full max-w-2xl px-5 pb-16">
         <Today />
 
-        {/*
-          가장 자주 하는 일 하나만 버튼으로 남긴다.
-          모임은 매주 열리고, 대회는 시즌에 몇 번, 초대 코드로 참가하는 쪽은
-          그보다도 드물다. 전에는 셋을 같은 크기 카드로 늘어놔서 화면 절반이
-          **한 달에 한 번도 안 눌리는 버튼**이었다.
-        */}
-        <Link
-          to="/new/session"
-          className="mt-6 flex min-h-16 items-center justify-between gap-3 rounded-2xl
-                     bg-brand-600 px-5 py-4 text-white transition-transform
-                     hover:-translate-y-0.5 focus-visible:-translate-y-0.5
-                     focus-visible:outline-2 focus-visible:outline-offset-2
-                     focus-visible:outline-brand-600"
-        >
-          <span className="text-lg font-black tracking-tight">모임 열기</span>
-          <ArrowRight aria-hidden className="size-5 shrink-0" />
-        </Link>
+        <ClubDoor />
 
         {/*
           나머지는 전부 한 칸에 작은 줄로. 자주 안 누르는 것에 큰 면적을
           주면 매일 보는 것(오늘)이 밀려 내려간다.
         */}
         <nav className="mt-3 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
+          <SmallRow to="/new/session" title="모임 열기" />
           <SmallRow to="/my" title="내 목록" />
-          <SmallRow to="/clubs" title="내 동아리" />
           <SmallRow to="/new" title="대회 만들기" />
           <SmallRow to="/join" title="대회 참가하기" />
           {/*
@@ -294,6 +279,53 @@ function TodaySkeleton() {
 function useNow(): Date {
   const [now] = useState(() => new Date())
   return now
+}
+
+// ── 동아리로 가는 문 ──────────────────────────────────────────────────
+
+/**
+ * 이 앱의 중심은 동아리다. 그래서 가장 큰 버튼이 여기다.
+ *
+ * 전에는 '모임 열기' 가 그 자리였는데, 실제 쓰임은 **동아리에 들어가서
+ * 거기서 무엇을 할지 고르는 것**이다 — 게스트 링크도 명단도 산하 모임도
+ * 전부 동아리 밑에 있다. 모임 열기는 그 안에서 하는 여러 일 중 하나라
+ * 아래 줄로 내렸다.
+ *
+ * **동아리가 하나뿐이면 목록을 거치지 않고 바로 그 동아리로 보낸다.**
+ * 대부분이 여기에 해당한다. 고를 것이 하나뿐인 목록을 한 번 더 보여주는
+ * 것은 탭만 하나 늘리는 일이다.
+ *
+ * 아직 동아리가 없으면 만드는 곳으로 보낸다 — 그 사람에게 "내 동아리" 는
+ * 빈 목록이고, 빈 목록을 열게 하는 것보다 무엇을 하면 되는지 말하는 편이
+ * 낫다.
+ */
+function ClubDoor() {
+  const { data, isPending } = useMyClubs()
+
+  if (isPending) return <div aria-hidden className="mt-6 h-16 animate-pulse rounded-2xl bg-surface-2" />
+
+  const clubs = data ?? []
+  const only = clubs.length === 1 ? clubs[0] : undefined
+  const to = only ? `/c/${only.id}` : '/clubs'
+  const title = only ? only.name : clubs.length === 0 ? '동아리 만들기' : '내 동아리'
+  const desc = only ? '명단 · 게스트 링크 · 모임' : clubs.length === 0 ? '명단을 만들어 두면 매번 부르지 않아도 됩니다' : `${clubs.length}개`
+
+  return (
+    <Link
+      to={to}
+      className="mt-6 flex min-h-20 items-center justify-between gap-3 rounded-2xl
+                 bg-brand-600 px-5 py-4 text-white transition-transform
+                 hover:-translate-y-0.5 focus-visible:-translate-y-0.5
+                 focus-visible:outline-2 focus-visible:outline-offset-2
+                 focus-visible:outline-brand-600"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-lg font-black tracking-tight">{title}</span>
+        <span className="mt-0.5 block truncate text-sm text-brand-100">{desc}</span>
+      </span>
+      <ArrowRight aria-hidden className="size-5 shrink-0" />
+    </Link>
+  )
 }
 
 // ── 머리 · 문 ─────────────────────────────────────────────────────────
