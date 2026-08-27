@@ -38,3 +38,4 @@ playwright-report
 test-results
 shots/
 shot-*.png
+scripts/_*
