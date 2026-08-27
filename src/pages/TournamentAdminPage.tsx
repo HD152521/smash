@@ -12,7 +12,7 @@ import {
   Square,
   Users,
 } from 'lucide-react'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { InlineEdit } from '@/components/ui/InlineEdit'
@@ -66,9 +66,7 @@ export function TournamentAdminPage() {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
       {/* 관리에서 뒤로는 늘 대회 화면이다. 편성을 여러 번 오간 뒤에도 한 번에 나간다. */}
-      <BackLink to={`/t/${id}`} fixed>
-        대회로
-      </BackLink>
+      <BackBar to={`/t/${id}`} label="대회로" fixed />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">관리</h1>
       {/* 오타는 대회가 끝날 때까지 남는다. 여기서 바로 고친다. */}

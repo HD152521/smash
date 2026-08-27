@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/useAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
 import { HomePage } from '@/pages/HomePage'
+import { TournamentOnly } from '@/features/tournament/TournamentOnly'
 
 /**
  * 관리자·심판 화면은 라우트 단위로 나눠 받는다.
@@ -450,11 +451,19 @@ export function AppRoutes() {
         }
       />
 
+      {/*
+        점수판은 대회에만 있다. 모임에서 열면 코트 화면으로 돌려보낸다 —
+        모임에서 하는 일은 코트에 들어가고 나오는 것 둘뿐이다.
+        링크를 지우는 것만으로는 부족해서 라우트에서 막는다(주소 직접 입력 ·
+        열어 둔 탭 새로고침 · 카톡으로 받은 링크).
+      */}
       <Route
         path="/t/:id/matches/:matchId"
         element={
           <Protected>
-            <MatchScorePage />
+            <TournamentOnly>
+              <MatchScorePage />
+            </TournamentOnly>
           </Protected>
         }
       />

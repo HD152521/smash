@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, WifiOff } from 'lucide-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
@@ -103,9 +103,11 @@ export function TournamentPage() {
    * 대회에는 참가 신청이라는 개념 자체가 없고, rsvp 값도 읽지 않는다.
    */
   const beforeStart = session && !showCourts && !hasStarted(t.starts_at, now)
+  /** 하단 고정 버튼이 뜰 때만 그만큼 여백을 준다 — 안 뜨는 화면에서 빈 공간을 남기지 않는다 */
+  const showCreateButton = !beforeStart && session && Boolean(me)
 
   return (
-    <Shell id={id}>
+    <Shell id={id} padForFixedButton={showCreateButton}>
       {/* 조 안내는 대회에서만 뜻이 있다. 모임에는 조가 없다. */}
       {!session && me && !me.groupId && t.status !== 'draft' && (
         <p className="mt-5 rounded-2xl border border-warn/40 bg-warn/10 p-4 text-sm font-semibold text-ink-1">
@@ -124,37 +126,31 @@ export function TournamentPage() {
       )}
 
       {/*
-        모임에서 가장 자주 누르는 버튼. 관리 화면 안에 두지 않는다 —
-        모임장이 아닌 사람도 비는 코트를 보고 자기들끼리 들어가기 때문이다
-        (create_session_match 가 '뛰는 사람 본인' 을 허용한다).
-      */}
-      {!beforeStart && session && me && (
-        <Link
-          to={`/t/${id}/matches/new-session`}
-          className="mt-5 flex min-h-14 items-center justify-center gap-2 rounded-2xl
-                     bg-brand-600 px-5 font-black text-white shadow-sm transition-colors
-                     hover:bg-brand-700
-                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-        >
-          <Plus className="size-5" aria-hidden />
-          경기 짜기
-        </Link>
-      )}
-
-      {/*
         ── 코트별 현황 (이 화면의 본론) ───────────────────────────
+
+        "코트 현황" 이라는 제목은 달지 않는다 — 탭이 이미 '코트' 다.
+        같은 말을 본문에서 또 하면 그 자리에 코트 하나가 덜 들어간다
+        (docs/design.md '제목을 지우고 정보를 키운다').
 
         시작 전에는 아예 그리지 않는다. 감추기만 하면 아직 경기가 하나도
         없는 코트 목록이 계속 살아 있으면서 실시간 구독까지 붙어 있게 된다.
       */}
       {!beforeStart && (
-        <section className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-ink-1">코트 현황</h2>
-            {realtime === 'live' && (
-              <span className="text-xs font-semibold text-ok-fg">실시간</span>
-            )}
-          </div>
+        <section className="mt-5">
+          {/*
+            정상(live·connecting)일 때는 조용히 둔다 — 실시간 연결은
+            운영진이 신경 쓸 일이 아니라 당연히 되는 일이다. 초록 "실시간"
+            글자가 상태인지 버튼인지 제목인지 모호하다는 지적을 받았다
+            (코디네이터 피드백 2026-08-27 '["실시간" 라벨]'). 정보가 필요한
+            순간은 딱 하나, **끊겼을 때**뿐이다 — 그때는 화면이 갱신을
+            멈췄다는 뜻이라 알아야 새로고침이라도 한다.
+          */}
+          {realtime === 'offline' && (
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-warn-fg">
+              <WifiOff className="size-3.5" aria-hidden />
+              실시간 연결이 끊겼습니다 · 새로고침해 주세요
+            </p>
+          )}
           {matches.isPending || courts.isPending ? (
             <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
           ) : (
@@ -165,21 +161,78 @@ export function TournamentPage() {
               myDisplayName={me?.displayName}
               /*
                * 모임에는 지정 심판이 없다. 뛰는 사람이 자기 경기를 시작하고
-               * 끝낸다(can_run_match). 여기서 admin 만 열어 두면 화살표가 안 보여
-               * 아무도 코트에 못 들어간다.
+               * 끝낸다 — 그 판단은 `lib/matchAccess.ts` 가 서버의 can_run_match
+               * 와 똑같이 한다. 예전엔 여기서 `canScore={isAdmin || session}` 로
+               * 모임 참가자 **전원**에게 열어 줬는데, 서버는 '그 경기에 뛰는
+               * 사람' 만 받으므로 남의 코트를 눌렀다 권한 오류를 보게 됐다.
                */
-              canScore={isAdmin || session}
+              isAdmin={isAdmin}
+              isSession={session}
             />
           )}
         </section>
+      )}
+
+      {/*
+        모임에서 가장 자주 누르는 버튼을 하단 고정으로.
+        엄지가 닿는 화면 아래 3분의 1 에 둔다(docs/design.md '자주 누르는
+        것은 아래에 둔다') — SessionMatchCreatePage 의 제출 버튼과 같은 자리.
+        관리 화면 안에 두지 않는 이유는 그대로다: 모임장이 아닌 사람도
+        비는 코트를 보고 자기들끼리 들어가기 때문이다
+        (create_session_match 가 '뛰는 사람 본인' 을 허용한다).
+      */}
+      {showCreateButton && (
+        <div
+          className="fixed inset-x-0 z-30 border-t border-border-subtle bg-surface-1/95 p-4 backdrop-blur"
+          /*
+            하단탭(TournamentTabBar) 바로 위에 붙인다 — 둘 다 fixed bottom
+            이라 그대로 두면 겹친다(docs 작업 지시 '3. 하단 고정 버튼과
+            겹치지 않게'). 4rem 은 탭바 한 줄의 내용 높이(min-h-16)와 같다.
+            safe-area 는 탭바가 자기 padding-bottom 으로 한 번 더 까므로
+            여기서 한 번만 더해야 둘이 정확히 맞붙는다.
+          */
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+        >
+          <Link
+            to={`/t/${id}/matches/new-session`}
+            className="mx-auto flex min-h-14 max-w-2xl items-center justify-center gap-2 rounded-2xl
+                       bg-brand-600 px-5 font-black text-white shadow-sm transition-colors
+                       hover:bg-brand-700
+                       focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <Plus className="size-5" aria-hidden />
+            경기 짜기
+          </Link>
+        </div>
       )}
     </Shell>
   )
 }
 
-function Shell({ id, children }: { id: string | undefined; children: React.ReactNode }) {
+function Shell({
+  id,
+  padForFixedButton = false,
+  children,
+}: {
+  id: string | undefined
+  /** 하단 고정 '경기 짜기' 버튼이 코트 목록을 가리지 않게 여백을 더 준다 */
+  padForFixedButton?: boolean
+  children: React.ReactNode
+}) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
+    <main
+      className="mx-auto w-full max-w-2xl px-5 pt-6"
+      /*
+        하단탭이 이제 모든 대회 화면에 고정으로 깔린다. '경기 짜기' 버튼이
+        더 뜨면 그 위에 한 겹 더 쌓이므로 본문 여백도 그만큼 늘어난다.
+        수치 근거는 위 CTA 컨테이너 주석과 TournamentTabBar 주석에 있다.
+      */
+      style={{
+        paddingBottom: padForFixedButton
+          ? 'calc(9.5rem + env(safe-area-inset-bottom))'
+          : 'calc(5.5rem + env(safe-area-inset-bottom))',
+      }}
+    >
       {id && <TournamentNav id={id} active="court" />}
       {children}
     </main>

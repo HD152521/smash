@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -23,9 +23,9 @@ vi.mock('@/features/tournament/queries', () => ({
   useRecordManualMatch: () => manual,
 }))
 
-function renderEntry() {
+function renderEntry(state?: unknown) {
   return render(
-    <MemoryRouter initialEntries={[`/t/${TOURNAMENT_ID}/matches/record`]}>
+    <MemoryRouter initialEntries={[{ pathname: `/t/${TOURNAMENT_ID}/matches/record`, state }]}>
       <Routes>
         <Route path="/t/:id/matches/record" element={<PastMatchEntryPage />} />
         <Route path="/t/:id/records" element={<p>기록 화면</p>} />
@@ -88,5 +88,86 @@ describe('저장한 뒤', () => {
     })
     // 옮겨 적은 것이 제대로 들어갔는지 눈으로 확인할 곳이 기록이다
     expect(await screen.findByText('기록 화면')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 무효 처리 화면에서 넘어온 값을 채운다 — 끊긴 링크를 잇는 쪽의 절반이다.
+ * 방금 본 조·선수·점수를 사람이 다시 고르게 하지 않는다.
+ */
+describe('무효 처리한 경기에서 넘어오면', () => {
+  const REMATCH_STATE = {
+    groupA: 'group-a',
+    groupB: 'group-b',
+    playersANames: ['가나', '나다'],
+    playersBNames: ['다라', '라마'],
+    scoreA: 19,
+    scoreB: 21,
+  }
+
+  test('조·선수·점수가 이미 채워져 있다', async () => {
+    renderEntry(REMATCH_STATE)
+
+    // 명단이 도착한 뒤 채워지므로 findBy 로 기다린다
+    expect(await screen.findByLabelText('1조 점수')).toHaveValue(19)
+    expect(screen.getByLabelText('2조 점수')).toHaveValue(21)
+
+    const teamA = within(screen.getByRole('region', { name: 'A팀' }))
+    expect(teamA.getByRole('button', { name: '가나' })).toHaveAttribute('aria-pressed', 'true')
+    expect(teamA.getByRole('button', { name: '나다' })).toHaveAttribute('aria-pressed', 'true')
+    const teamB = within(screen.getByRole('region', { name: 'B팀' }))
+    expect(teamB.getByRole('button', { name: '다라' })).toHaveAttribute('aria-pressed', 'true')
+    expect(teamB.getByRole('button', { name: '라마' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('채워진 점수를 바꿀 수 있다 — 운영진이 고치려는 것은 대개 점수 하나다', async () => {
+    renderEntry(REMATCH_STATE)
+    const scoreInput = await screen.findByLabelText('1조 점수')
+
+    await userEvent.clear(scoreInput)
+    await userEvent.type(scoreInput, '21')
+    expect(scoreInput).toHaveValue(21)
+  })
+
+  test('채워진 선수도 바꿀 수 있다 — 사람이 바뀐 경우도 있다', async () => {
+    renderEntry(REMATCH_STATE)
+    await screen.findByLabelText('1조 점수')
+
+    const teamA = within(screen.getByRole('region', { name: 'A팀' }))
+    expect(teamA.getByRole('button', { name: '나다' })).toHaveAttribute('aria-pressed', 'true')
+    // 채워진 선수를 눌러 뺄 수 있다 — 강제로 고정돼 있지 않다
+    await userEvent.click(teamA.getByRole('button', { name: '나다' }))
+    expect(teamA.getByRole('button', { name: '나다' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('저장하면 다시 고르지 않은 값 그대로 보낸다', async () => {
+    renderEntry(REMATCH_STATE)
+    await screen.findByLabelText('1조 점수')
+
+    await userEvent.click(screen.getByRole('button', { name: '결과 저장' }))
+
+    expect(manual.mutateAsync).toHaveBeenCalledWith({
+      groupA: 'group-a',
+      playersA: ['m1', 'm2'],
+      scoreA: 19,
+      groupB: 'group-b',
+      playersB: ['m3', 'm4'],
+      scoreB: 21,
+    })
+  })
+
+  test('화면 문구가 새 경기로 다시 기록됨을 말해 준다 (record_manual_match 는 새 행을 만든다)', async () => {
+    renderEntry(REMATCH_STATE)
+    expect(await screen.findByText(/다시 기록합니다/)).toBeInTheDocument()
+  })
+
+  test('일반적으로 들어오면(무효 처리를 거치지 않으면) 이 문구가 없다', () => {
+    renderEntry()
+    expect(screen.queryByText(/다시 기록합니다/)).not.toBeInTheDocument()
+  })
+
+  test('모양이 다른 state 는 조용히 무시하고 빈 폼으로 남는다', () => {
+    renderEntry({ garbage: true })
+    expect(screen.queryByLabelText(/점수$/)).not.toBeInTheDocument()
   })
 })

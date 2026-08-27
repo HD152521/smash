@@ -1,5 +1,5 @@
 import { Navigate, useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { useAuditLog, useMembers } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -39,7 +39,7 @@ export function AuditLogPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/t/${id}/admin`}>관리로</BackLink>
+      <BackBar to={`/t/${id}/admin`} label="관리로" />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">변경 기록</h1>
       <p className="mt-2 text-sm text-ink-2">

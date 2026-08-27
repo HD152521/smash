@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useJoinTournament, useProfileName } from '@/features/tournament/queries'
@@ -37,7 +37,7 @@ export function JoinTournamentPage() {
 
   return (
     <main className="mx-auto w-full max-w-md px-5 pt-6 pb-16">
-      <BackLink to="/">메인으로</BackLink>
+      <BackBar to="/" label="메인으로" />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">대회 참가</h1>
       <p className="mt-2 text-sm text-ink-2">

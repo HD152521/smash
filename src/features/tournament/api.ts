@@ -180,6 +180,14 @@ export interface MyTournament {
   joinedAt: string
   /** 소속 동아리. 동아리 없이 만든 대회·모임은 null 이다 (대부분이 여기다) */
   clubId: string | null
+  /**
+   * 모임 시각. 대회에는 없고, 즉석 모임(시각 없이 연 것)도 null 이다.
+   *
+   * 홈이 "다음 모임이 언제인가" 에 답하려면 이 값이 목록에 실려야 한다.
+   * 컬럼 하나라 조회 비용은 거의 안 늘지만, 이게 없으면 홈이 모임마다
+   * 상세를 한 번씩 더 부르게 된다 — 목록 화면이 N+1 이 되는 자리다.
+   */
+  startsAt: string | null
 }
 
 interface MembershipRow {
@@ -195,6 +203,7 @@ interface MembershipRow {
     kind: TournamentKind | null
     invite_code: string
     club_id: string | null
+    starts_at: string | null
   } | null
 }
 
@@ -202,7 +211,7 @@ export async function fetchMyTournaments(userId: string): Promise<MyTournament[]
   const res = await supabase
     .from('tournament_members')
     .select(
-      'role, group_id, joined_at, tournaments(id, name, description, status, kind, invite_code, club_id)',
+        'role, group_id, joined_at, tournaments(id, name, description, status, kind, invite_code, club_id, starts_at)',
     )
     .eq('user_id', userId)
     .order('joined_at', { ascending: false })
@@ -225,6 +234,7 @@ export async function fetchMyTournaments(userId: string): Promise<MyTournament[]
       groupId: r.group_id,
       joinedAt: r.joined_at,
       clubId: r.tournaments.club_id,
+      startsAt: r.tournaments.starts_at,
     }))
 }
 

@@ -12,7 +12,12 @@ export function Badge({
 }) {
   const tones = {
     neutral: 'bg-surface-2 text-ink-2 border-border-subtle',
-    live: 'bg-live/12 text-live-fg border-live/25',
+    /*
+     * 경기가 도는 건 정상이지 경고가 아니다 (docs/design.md).
+     * 예전엔 빨강(live)이었다 — "진행 중" 에 경고색을 쓰면 정말 되돌릴 수
+     * 없는 일(무효 처리 등)과 구분이 안 된다. 중립으로 둔다.
+     */
+    live: 'bg-surface-2 text-ink-2 border-border-subtle',
     ok: 'bg-ok/12 text-ok-fg border-ok/25',
     joker: 'bg-joker-soft text-joker-ink border-joker/40',
     /* 손봐야 할 게 남았다는 표시 — 오류(team-b)와 달리 눌러서 고칠 수 있다 */
@@ -36,7 +41,7 @@ export function Badge({
 export function LiveBadge({ className }: { className?: string }) {
   return (
     <Badge tone="live" className={className}>
-      <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-live" />
+      <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-ink-3" />
       진행중
     </Badge>
   )

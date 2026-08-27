@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { useClub, useClubMembers } from './queries'
 import { isClubStaff } from '@/lib/club'
@@ -75,7 +75,7 @@ export function ClubScreen({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to={`/c/${clubId}`}>동아리</BackLink>
+      <BackBar to={`/c/${clubId}`} label="동아리" />
 
       <h1 className="mt-4 text-3xl font-black tracking-tight text-ink-1">{title}</h1>
       {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
@@ -102,7 +102,7 @@ export function ClubScreen({
 export function ClubUnavailable({ error }: { error: unknown }) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to="/clubs">내 동아리</BackLink>
+      <BackBar to="/clubs" label="내 동아리" />
       <p role="alert" className="mt-8 text-sm font-medium text-team-b-fg">
         {toUserMessage(error, '동아리를 불러오지 못했습니다')}
       </p>

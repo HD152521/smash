@@ -14,7 +14,10 @@ import { cn } from '@/lib/utils'
  * 그때만 to 로 보낸다. location.key 가 'default' 면 이 앱에서 연 첫 화면이다.
  *
  * 탭 영역: 폰에서 화면 맨 위 구석의 20px 짜리 표적은 엄지로 잘 안 맞는다.
- * 세로 여백으로 44px 를 만들되 글자 위치는 왼쪽 마이너스 마진으로 상쇄한다.
+ * 세로 여백으로 48px 를 만들되 글자 위치는 왼쪽 마이너스 마진으로 상쇄한다.
+ * 44px(권장 최소치)에서 48px 로 키웠다 — 저녁 내내 한 손으로 쓰는 화면에서
+ * 최소치에 딱 맞추면 걸어 다니며 누를 때 실제로 빗나간다. 좌우 여백도
+ * 8px→12px 로 넓혀 표적을 가로로도 키웠다.
  */
 export function BackLink({
   to,
@@ -44,8 +47,10 @@ export function BackLink({
       type="button"
       onClick={() => (canGoBack ? navigate(-1) : navigate(to))}
       className={cn(
-        '-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2',
+        '-ml-3 inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3',
         'text-sm font-medium text-ink-2 transition-colors hover:text-ink-1',
+        // 눌렀다는 표시. 폰에서는 hover 가 없다.
+        'active:bg-surface-2 active:text-ink-1',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
         className,
       )}

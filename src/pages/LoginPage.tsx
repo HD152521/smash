@@ -17,6 +17,15 @@ const SOCIAL_STYLE: Record<SocialProvider, string> = {
   google: '',
 }
 
+/**
+ * 로그인 — 앱과 같은 세계로.
+ *
+ * 예전엔 배경이 거의 검정이라 로그인 다음에 뜨는 흰 홈 화면과 다른
+ * 제품처럼 보였다(docs/design.md '로그인은 거의 검정, 앱은 거의
+ * 흰색'). 체육관 조명 아래에서는 밝은 화면이 읽히므로 여기도 홈과
+ * 같은 `bg-surface-0` 을 명시하고, 같은 머리(Smash 표식)를 얹는다 —
+ * 다음 화면과 이어지는 첫인상을 준다.
+ */
 export function LoginPage() {
   const { user, ready, signInWithPassword, signUpWithPassword, signInWithSocial } = useAuth()
   const { data: settings } = useAuthSettings()
@@ -69,105 +78,110 @@ export function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-dvh place-items-center px-5 py-10">
-      <div className="w-full max-w-sm">
-        <header className="mb-8">
-          <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">SMASH</p>
-          <h1 className="mt-1 text-4xl leading-tight font-black tracking-tight text-ink-1">
-            코트에서
-            <br />
-            바로 쓰는 대회 운영
-          </h1>
-          <p className="mt-3 text-sm text-ink-2">대진표, 실시간 점수, 조별 순위를 한곳에서.</p>
-        </header>
+    <div className="min-h-dvh bg-surface-0">
+      {/* 홈과 같은 표식 — 로그인 다음에 오는 화면과 같은 제품임을 바로 보여준다 */}
+      <header className="flex items-center gap-2 px-5 pt-6">
+        <span aria-hidden className="h-4 w-1 rounded-full bg-brand-600" />
+        <span className="text-sm font-black tracking-[0.25em] text-ink-1 uppercase">Smash</span>
+      </header>
 
-        {socials.length > 0 && (
-          <>
-            <div className="flex flex-col gap-2.5">
-              {socials.map((provider) => (
-                <Button
-                  key={provider}
-                  size="lg"
-                  variant="secondary"
-                  loading={busy === provider}
-                  disabled={busy !== null && busy !== provider}
-                  onClick={() => handleSocial(provider)}
-                  className={`w-full ${SOCIAL_STYLE[provider]}`}
-                >
-                  {SOCIAL_LABEL[provider]}
-                </Button>
-              ))}
-            </div>
+      <main className="mx-auto w-full max-w-sm px-5 pt-8 pb-10">
+        <h1 className="text-3xl leading-tight font-black tracking-tight text-ink-1">
+          코트에서 바로 쓰는
+          <br />
+          대회 운영
+        </h1>
+        <p className="mt-2 text-sm text-ink-2">대진표, 실시간 점수, 조별 순위를 한곳에서.</p>
 
-            <div className="my-6 flex items-center gap-3" aria-hidden>
-              <span className="h-px flex-1 bg-border-subtle" />
-              <span className="text-xs font-medium text-ink-3">또는 이메일로</span>
-              <span className="h-px flex-1 bg-border-subtle" />
-            </div>
-          </>
-        )}
+        <div className="mt-8">
+          {socials.length > 0 && (
+            <>
+              <div className="flex flex-col gap-2.5">
+                {socials.map((provider) => (
+                  <Button
+                    key={provider}
+                    size="lg"
+                    variant="secondary"
+                    loading={busy === provider}
+                    disabled={busy !== null && busy !== provider}
+                    onClick={() => handleSocial(provider)}
+                    className={`w-full ${SOCIAL_STYLE[provider]}`}
+                  >
+                    {SOCIAL_LABEL[provider]}
+                  </Button>
+                ))}
+              </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {mode === 'signup' && (
+              <div className="my-6 flex items-center gap-3" aria-hidden>
+                <span className="h-px flex-1 bg-border-subtle" />
+                <span className="text-xs font-medium text-ink-3">또는 이메일로</span>
+                <span className="h-px flex-1 bg-border-subtle" />
+              </div>
+            </>
+          )}
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            {mode === 'signup' && (
+              <Field
+                label="이름"
+                value={name}
+                onChange={setName}
+                autoComplete="name"
+                placeholder="대회에서 보일 이름"
+                required
+              />
+            )}
             <Field
-              label="이름"
-              value={name}
-              onChange={setName}
-              autoComplete="name"
-              placeholder="대회에서 보일 이름"
+              label="이메일"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              autoComplete="email"
               required
             />
-          )}
-          <Field
-            label="이메일"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            autoComplete="email"
-            required
-          />
-          <Field
-            label="비밀번호"
-            type="password"
-            value={password}
-            onChange={setPassword}
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-            minLength={6}
-            required
-          />
+            <Field
+              label="비밀번호"
+              type="password"
+              value={password}
+              onChange={setPassword}
+              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+              minLength={6}
+              required
+            />
 
-          {error && (
-            <p role="alert" className="text-sm font-medium text-team-b-fg">
-              {error}
-            </p>
-          )}
-          {notice && (
-            <p role="status" className="text-sm font-medium text-brand-fg">
-              {notice}
-            </p>
-          )}
+            {error && (
+              <p role="alert" className="text-sm font-medium text-team-b-fg">
+                {error}
+              </p>
+            )}
+            {notice && (
+              <p role="status" className="text-sm font-medium text-brand-fg">
+                {notice}
+              </p>
+            )}
 
-          <Button type="submit" size="lg" loading={busy === 'local'} className="mt-1 w-full">
-            {mode === 'signin' ? '로그인' : '가입하기'}
-          </Button>
-        </form>
+            <Button type="submit" size="lg" loading={busy === 'local'} className="mt-1 w-full">
+              {mode === 'signin' ? '로그인' : '가입하기'}
+            </Button>
+          </form>
 
-        <p className="mt-5 text-center text-sm text-ink-2">
-          {mode === 'signin' ? '계정이 없으신가요?' : '이미 계정이 있으신가요?'}{' '}
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === 'signin' ? 'signup' : 'signin')
-              setError(null)
-              setNotice(null)
-            }}
-            className="rounded px-1 py-2 font-semibold text-brand-fg underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            {mode === 'signin' ? '가입하기' : '로그인'}
-          </button>
-        </p>
-      </div>
-    </main>
+          <p className="mt-5 text-center text-sm text-ink-2">
+            {mode === 'signin' ? '계정이 없으신가요?' : '이미 계정이 있으신가요?'}{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === 'signin' ? 'signup' : 'signin')
+                setError(null)
+                setNotice(null)
+              }}
+              className="rounded px-1 py-2 font-semibold text-brand-fg underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              {mode === 'signin' ? '가입하기' : '로그인'}
+            </button>
+          </p>
+        </div>
+      </main>
+    </div>
   )
 }
 
@@ -190,7 +204,7 @@ function Field({ label, value, onChange, ...rest }: FieldProps) {
         {...rest}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-11 rounded-xl border border-border-subtle bg-surface-1 px-3.5 text-ink-1
+        className="h-11 rounded-xl border border-ink-3/40 bg-surface-1 px-3.5 text-ink-1
                    outline-none transition-colors placeholder:text-ink-3
                    focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25"
       />

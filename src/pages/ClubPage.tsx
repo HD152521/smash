@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowRight, KeyRound, Link2, Settings, Users } from 'lucide-react'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { ClubTournamentList } from '@/features/club/ClubTournamentList'
 import { ClubUnavailable } from '@/features/club/ClubScreen'
@@ -53,7 +53,7 @@ export function ClubPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to="/clubs">내 동아리</BackLink>
+      <BackBar to="/clubs" label="내 동아리" />
 
       <p className="mt-6 text-sm font-semibold tracking-widest text-brand-fg uppercase">CLUB</p>
       <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{c.name}</h1>

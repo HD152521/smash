@@ -37,6 +37,7 @@ export function MatchScorePage() {
   const navigate = useNavigate()
   const scoring = useMatchScoring(matchId)
   const tournament = useTournament(id)
+
   const m = scoring.match
   const isLive = m?.status === 'live'
   useWakeLock(isLive)
@@ -133,7 +134,14 @@ export function MatchScorePage() {
       <header
         className={cn('flex items-center justify-between gap-3 px-4', wide ? 'py-1.5' : 'py-3')}
       >
-        {/* 대진표에서 들어왔으면 대진표로, 코트에서 들어왔으면 코트로 */}
+        {/*
+          대진표에서 들어왔으면 대진표로, 코트에서 들어왔으면 코트로.
+
+          여기만 `BackBar`(고정 머리말)를 쓰지 않는다. 이 화면은 스크롤이
+          없다 — `Wrap` 이 화면 높이에 맞춰 세로로 꽉 채우고, 가로 모드에서는
+          `fixed` + `rotate-90` 으로 통째로 돌린다. `sticky` 는 그 안에서
+          기준이 뒤틀리고, 애초에 나가기가 사라질 일이 없다.
+        */}
         <BackLink to={`/t/${id}`}>나가기</BackLink>
 
         <div className="flex items-center gap-2 text-xs font-semibold">

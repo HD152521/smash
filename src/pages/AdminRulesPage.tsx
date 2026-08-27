@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Button } from '@/components/ui/Button'
 import { useAdminGate } from '@/features/admin/useAdminGate'
 import { RuleFields } from '@/features/tournament/RuleFields'
@@ -64,7 +64,7 @@ export function AdminRulesPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-28">
-      <BackLink to={`/t/${id}/admin`}>관리로</BackLink>
+      <BackBar to={`/t/${id}/admin`} label="관리로" />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">경기 규칙</h1>
       <p className="mt-2 text-sm text-ink-2">

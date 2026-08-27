@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Radio } from 'lucide-react'
 import { useMatches, useTournament } from '@/features/tournament/queries'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
@@ -23,8 +23,13 @@ export function LiveBoardPage() {
 
   return (
     <div data-theme="dark" className="min-h-dvh bg-surface-0 p-4">
-      <header className="flex items-center justify-between gap-3">
-        <BackLink to={`/t/${id}`}>나가기</BackLink>
+      {/*
+        관전판은 코트 옆 태블릿에 걸어두는 화면이지만, 폰으로 열어 보는
+        사람도 있다. 진행 중 경기가 여럿이면 '다음 경기' 목록까지 화면
+        아래로 길어져서 나가기가 위로 사라진다. 여기도 머리말을 붙여 둔다.
+        껍데기가 `p-4` 라 `px-5 pt-6` 을 전제로 한 기본값을 여기에 맞춘다.
+      */}
+      <BackBar to={`/t/${id}`} label="나가기" className="-mx-4 -mt-4 gap-3 px-4" topPad="1rem">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-bold text-ink-2">{tournament.data?.name}</span>
           <span
@@ -38,7 +43,7 @@ export function LiveBoardPage() {
             {realtime === 'live' ? '실시간' : '재연결 중'}
           </span>
         </div>
-      </header>
+      </BackBar>
 
       {live.length === 0 ? (
         <div className="grid min-h-[70dvh] place-items-center">

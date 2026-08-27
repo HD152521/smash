@@ -15,7 +15,11 @@ export function StandingsPage() {
   const me = members.data?.find((m) => m.userId === user?.id)
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
+    <main
+      className="mx-auto w-full max-w-2xl px-5 pt-6"
+      // 하단탭에 가려지지 않을 여백. 근거는 TournamentPage 의 Shell 주석.
+      style={{ paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
+    >
       <TournamentNav id={id!} active="standings" />
       <h2 className="sr-only">조별 순위</h2>
 
@@ -29,10 +33,7 @@ export function StandingsPage() {
         {standings.isPending ? (
           <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
         ) : (
-          <StandingsTable
-            standings={standings.data ?? []}
-            myGroupId={me?.groupId}
-          />
+          <StandingsTable standings={standings.data ?? []} myGroupId={me?.groupId} />
         )}
       </div>
 

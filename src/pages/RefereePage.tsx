@@ -33,7 +33,11 @@ export function RefereePage() {
   const done = mine.filter((m) => m.status === 'finished')
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
+    <main
+      className="mx-auto w-full max-w-2xl px-5 pt-6"
+      // 하단탭에 가려지지 않을 여백. 근거는 TournamentPage 의 Shell 주석.
+      style={{ paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
+    >
       <TournamentNav id={id!} active="referee" />
 
       <header className="mt-4">

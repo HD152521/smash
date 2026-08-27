@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { Badge } from '@/components/ui/Badge'
 import { useMyClubs } from '@/features/club/queries'
 import { clubRoleLabel, isClubStaff } from '@/lib/club'
@@ -18,7 +18,7 @@ export function MyClubsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to="/">메인으로</BackLink>
+      <BackBar to="/" label="메인으로" />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 동아리</h1>
       <p className="mt-2 text-sm text-ink-2">

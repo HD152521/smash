@@ -76,12 +76,17 @@ describe('BackLink', () => {
     expect(screen.getByText('메인')).toBeInTheDocument()
   })
 
-  test('탭 영역이 44px 아래로 내려가지 않는다', () => {
+  /*
+   * 표적 크기는 코드 리뷰로는 안 지켜진다 — 클래스 하나만 빠져도 20px 짜리
+   * 글자 표적으로 되돌아간다. 최소치(44px)가 아니라 실제로 쓰는 48px 를
+   * 못 박는다. 머리말이 고정되면서 이 버튼은 화면에 늘 떠 있게 됐다.
+   */
+  test('탭 영역이 48px 아래로 내려가지 않는다', () => {
     render(
       <MemoryRouter initialEntries={['/match']}>
         <App />
       </MemoryRouter>,
     )
-    expect(screen.getByRole('button', { name: '메인으로' }).className).toContain('min-h-11')
+    expect(screen.getByRole('button', { name: '메인으로' }).className).toContain('min-h-12')
   })
 })

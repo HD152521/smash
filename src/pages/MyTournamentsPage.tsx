@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BackLink } from '@/components/ui/BackLink'
+import { BackBar } from '@/components/ui/BackBar'
 import { ChevronRight } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { useMyClubs } from '@/features/club/queries'
@@ -54,7 +54,7 @@ export function MyTournamentsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackLink to="/">메인으로</BackLink>
+      <BackBar to="/" label="메인으로" />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 목록</h1>
 
