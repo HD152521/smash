@@ -36,25 +36,32 @@ function chunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([len, body, crc])
 }
 
-/** 셔틀콕을 단순화한 도형: 둥근 사각 배경 + 흰 원 + 아래로 퍼지는 깃 */
+/**
+ * 셔틀콕을 단순화한 도형: 아래쪽 코르크(원) + 위로 퍼지는 깃털 원뿔.
+ *
+ * `src/components/brand/Shuttlecock.tsx` 와 같은 실루엣(코르크가 바닥,
+ * 깃털이 위로 벌어진다)으로 맞춘다 — 파비콘과 홈 화면 아이콘이 다른
+ * 모양이면 같은 마크로 안 보인다.
+ */
 function pixel(x: number, y: number, size: number): [number, number, number] {
   const cx = size / 2
-  const headR = size * 0.16
-  const headY = size * 0.36
+  const corkCy = size * 0.79
+  const corkR = size * 0.15
 
-  // 콕 머리
-  if ((x - cx) ** 2 + (y - headY) ** 2 <= headR ** 2) return FG
+  // 코르크
+  if ((x - cx) ** 2 + (y - corkCy) ** 2 <= corkR ** 2) return FG
 
-  // 깃: 머리 아래로 사다리꼴
-  const top = headY + headR * 0.6
-  const bottom = size * 0.76
-  if (y >= top && y <= bottom) {
-    const t = (y - top) / (bottom - top)
-    const halfW = size * (0.09 + 0.16 * t)
-    if (Math.abs(x - cx) <= halfW) {
+  // 깃털 원뿔: 코르크 위 목에서 위로 갈수록 넓어진다
+  const coneBottom = corkCy - corkR * 0.5
+  const coneTop = size * 0.14
+  if (y >= coneTop && y <= coneBottom) {
+    const t = (coneBottom - y) / (coneBottom - coneTop) // 0=코르크 쪽(좁음) → 1=꼭대기(넓음)
+    const halfW = size * (0.09 + 0.34 * t)
+    const dx = Math.abs(x - cx)
+    if (dx <= halfW) {
       // 깃살 사이를 비워 셔틀콕처럼 보이게
-      const stripe = Math.abs(x - cx) / halfW
-      if (stripe < 0.28 || (stripe > 0.5 && stripe < 0.82)) return FG
+      const stripe = dx / halfW
+      if (stripe < 0.16 || (stripe > 0.42 && stripe < 0.58) || stripe > 0.84) return FG
     }
   }
   return BG

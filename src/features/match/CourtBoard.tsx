@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, ListOrdered, Loader2, Play } from 'lucide-react'
 import { useClaimCourt, useStartMatch } from '@/features/tournament/queries'
+import { CourtBadge } from './CourtBadge'
 import { LiveCourtBody } from './LiveCourtBody'
 import { SessionLiveCard } from './SessionLiveCard'
 import { matchTitle } from '@/lib/schedule'
@@ -190,30 +191,40 @@ function CourtCard({
           : 'border-border-subtle',
       )}
     >
-      {live ? (
-        access.isSession ? (
-          <SessionLiveCard
-            tournamentId={tournamentId}
-            courtName={court.name}
-            match={live}
-            myDisplayName={access.myName}
-            runnable={canRunMatch(live, access)}
-          />
-        ) : (
-          <LiveHead court={court} match={live} tournamentId={tournamentId} access={access} />
-        )
-      ) : state === 'open' ? (
-        <OpenRow
-          court={court}
-          count={frontFromShared ? shared.length : own.length}
-          fromShared={frontFromShared}
-          runnable={frontRunnable}
-          loading={busy}
-          onStart={() => front && void startAndGo(front)}
-        />
-      ) : (
-        <IdleRow court={court} finishedCount={finishedCount} />
-      )}
+      {/*
+        머리(진행 중·비었음·비어 있음) 자리에만 코트 마킹을 깐다 — 대기
+        줄이 펼쳐져도 그 안까지 늘어나지 않게 여기서만 감싼다(높이가 늘어도
+        선이 함께 늘어지면 '위에서 본 코트' 가 아니라 벽지가 된다).
+      */}
+      <div className="relative">
+        <CourtLines />
+        <div className="relative z-10">
+          {live ? (
+            access.isSession ? (
+              <SessionLiveCard
+                tournamentId={tournamentId}
+                courtName={court.name}
+                match={live}
+                myDisplayName={access.myName}
+                runnable={canRunMatch(live, access)}
+              />
+            ) : (
+              <LiveHead court={court} match={live} tournamentId={tournamentId} access={access} />
+            )
+          ) : state === 'open' ? (
+            <OpenRow
+              court={court}
+              count={frontFromShared ? shared.length : own.length}
+              fromShared={frontFromShared}
+              runnable={frontRunnable}
+              loading={busy}
+              onStart={() => front && void startAndGo(front)}
+            />
+          ) : (
+            <IdleRow court={court} finishedCount={finishedCount} />
+          )}
+        </div>
+      </div>
 
       {error && (
         <p role="alert" className="px-4 pb-3 text-sm font-medium text-team-b-fg">
@@ -382,7 +393,10 @@ function OpenRow({
   if (!runnable) {
     return (
       <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-        <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
+        <div className="flex min-w-0 items-center gap-2">
+          <CourtBadge faint={false} />
+          <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
+        </div>
         <p className="shrink-0 text-sm font-bold text-state-open-fg">{statusText}</p>
       </div>
     )
@@ -398,7 +412,10 @@ function OpenRow({
                  transition-colors hover:bg-surface-2 disabled:opacity-60
                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-state-open"
     >
-      <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
+      <div className="flex min-w-0 items-center gap-2">
+        <CourtBadge faint={false} />
+        <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
+      </div>
       <p className="flex shrink-0 items-center gap-1.5 text-sm font-black text-state-open-fg">
         {loading ? (
           <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -415,11 +432,66 @@ function OpenRow({
 function IdleRow({ court, finishedCount }: { court: CourtRow; finishedCount: number }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-      <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
+      <div className="flex min-w-0 items-center gap-2">
+        <CourtBadge faint={false} />
+        <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
+      </div>
       <p className="shrink-0 text-sm text-ink-3">
         {finishedCount > 0 ? `비어 있음 · 완료 ${finishedCount}경기` : '비어 있음'}
       </p>
     </div>
+  )
+}
+
+/**
+ * 코트 카드 머리 배경의 네트 — 가운데를 가르는 두 줄.
+ *
+ * docs/design.md '코트 카드 — 위에서 본 코트'. 배경 레이어라 카드 높이에
+ * 한 픽셀도 관여하지 않는다(부모가 relative, 이 SVG 는 absolute inset-0).
+ * 내용은 그 위에 z-10 으로 따로 얹는다 — 이름·점수가 항상 먼저 읽혀야 한다.
+ *
+ * v6 에서 서비스 박스를 네트 쪽으로 당기고 카드 테두리를 경계로 재사용해
+ * 봤지만(v7), 카드가 5:1 에 가까운 가로로 긴 비율이라 그래도 "빈 표 셀
+ * 두 개" 로만 보이고 코트로 안 읽혔다(코디네이터 확인 — 두 번의 시도로
+ * 결론 남). **전폭 서비스 박스는 다시 시도하지 않는다.**
+ *
+ * 그래서 여기 남는 건 이미 잘 읽힌다고 확인받은 네트뿐이다. 정비율이
+ * 필요한 나머지 마킹(바깥 경계 · 숏 서비스 라인 · 센터 라인)은 코트
+ * 번호 옆의 작은 도형(CourtBadge)이 대신 말한다 — 상태별 진하기 차이도
+ * 이제 그쪽 책임이라 여기는 굳이 안 바꾼다(일정한 옅기 하나만 쓴다).
+ *
+ * 인라인 SVG · currentColor(다크 모드는 --court-line 토큰이 대신 바뀐다)
+ * · non-scaling-stroke(카드 크기가 달라도 선 두께는 그대로).
+ */
+function CourtLines() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      className="pointer-events-none absolute inset-0 size-full text-court-line opacity-[0.1]"
+    >
+      {/* 네트 — 두께가 있는 띠라 한 줄이 아니라 가까운 두 줄로 그려야 '네트'로 읽힌다 */}
+      <line
+        x1="48.3"
+        y1="10"
+        x2="48.3"
+        y2="90"
+        stroke="currentColor"
+        strokeWidth="1"
+        vectorEffect="non-scaling-stroke"
+      />
+      <line
+        x1="51.7"
+        y1="10"
+        x2="51.7"
+        y2="90"
+        stroke="currentColor"
+        strokeWidth="1"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   )
 }
 

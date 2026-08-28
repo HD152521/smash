@@ -55,6 +55,20 @@
   --color-state-open: var(--color-brand-600);
   --color-state-soon: var(--color-warn);
 
+  /*
+   * 정체성 색 — docs/design.md '시각 정체성 · 팔레트' 절.
+   *
+   * 지금까지 초록 하나 + 회색 중립뿐이었다. 마크 · 선화 · 머리말의 바탕색으로
+   * 네이비/차콜 한 층을 더한다. team-a(코발트, 258)와 같은 계열이라
+   * 색상각을 254 로 살짝 틀고 채도를 크게 낮춰(0.045) 팀 색과 헷갈리지
+   * 않게 한다 — 이건 "누구 편" 이 아니라 "이 브랜드" 라는 뜻이다.
+   *
+   * ⚠ 상태 색(초록=들어갈 수 있다 / 주황=곧 끝난다 / 빨강=되돌릴 수 없다)과는
+   * 다른 축이다. 정체성 색을 상태가 있는 곳(배지·버튼·코트 카드 색)에 쓰지
+   * 않는다 — 마크 · 선화 · 화면 머리에만 쓴다.
+   */
+  --color-ident-navy: oklch(28% 0.045 254);
+
   /* 타이포 */
   --font-sans: 'Pretendard Variable', Pretendard, system-ui, sans-serif;
   --text-score: clamp(3.5rem, 2rem + 12vw, 9rem);
@@ -80,6 +94,8 @@
   --fg-live: oklch(56% 0.21 25);
   --fg-warn: oklch(54% 0.16 70);
   --fg-team-b: oklch(56% 0.20 27);
+  /* 정체성 — 마크 · 선화 · 머리말 글씨. --color-ident-navy 주석 참고 */
+  --fg-ident-navy: oklch(28% 0.045 254);
 
   --surface-0: oklch(98.5% 0.003 250);
   --surface-1: oklch(100% 0 0);
@@ -89,6 +105,14 @@
   --ink-2: oklch(46% 0.012 255);
   --ink-3: oklch(54% 0.012 255);
   --shadow-card: 0 1px 2px oklch(20% 0.02 255 / 0.06), 0 8px 24px oklch(20% 0.02 255 / 0.06);
+
+  /*
+   * 코트 카드 배경의 코트 마킹 선(docs/design.md '코트 카드 — 위에서 본 코트').
+   * 라이트에서는 짙은 잉크가 낮은 불투명도로 깔려 회색으로 내려앉고,
+   * 다크에서는 밝은 선이 그대로 보인다 — 값 자체가 아니라 opacity 로
+   * '빈 코트는 더 보이고 찬 코트는 옅어진다' 를 카드에서 조절한다.
+   */
+  --court-line: oklch(32% 0.02 255);
 }
 
 :root:not([data-theme='light']) {
@@ -98,6 +122,7 @@
     --fg-live: oklch(67% 0.21 25);
     --fg-warn: oklch(65% 0.16 70);
     --fg-team-b: oklch(66% 0.20 27);
+    --fg-ident-navy: oklch(76% 0.05 254);
     --surface-0: oklch(17% 0.012 255);
     --surface-1: oklch(21% 0.014 255);
     --surface-2: oklch(26% 0.016 255);
@@ -106,6 +131,7 @@
     --ink-2: oklch(76% 0.008 255);
     --ink-3: oklch(64% 0.010 255);
     --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
+    --court-line: oklch(90% 0.008 255);
   }
 }
 
@@ -121,6 +147,7 @@
   --fg-live: oklch(67% 0.21 25);
   --fg-warn: oklch(65% 0.16 70);
   --fg-team-b: oklch(66% 0.20 27);
+  --fg-ident-navy: oklch(76% 0.05 254);
   --surface-0: oklch(17% 0.012 255);
   --surface-1: oklch(21% 0.014 255);
   --surface-2: oklch(26% 0.016 255);
@@ -129,6 +156,7 @@
   --ink-2: oklch(76% 0.008 255);
   --ink-3: oklch(64% 0.010 255);
   --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
+  --court-line: oklch(90% 0.008 255);
 }
 
 @theme inline {
@@ -137,6 +165,7 @@
   --color-live-fg: var(--fg-live);
   --color-warn-fg: var(--fg-warn);
   --color-team-b-fg: var(--fg-team-b);
+  --color-ident-navy-fg: var(--fg-ident-navy);
   --color-state-open-fg: var(--fg-brand);
   --color-state-soon-fg: var(--fg-warn);
   --color-surface-0: var(--surface-0);
@@ -146,6 +175,7 @@
   --color-ink-1: var(--ink-1);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
+  --color-court-line: var(--court-line);
 }
 
 html {

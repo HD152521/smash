@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { BackBar } from '@/components/ui/BackBar'
 import { Badge } from '@/components/ui/Badge'
+import { EmptyState } from '@/components/brand/EmptyState'
 import { useMyClubs } from '@/features/club/queries'
 import { clubRoleLabel, isClubStaff } from '@/lib/club'
 import { toUserMessage } from '@/lib/errors'
@@ -40,33 +41,34 @@ export function MyClubsPage() {
       )}
 
       {data && data.length === 0 && (
-        <div className="mt-10 rounded-3xl border border-dashed border-border-subtle px-6 py-12 text-center">
-          <p className="text-lg font-bold text-ink-1">아직 속한 동아리가 없습니다</p>
-          <p className="mt-1.5 text-sm text-ink-2">
-            동아리 없이도 대회와 모임은 그대로 열 수 있습니다. 매주 같은 사람들과 친다면 동아리를
-            만들어 두세요.
-          </p>
-          <div className="mt-6 flex flex-col justify-center gap-2.5 sm:flex-row">
-            <Link
-              to="/clubs/new"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
-                         px-4 text-[0.95rem] font-semibold text-white shadow-sm
-                         transition-colors hover:bg-brand-700
-                         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            >
-              동아리 만들기
-            </Link>
-            <Link
-              to="/clubs/join"
-              className="inline-flex h-11 items-center justify-center rounded-xl border
-                         border-border-subtle px-4 text-[0.95rem] font-semibold text-ink-1
-                         transition-colors hover:bg-surface-2
-                         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            >
-              동아리 코드로 들어가기
-            </Link>
-          </div>
-        </div>
+        <EmptyState
+          icon="shuttlecock"
+          className="mt-10 rounded-3xl px-6 py-12"
+          title="아직 속한 동아리가 없습니다"
+          description="동아리 없이도 대회와 모임은 그대로 열 수 있습니다. 매주 같은 사람들과 친다면 동아리를 만들어 두세요."
+          action={
+            <div className="flex flex-col justify-center gap-2.5 sm:flex-row">
+              <Link
+                to="/clubs/new"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
+                           px-4 text-[0.95rem] font-semibold text-white shadow-sm
+                           transition-colors hover:bg-brand-700
+                           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              >
+                동아리 만들기
+              </Link>
+              <Link
+                to="/clubs/join"
+                className="inline-flex h-11 items-center justify-center rounded-xl border
+                           border-border-subtle px-4 text-[0.95rem] font-semibold text-ink-1
+                           transition-colors hover:bg-surface-2
+                           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              >
+                동아리 코드로 들어가기
+              </Link>
+            </div>
+          }
+        />
       )}
 
       {data && data.length > 0 && (

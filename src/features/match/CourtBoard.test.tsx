@@ -158,6 +158,30 @@ describe('모임 — 누가 끝낼 수 있나 (서버 can_run_match 와 같아�
   })
 })
 
+describe('코트 카드 배경 — 코트 마킹 (docs/design.md 위에서 본 코트)', () => {
+  test('장식용 SVG 라 접근성 트리에 안 잡힌다', () => {
+    const { container } = renderBoard()
+    const svgs = container.querySelectorAll('svg[aria-hidden="true"]')
+    expect(svgs.length).toBeGreaterThan(0)
+  })
+
+  /**
+   * 전폭 배경(CourtLines)은 v7 이후 네트 두 줄만 남기고 상태 신호를 안
+   * 낸다 — 그 역할은 코트 번호 옆 작은 정비율 도형(CourtBadge)이 진하기로
+   * 대신한다. CourtBadge 는 40×18 고정 크기(h-[18px] w-10)라 전폭
+   * 배경(inset-0)과 클래스로 구분할 수 있다.
+   */
+  test('진행 중인 코트는 코트 도형이 옅고, 빈 코트는 또렷하다', () => {
+    const { container: busyContainer } = renderBoard() // 기본값: 진행 중 경기 1개
+    const busyBadge = busyContainer.querySelector('svg.w-10[aria-hidden="true"]')
+    expect(busyBadge?.getAttribute('class')).toContain('opacity-[0.35]')
+
+    const { container: idleContainer } = renderBoard({ matches: [] })
+    const idleBadge = idleContainer.querySelector('svg.w-10[aria-hidden="true"]')
+    expect(idleBadge?.getAttribute('class')).toContain('opacity-[0.9]')
+  })
+})
+
 describe('대회 — 한 줄도 바뀌지 않는다 (회귀)', () => {
   const tournamentMatch = (over: Partial<MatchOverviewRow> = {}) =>
     liveSessionMatch({

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BackBar } from '@/components/ui/BackBar'
 import { ChevronRight } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
+import { EmptyState } from '@/components/brand/EmptyState'
 import { useMyClubs } from '@/features/club/queries'
 import { useMyTournaments } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
@@ -112,30 +113,32 @@ export function MyTournamentsPage() {
       )}
 
       {data && data.length === 0 && (
-        <div className="mt-10 rounded-3xl border border-dashed border-border-subtle px-6 py-12 text-center">
-          <p className="text-lg font-bold text-ink-1">아직 참가한 대회나 모임이 없습니다</p>
-          <p className="mt-1.5 text-sm text-ink-2">
-            초대 코드를 받으셨다면 참가하고, 오늘 모여서 치는 날이면 모임을 여세요.
-          </p>
-          <div className="mt-6 flex flex-col justify-center gap-2.5 sm:flex-row">
-            <Link
-              to="/join"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
-                         px-4 text-[0.95rem] font-semibold text-white shadow-sm
-                         transition-colors hover:bg-brand-700"
-            >
-              대회 참가하기
-            </Link>
-            <Link
-              to="/new/session"
-              className="inline-flex h-11 items-center justify-center rounded-xl border
-                         border-border-subtle px-4 text-[0.95rem] font-semibold text-ink-1
-                         transition-colors hover:bg-surface-2"
-            >
-              모임 열기
-            </Link>
-          </div>
-        </div>
+        <EmptyState
+          icon="shuttlecock"
+          className="mt-10 rounded-3xl px-6 py-12"
+          title="아직 참가한 대회나 모임이 없습니다"
+          description="초대 코드를 받으셨다면 참가하고, 오늘 모여서 치는 날이면 모임을 여세요."
+          action={
+            <div className="flex flex-col justify-center gap-2.5 sm:flex-row">
+              <Link
+                to="/join"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
+                           px-4 text-[0.95rem] font-semibold text-white shadow-sm
+                           transition-colors hover:bg-brand-700"
+              >
+                대회 참가하기
+              </Link>
+              <Link
+                to="/new/session"
+                className="inline-flex h-11 items-center justify-center rounded-xl border
+                           border-border-subtle px-4 text-[0.95rem] font-semibold text-ink-1
+                           transition-colors hover:bg-surface-2"
+              >
+                모임 열기
+              </Link>
+            </div>
+          }
+        />
       )}
 
       {data && data.length > 0 && (
@@ -180,10 +183,10 @@ export function MyTournamentsPage() {
                     t.role === 'member' &&
                     !t.groupId &&
                     t.status === 'draft' && (
-                    <p className="mt-2 text-xs font-semibold text-warn-fg">
-                      조를 아직 고르지 않았습니다
-                    </p>
-                  )}
+                      <p className="mt-2 text-xs font-semibold text-warn-fg">
+                        조를 아직 고르지 않았습니다
+                      </p>
+                    )}
                 </div>
 
                 <ChevronRight
