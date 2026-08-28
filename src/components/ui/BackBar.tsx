@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { BackLink } from './BackLink'
+import { HOME_PATH, HomeLink } from './HomeLink'
+import { useCanGoBack } from '@/hooks/useCanGoBack'
 import { cn } from '@/lib/utils'
 
 /**
@@ -38,11 +40,26 @@ import { cn } from '@/lib/utils'
  * `z-30` 은 하단탭(`z-40`)과 알림 배너(`z-50`)보다 낮다. 머리말과 하단탭은
  * 애초에 겹칠 자리가 아니지만, 겹치는 날이 오면 손이 자주 가는 쪽이 위여야
  * 한다.
+ *
+ * ## 오른쪽 끝에 홈 — 기본으로 켜 둔다
+ *
+ * 뒤로가기만 있으면 한 칸씩 되짚어야 나간다. 동아리 명단에서 메인까지는
+ * 서너 번이다. 그래서 홈을 여기에 더한다 — 머리말 하나를 고치면 하단탭이
+ * 없는 화면 스무 곳이 한 번에 덮인다.
+ *
+ * **기본값이 켬인 것이 중요하다.** 새 화면을 만드는 사람이 홈을 따로
+ * 챙기지 않아도 출구가 둘 생긴다. 반대로 이미 홈으로 가는 길이 있는
+ * 곳(대회·모임 화면은 하단탭 '더보기' 안에 홈이 있다)만 `home={false}`
+ * 로 끈다. 같은 화면에 같은 곳으로 가는 버튼이 둘이면 둘 다 덜 믿게 된다.
+ *
+ * 게스트 화면(`/g/...`)은 애초에 이 머리말을 쓰지 않는다. 계정이 없는
+ * 사람에게 `/` 는 로그인 화면이라 홈이 출구가 아니라 막다른 길이다.
  */
 export function BackBar({
   to,
   label,
   fixed = false,
+  home = true,
   children,
   className,
   topPad = '1.5rem',
@@ -53,12 +70,24 @@ export function BackBar({
   label: string
   /** 히스토리를 무시하고 항상 `to` 로 간다 — 근거는 BackLink 주석 */
   fixed?: boolean
+  /** 오른쪽 끝 홈 버튼. 이미 홈으로 가는 길이 있는 화면에서만 끈다 */
+  home?: boolean
   /** 뒤로가기 오른쪽에 함께 서는 것 (대회 이름·상태 배지 등) */
   children?: ReactNode
   className?: string
   /** 페이지 껍데기의 위쪽 여백. 이만큼을 머리말이 대신 진다. */
   topPad?: string
 }) {
+  /*
+    뒤로가기가 지금 이 순간 메인으로 향한다면(되짚을 히스토리가 없어 `to`
+    로 가는데 그 `to` 가 메인) 홈은 바로 옆 버튼과 같은 일을 한다. 카톡
+    링크로 '모임 열기' 화면에 바로 들어온 경우가 그렇다. 그때만 감춘다 —
+    `to` 만 보고 끄면 안 된다. 같은 화면도 동아리에서 들어오면
+    (`/new/session?club=…`) 메인까지 세 번이라 홈이 꼭 필요하다.
+  */
+  const canGoBack = useCanGoBack(fixed)
+  const backGoesHome = !canGoBack && to === HOME_PATH
+
   return (
     <header
       className={cn(
@@ -76,6 +105,12 @@ export function BackBar({
         {label}
       </BackLink>
       {children}
+      {/*
+        홈은 맨 오른쪽이다. 왼쪽 끝(뒤로가기)과 멀어야 급할 때 헷갈리지
+        않고, `shrink-0` 이라 가운데에 선 제목이 아무리 길어져도 이 버튼이
+        찌그러지지 않는다 — 밀리는 쪽은 항상 제목(`truncate`)이다.
+      */}
+      {home && !backGoesHome && <HomeLink />}
     </header>
   )
 }

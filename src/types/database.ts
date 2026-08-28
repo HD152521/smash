@@ -19,6 +19,7 @@ import type {
   MatchOverviewRow,
   MatchTeamsRow,
   MatchesRow,
+  PlayerGrade,
   ProfilesRow,
   RsvpStatus,
   ScoreEventsRow,
@@ -35,6 +36,7 @@ export type {
   MatchStatus,
   MatchTeamPlayersRow,
   MemberRole,
+  PlayerGrade,
   RsvpStatus,
   TeamSide,
   TournamentKind,
@@ -274,7 +276,23 @@ export type Database = {
        * 유니온으로 푼다.
        */
       join_as_guest: {
-        Args: { p_code: string; p_session_id: string; p_name: string }
+        Args: {
+          p_code: string
+          p_session_id: string
+          p_name: string
+          /**
+           * 급수(선택). 맨 뒤 `default null` 이라 **안 보내도 된다** — 옛
+           * 3인자 호출이 그대로 이 함수를 찾는다. player_grade 가 아니라
+           * text 로 받는 것은 의도다: enum 으로 받으면 이상한 값이 함수
+           * 안으로 들어오기도 전에 PostgREST 경계에서 22P02 로 터져,
+           * "게스트 경로는 예외 대신 봉투를 돌려준다" 는 규율이 함수 밖에서
+           * 깨진다. 서버의 parse_player_grade 가 모르는 값을 null 로 푼다.
+           *
+           * 🚫 반환 봉투에는 급수가 실려 오지 않는다 — 게스트 현황판의
+           * 노출 표면은 필드 단위로 못 박혀 있다(20260829000001).
+           */
+          p_grade?: PlayerGrade | null
+        }
         Returns: Json
       }
       /**

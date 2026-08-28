@@ -1286,7 +1286,15 @@ try {
     'guest_board(p_code text, p_session_id uuid)',
     'guest_sessions(p_code text)',
     'is_direct_api_call()',
-    'join_as_guest(p_code text, p_session_id uuid, p_name text)',
+    // p_grade 는 20260901000001(급수)에서 **맨 뒤 default null** 로 붙었고,
+    // 옛 3인자 함수는 같은 파일에서 drop 했다. 그래서 여기 이름이 하나
+    // 늘어난 것이 아니라 **같은 함수의 시그니처가 바뀐 것**이다.
+    //
+    // 이 파일의 3인자 `join_as_guest` 호출 수십 건이 그대로 남아 있는 것이
+    // 곧 회귀 관문이다 — 옛 함수를 안 지웠으면 `function is not unique` 로,
+    // 새 인자에 default 를 안 줬으면 `function does not exist` 로 그 호출들이
+    // 전부 무너진다. 명시적인 급수 검사는 scripts/smoke-grade.ts 에 있다.
+    'join_as_guest(p_code text, p_session_id uuid, p_name text, p_grade text DEFAULT NULL::text)',
   ]
   const actualAnonFns = anonFns.map((r) => r.sig)
   check(

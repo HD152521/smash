@@ -66,6 +66,30 @@ describe('상단은 뒤로가기 · 제목 · 배지만 남는다', () => {
   })
 
   /*
+   * BackBar 는 홈 버튼을 기본으로 켠다 — 하단탭이 없는 화면 스무 곳을 한
+   * 번에 덮으려고 그렇게 뒀다. 여기만 예외다. 더보기 시트에 이미 홈이
+   * 있어서 겹치고, 무엇보다 이 머리말은 자리가 없다 — 이름 + 상태 배지 +
+   * 내 조 배지가 오른쪽을 다 쓴다. 홈이 끼면 긴 이름이 먼저 잘린다.
+   */
+  test('머리말에는 홈이 없다 — 더보기 시트에 이미 있다', () => {
+    renderNav()
+    expect(screen.queryByRole('button', { name: '홈으로 가기' })).not.toBeInTheDocument()
+  })
+
+  test('이름이 아무리 길어도 머리말이 이름을 잘라 낸다 (줄바꿈이 아니라)', () => {
+    const short = navState.name
+    navState.name = '수요일 저녁 정기 배드민턴 모임 겸 신입 환영 리그전 8월 마지막 주'
+    navState.myGroupName = 'A조'
+    renderNav()
+    const title = screen.getByRole('heading', { level: 1 })
+    expect(title.className).toContain('truncate')
+    // truncate 가 실제로 먹으려면 부모가 min-w-0 로 줄어들 수 있어야 한다
+    expect(title.parentElement?.className).toContain('min-w-0')
+    navState.name = short
+    navState.myGroupName = undefined
+  })
+
+  /*
    * 대회 화면은 전부 길다 — 대진표·기록·참가자는 스크롤이 기본이다.
    * 머리말이 흐름에 그냥 있으면 뒤로가기가 위로 사라져서, 나가려고 맨
    * 위까지 되감아야 했다. 여기서 고정을 못 박는다.

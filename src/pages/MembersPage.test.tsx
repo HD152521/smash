@@ -55,6 +55,9 @@ function member(id: string, displayName: string, over: Partial<MemberSummary> = 
     groupId: null,
     rsvp: 'going' as RsvpStatus,
     isGuest: false,
+    // 기본은 '모른다' — 전원이 null 이면 급수 배지가 아예 안 뜬다
+    // (hasGradeContrast). 배지를 시험하는 절만 over 로 값을 준다
+    grade: null,
     ...over,
   }
 }
@@ -247,5 +250,67 @@ describe('빈 명단', () => {
     renderMembers()
     const region = screen.getByRole('region', { name: '명단' })
     expect(within(region).getByText(/아직 아무도 없습니다/)).toBeInTheDocument()
+  })
+})
+
+
+/**
+ * 급수 배지의 글자만 모은다.
+ *
+ * `getByText('급수 S')` 로는 안 잡힌다 — 배지 안에서 sr-only 접두('급수 ')와
+ * 값('S')이 서로 다른 노드이고, testing-library 의 기본 매처는 그 요소의
+ * **직접 텍스트 노드**만 본다. 쪼개져 있는 것 자체가 의도라(눈에는 'S',
+ * 소리에는 '급수 S') textContent 로 정확히 맞춘다.
+ */
+function gradeBadgeTexts(): string[] {
+  return screen
+    .getAllByRole('listitem')
+    .flatMap((li) => Array.from(li.querySelectorAll('span')))
+    // 접두를 품은 바깥쪽(배지)만 고른다 — sr-only 안쪽 자체는 '급수 ' 뿐이다
+    .filter((el) => el.querySelector('.sr-only') !== null)
+    .map((el) => el.textContent ?? '')
+}
+
+describe('급수 배지 — 이름 옆에, 대비가 있을 때만', () => {
+  test('급수가 섞여 있으면 각자 자기 급수가 이름 옆에 뜬다', () => {
+    state.members = [
+      member('m2', '김민수', { grade: 'S' }),
+      member('m3', '박지훈', { grade: 'beginner' }),
+    ]
+    renderMembers()
+    // 소리로도 무엇의 S 인지 알 수 있어야 한다 (sr-only '급수' 접두)
+    expect(gradeBadgeTexts().sort()).toEqual(['급수 S', '급수 초심'])
+  })
+
+  test("'초심' 으로 그린다 — DB 값 beginner 가 화면에 새지 않는다", () => {
+    state.members = [member('m2', '김민수', { grade: 'beginner' }), member('m3', '박지훈')]
+    renderMembers()
+    expect(gradeBadgeTexts()).toEqual(['급수 초심'])
+    expect(screen.queryByText(/beginner/)).toBeNull()
+  })
+
+  /*
+   * 모두에게 붙는 배지는 배지가 아니라 잡음이다 — hasRsvpContrast ·
+   * hasAccountContrast 와 같은 판단(roster.ts).
+   */
+  test('전원이 같은 급수면 아예 안 그린다', () => {
+    state.members = [
+      member('m2', '김민수', { grade: 'B' }),
+      member('m3', '박지훈', { grade: 'B' }),
+    ]
+    renderMembers()
+    expect(gradeBadgeTexts()).toEqual([])
+  })
+
+  test('아무도 급수를 안 골랐으면 빈 배지가 뜨지 않는다', () => {
+    state.members = [member('m2', '김민수'), member('m3', '박지훈')]
+    renderMembers()
+    expect(gradeBadgeTexts()).toEqual([])
+  })
+
+  test('일부만 급수가 있으면 그 사람에게만 붙는다', () => {
+    state.members = [member('m2', '김민수', { grade: 'A' }), member('m3', '박지훈')]
+    renderMembers()
+    expect(gradeBadgeTexts()).toEqual(['급수 A'])
   })
 })

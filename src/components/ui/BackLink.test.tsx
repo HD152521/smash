@@ -89,4 +89,20 @@ describe('BackLink', () => {
     )
     expect(screen.getByRole('button', { name: '메인으로' }).className).toContain('min-h-12')
   })
+
+  /*
+   * 머리말 오른쪽에 홈까지 서면서 좁은 폰(320px)의 관전판에서 '나가기' 가
+   * 글자마다 줄바꿈돼 세 줄로 접혔다 — 찍어 봐야 보이는 종류의 파손이다.
+   * 출구가 접히면 표적이 어디인지도 알 수 없다.
+   */
+  test('폭이 모자라도 접히지 않는다 — 밀리는 쪽은 제목이지 출구가 아니다', () => {
+    render(
+      <MemoryRouter initialEntries={['/match']}>
+        <App />
+      </MemoryRouter>,
+    )
+    const back = screen.getByRole('button', { name: '메인으로' })
+    expect(back.className).toContain('whitespace-nowrap')
+    expect(back.className).toContain('shrink-0')
+  })
 })

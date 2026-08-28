@@ -130,7 +130,12 @@ describe('게스트 등록 화면', () => {
     expect(screen.getByLabelText('이름')).toBeInTheDocument()
   })
 
-  test('이름을 적고 제출하면 등록 RPC 를 호출한다', () => {
+  /*
+   * 급수를 안 고르고 제출하는 경로다. `grade: null` 이면 api.ts 가 p_grade
+   * 를 아예 안 실어 보내고, 서버는 옛 3인자 호출과 똑같이 다룬다 —
+   * **급수는 등록을 막지 않는다** 는 것이 여기서 지켜진다.
+   */
+  test('이름만 적고 제출해도 등록 RPC 를 호출한다 (급수는 선택이라 null)', () => {
     state.sessions = {
       ok: true,
       clubName: '수요 배드민턴',
@@ -141,7 +146,60 @@ describe('게스트 등록 화면', () => {
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '홍길동' } })
     fireEvent.click(screen.getByRole('button', { name: '명단에 들어가기' }))
 
-    expect(mutateAsync).toHaveBeenCalledWith({ code: GUEST_CODE, sessionId: 's1', name: '홍길동' })
+    expect(mutateAsync).toHaveBeenCalledWith({
+      code: GUEST_CODE,
+      sessionId: 's1',
+      name: '홍길동',
+      grade: null,
+    })
+  })
+
+  test('급수를 고르면 이름과 함께 실려 간다', () => {
+    state.sessions = {
+      ok: true,
+      clubName: '수요 배드민턴',
+      sessions: [{ id: 's1', name: '8/25 정기모임', startsAt: null }],
+    }
+    renderAt(GUEST_CODE)
+
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '홍길동' } })
+    // 화면에는 '초심' 이지만 실려 가는 값은 'beginner' 다 — DB 값에 한글을
+    // 넣지 않는다는 규율(src/lib/grade.ts)이 여기서 눈에 보인다
+    fireEvent.click(screen.getByRole('radio', { name: '초심' }))
+    fireEvent.click(screen.getByRole('button', { name: '명단에 들어가기' }))
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      code: GUEST_CODE,
+      sessionId: 's1',
+      name: '홍길동',
+      grade: 'beginner',
+    })
+  })
+
+  /*
+   * 잘못 누른 급수를 되돌릴 방법이 있어야 한다. '모름' 이 목록의 첫 칸에
+   * 실제 선택지로 그려져 있는 것이 그 방법이다 — 없으면 한 번 누른 사람은
+   * 새로고침 말고는 취소할 길이 없다.
+   */
+  test("잘못 고른 급수는 '모름' 을 눌러 되돌릴 수 있다", () => {
+    state.sessions = {
+      ok: true,
+      clubName: '수요 배드민턴',
+      sessions: [{ id: 's1', name: '8/25 정기모임', startsAt: null }],
+    }
+    renderAt(GUEST_CODE)
+
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '홍길동' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'S' }))
+    fireEvent.click(screen.getByRole('radio', { name: '모름' }))
+    fireEvent.click(screen.getByRole('button', { name: '명단에 들어가기' }))
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      code: GUEST_CODE,
+      sessionId: 's1',
+      name: '홍길동',
+      grade: null,
+    })
   })
 
   test('등록 성공하면 적힌 이름을 크게 보여주고 현황판으로 가는 줄을 준다', () => {

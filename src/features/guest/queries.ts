@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import type { GuestBoardOutcome } from '@/lib/guest'
+import type { PlayerGrade } from '@/types/database'
 import { fetchGuestBoard, fetchGuestSessions, joinAsGuest } from './api'
 
 const guestKeys = {
@@ -35,8 +36,18 @@ export function useGuestSessions(code: string | undefined) {
  */
 export function useJoinAsGuest() {
   return useMutation({
-    mutationFn: ({ code, sessionId, name }: { code: string; sessionId: string; name: string }) =>
-      joinAsGuest(code, sessionId, name),
+    mutationFn: ({
+      code,
+      sessionId,
+      name,
+      grade,
+    }: {
+      code: string
+      sessionId: string
+      name: string
+      /** 선택이다 — 안 고르면 null 이고 서버는 인자 없이 부른 것과 같이 다룬다 */
+      grade: PlayerGrade | null
+    }) => joinAsGuest(code, sessionId, name, grade),
   })
 }
 

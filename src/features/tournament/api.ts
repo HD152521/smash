@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { unwrap, unwrapVoid } from '@/lib/errors'
+import { parseGrade } from '@/lib/grade'
 import type {
   CourtRow,
   JoinTournamentResult,
@@ -7,6 +8,7 @@ import type {
   MatchOverviewRow,
   MatchRow,
   MemberRole,
+  PlayerGrade,
   RsvpStatus,
   ScoreEventRow,
   StandingRow,
@@ -211,7 +213,7 @@ export async function fetchMyTournaments(userId: string): Promise<MyTournament[]
   const res = await supabase
     .from('tournament_members')
     .select(
-        'role, group_id, joined_at, tournaments(id, name, description, status, kind, invite_code, club_id, starts_at)',
+      'role, group_id, joined_at, tournaments(id, name, description, status, kind, invite_code, club_id, starts_at)',
     )
     .eq('user_id', userId)
     .order('joined_at', { ascending: false })
@@ -278,12 +280,21 @@ export interface MemberSummary {
    * 회원 전원에게 '게스트' 딱지가 붙는다(`is_guest` 컬럼 주석 참고).
    */
   isGuest: boolean
+  /**
+   * **이 명단에서의 급수 스냅샷**이지 지금 프로필의 급수가 아니다.
+   * 명단에 들어올 때 복사되고 그 뒤로는 안 따라온다 — `displayName` 과
+   * 같은 규율이다(20260901000001_player_grade.sql).
+   *
+   * null 은 '모른다' 이지 초심이 아니다. 계정 없이 손으로 올린 사람
+   * (`add_roster_member`)과 급수를 안 고르고 가입한 사람이 여기 있다.
+   */
+  grade: PlayerGrade | null
 }
 
 export async function fetchMembers(tournamentId: string): Promise<MemberSummary[]> {
   const res = await supabase
     .from('tournament_members')
-    .select('id, user_id, display_name, role, group_id, rsvp, is_guest')
+    .select('id, user_id, display_name, role, group_id, rsvp, is_guest, grade')
     .eq('tournament_id', tournamentId)
     .order('display_name')
 
@@ -295,6 +306,7 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
     group_id: string | null
     rsvp: RsvpStatus
     is_guest: boolean
+    grade: unknown
   }[]
 
   return rows.map((r) => ({
@@ -305,6 +317,13 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
     groupId: r.group_id,
     rsvp: r.rsvp,
     isGuest: r.is_guest,
+    /*
+     * 여기만 `parseGrade` 를 통과시킨다. DB 에 급수가 하나 늘어난 뒤
+     * 클라이언트가 아직 안 배포된 몇 분 동안 우리가 모르는 문자열이
+     * 실제로 온다 — 그대로 흘리면 명단에 'undefined' 배지가 뜬다.
+     * 모르면 배지를 안 그리는 쪽이 맞다.
+     */
+    grade: parseGrade(r.grade),
   }))
 }
 

@@ -115,3 +115,32 @@ describe('없는 경기', () => {
     expect(await screen.findByText('대진표 화면')).toBeInTheDocument()
   })
 })
+
+/*
+ * 경기 짜기 화면은 "다른 경기에 묶인 사람" 을 잠근다(`src/lib/busy.ts`).
+ * 그 규칙이 이 화면까지 번지면 **아무도 아무것도 못 고친다** — 고치려는
+ * 경기의 선수는 바로 그 경기 때문에 묶여 있기 때문이다. 그래서 못을 박아 둔다.
+ */
+describe('고치는 그 경기의 선수', () => {
+  test('자기 자신 때문에 잠기지 않는다 — 그대로 눌러서 뺄 수 있다', async () => {
+    renderEdit()
+
+    const teamA = within(screen.getByRole('region', { name: 'A팀' }))
+    const 가나 = teamA.getByRole('button', { name: '가나' })
+    expect(가나).toBeEnabled()
+
+    await userEvent.click(가나)
+    expect(가나).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('다른 경기가 진행 중이어도 이 경기의 선수는 그대로 보인다', () => {
+    matches.data = [
+      SCHEDULED,
+      { id: 'match-2', status: 'live', players_a: ['가나'], players_b: ['다라'] } as MatchOverviewRow,
+    ]
+    renderEdit()
+
+    const teamA = within(screen.getByRole('region', { name: 'A팀' }))
+    expect(teamA.getByRole('button', { name: '가나' })).toHaveAttribute('aria-pressed', 'true')
+  })
+})

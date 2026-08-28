@@ -46,8 +46,16 @@ export function TournamentNav({ id, active }: { id: string; active: TournamentTa
         `BackBar` 라 스크롤을 내려도 남는다. 대진표·기록·참가자는 다 긴
         화면이라, 예전엔 나가려고 맨 위까지 되감아야 했다. 덤으로 대회
         이름도 같이 남아서 "내가 어느 대회에 있는지" 가 끝까지 붙어 있다.
+
+        `home={false}` — 여기만 머리말 홈을 끈다. 하단탭 '더보기' 안에 이미
+        홈이 있다(TournamentTabBar). 같은 곳으로 가는 버튼을 한 화면에 둘
+        두면 둘 다 덜 믿게 되고, 무엇보다 이 머리말은 자리가 없다 —
+        대회 이름 + 상태 배지 + 내 조 배지가 이미 오른쪽을 다 쓴다.
+        홈 버튼을 여기 끼우면 긴 이름이 먼저 잘린다. 상단에서 홈을 걷어낸
+        것이 이번 개편의 결정이기도 하다(docs/design.md '구조 — 하단탭으로
+        내린다': "뒤로가기는 남기되 홈·관리·설정은 정리한다").
       */}
-      <BackBar to="/my" label={nav.isSession ? '내 모임' : '내 대회'}>
+      <BackBar to="/my" label={nav.isSession ? '내 모임' : '내 대회'} home={false}>
         {/* 이름은 화면이 바뀌어도 그대로 있는다 */}
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-2 gap-y-1.5">
           <h1 className="truncate text-xl leading-tight font-black tracking-tight text-ink-1">

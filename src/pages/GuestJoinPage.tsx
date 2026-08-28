@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
+import { GradePicker } from '@/components/ui/GradePicker'
 import { useGuestSessions, useJoinAsGuest } from '@/features/guest/queries'
 import { GUEST_NAME_MAX, guestErrorMessage, validateGuestName } from '@/lib/guest'
 import { browserGuestMeStorage, loadGuestName, saveGuestName } from '@/lib/guestMe'
 import { toUserMessage } from '@/lib/errors'
 import { startsAtLabel } from '@/lib/rsvp'
+import type { PlayerGrade } from '@/types/database'
 
 /**
  * 게스트 등록 — `/g/:guestCode`. 로그인 가드 밖에 있는 두 화면 중 앞의 것이다
@@ -29,6 +31,12 @@ export function GuestJoinPage() {
 
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [name, setName] = useState('')
+  /*
+   * 급수는 **이름과 함께 그때 한 번만** 받는다. 게스트는 계정이 없어서
+   * 다음에 와도 이 값이 따라오지 않는다 — 저장할 프로필이 없다.
+   * 선택이라 기본값은 '안 골랐다'(null)다.
+   */
+  const [grade, setGrade] = useState<PlayerGrade | null>(null)
   const [storage] = useState(browserGuestMeStorage)
   /*
    * 저장한 이름의 만료(36시간)를 잴 기준 시각. 화면을 연 순간으로 한 번만
@@ -124,7 +132,12 @@ export function GuestJoinPage() {
     e.preventDefault()
     if (!active || validateGuestName(name)) return
     try {
-      const result = await join.mutateAsync({ code: guestCode!, sessionId: active.id, name })
+      const result = await join.mutateAsync({
+        code: guestCode!,
+        sessionId: active.id,
+        name,
+        grade,
+      })
       /*
        * **서버가 돌려준 최종 이름**을 남긴다. 같은 이름이 이미 있으면
        * `join_as_guest` 가 접미사를 붙이므로, 사용자가 적은 원문으로는
@@ -205,6 +218,22 @@ export function GuestJoinPage() {
           <p className="mt-1.5 text-xs text-ink-3">
             {name.length} / {GUEST_NAME_MAX}자 · 같은 이름이 있으면 구분 숫자가 붙습니다.
           </p>
+
+          {/*
+            이름 바로 아래에 둔다 — 운영진이 경기를 짤 때 "누구랑 붙일까" 에
+            답하는 값이라 이름과 한 덩어리다. 이름과 마찬가지로 **선택**이고
+            (서버 컬럼도 nullable), 안 골라도 '명단에 들어가기' 는 눌린다.
+            코트 앞에서 한 손으로 누르는 자리라 lg 크기를 쓴다.
+          */}
+          <div className="mt-5">
+            <GradePicker
+              value={grade}
+              onChange={setGrade}
+              size="lg"
+              disabled={join.isPending}
+              hint="선택입니다 — 안 고르셔도 등록됩니다."
+            />
+          </div>
 
           {(nameError || joinErrorMessage) && (
             <p role="alert" className="mt-3 text-sm font-medium text-team-b-fg">

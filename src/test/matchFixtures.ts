@@ -61,6 +61,9 @@ function member(
     groupId,
     rsvp: 'going',
     isGuest: false,
+    // 기본은 '모른다'. 급수는 경기 편성 화면의 판단에 안 들어간다 —
+    // 여기서 값을 주면 이 픽스처를 쓰는 화면이 급수를 본다는 착각을 준다
+    grade: null,
     ...over,
   }
 }
