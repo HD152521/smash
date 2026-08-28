@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ChevronDown, CircleDot, GripVertical, Pencil, Trash2 } from 'lucide-react'
+import { EmptyState } from '@/components/brand/EmptyState'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import {
   useCourts,
@@ -42,6 +43,16 @@ export function SchedulePage() {
   const nav = useTournamentNav(id)
   const isAdmin = nav.isAdmin
   const myName = nav.myName
+  /*
+   * 빈 대진표에서 "경기 짜기" 버튼을 보여줄지.
+   *
+   * 관리자는 대회·모임 어디서든 짤 수 있다. 모임은 관리자가 아니어도
+   * 짤 수 있다 — `create_session_match` 가 '뛰는 사람 본인' 을 허용하고,
+   * 그래서 `TournamentPage` 의 하단 고정 '경기 짜기' 버튼도 모임에서는
+   * 회원 전원에게 뜬다(같은 조건을 그대로 옮긴다). 대회의 일반 참가자는
+   * 짤 수 없다 — 그 사람에게는 안내만 하고 버튼을 안 둔다.
+   */
+  const canCreateMatch = isAdmin || (nav.isSession && Boolean(myName))
 
   // 코트에 나가야 할 사람은 자기 경기만 보면 된다. 기본은 전체 — 운영자가 더 오래 본다.
   const [onlyMine, setOnlyMine] = useState(false)
@@ -162,10 +173,25 @@ export function SchedulePage() {
       {loading ? (
         <div className="mt-6 h-48 animate-pulse rounded-2xl bg-surface-2" aria-busy />
       ) : s.scheduledCount === 0 ? (
-        <p className="mt-8 rounded-2xl border border-dashed border-border-subtle p-6 text-center text-sm text-ink-2">
-          예정된 경기가 없습니다.
-          {isAdmin && ' 관리에서 경기를 편성해 주세요.'}
-        </p>
+        <EmptyState
+          icon="court"
+          className="mt-8"
+          title="예정된 경기가 없습니다"
+          description={canCreateMatch ? undefined : '운영진이 편성하면 여기 뜹니다.'}
+          action={
+            canCreateMatch && (
+              <Link
+                to={`/t/${id}/matches/${nav.isSession ? 'new-session' : 'new'}`}
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
+                           px-5 text-[0.95rem] font-semibold text-white shadow-sm
+                           transition-colors hover:bg-brand-700
+                           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              >
+                경기 짜기
+              </Link>
+            )
+          }
+        />
       ) : (
         <>
           <p className="mt-5 text-sm font-semibold text-ink-1">

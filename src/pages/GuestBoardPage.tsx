@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { CircleDot } from 'lucide-react'
 import { LiveBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/brand/EmptyState'
 import { useGuestBoard } from '@/features/guest/queries'
 import { toUserMessage } from '@/lib/errors'
 import {
@@ -224,9 +225,7 @@ function LiveBoard({
       </p>
 
       {view.courts.length === 0 ? (
-        <p className="mt-3 rounded-2xl border border-dashed border-border-subtle p-6 text-center text-base text-ink-2">
-          아직 코트가 없습니다.
-        </p>
+        <EmptyState icon="court" className="mt-3" title="아직 코트가 없습니다" />
       ) : (
         <div className="mt-3 flex flex-col gap-3">
           {view.courts.map((queue) => (

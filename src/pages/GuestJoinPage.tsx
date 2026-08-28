@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { GradePicker } from '@/components/ui/GradePicker'
+import { CourtMotif } from '@/components/brand/CourtMotif'
+import { Shuttlecock } from '@/components/brand/Shuttlecock'
 import { useGuestSessions, useJoinAsGuest } from '@/features/guest/queries'
 import { GUEST_NAME_MAX, guestErrorMessage, validateGuestName } from '@/lib/guest'
 import { browserGuestMeStorage, loadGuestName, saveGuestName } from '@/lib/guestMe'
@@ -88,7 +90,10 @@ export function GuestJoinPage() {
   if (join.data && join.data.ok) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-5 pb-16 text-center">
-        <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">등록 완료</p>
+        <Shuttlecock size={32} className="text-ident-navy-fg" />
+        <p className="mt-3 text-sm font-semibold tracking-widest text-brand-fg uppercase">
+          등록 완료
+        </p>
         <h1 className="mt-4 text-4xl font-black break-words text-ink-1">{join.data.displayName}</h1>
         <p className="mt-4 text-sm text-ink-2">{join.data.sessionName}에 참가로 등록됐습니다.</p>
         <p className="mt-1.5 text-xs text-ink-3">
@@ -158,10 +163,21 @@ export function GuestJoinPage() {
         : null
 
   return (
-    <main className="mx-auto w-full max-w-md px-5 pt-10 pb-16">
-      <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">GUEST</p>
-      <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{outcome.clubName}</h1>
-      <p className="mt-2 text-sm text-ink-2">오늘 모임에 이름만 적으면 명단에 들어갑니다.</p>
+    // 게스트 화면은 이 앱을 처음 보는 사람의 첫 화면이라 정체성이 가장
+    // 필요하다(docs/design.md). 코트 라인 모티프를 머리 뒤에 옅게 깐다 —
+    // 배경 레이어라 아래 흐름의 탭 수·높이에는 관여하지 않는다.
+    <main className="relative mx-auto w-full max-w-md px-5 pt-10 pb-16">
+      {/* 정적 배치 내용은 기본적으로 절대 위치 형제 위에 그려지지만, 명시적으로
+          얹어 둔다 — LoginPage 의 같은 주석 참고 */}
+      <CourtMotif className="absolute inset-x-0 top-0 h-36" />
+      <div className="relative z-10">
+        <div className="flex items-center gap-2">
+          <Shuttlecock size={18} className="text-ident-navy-fg" />
+          <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">GUEST</p>
+        </div>
+        <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{outcome.clubName}</h1>
+        <p className="mt-2 text-sm text-ink-2">오늘 모임에 이름만 적으면 명단에 들어갑니다.</p>
+      </div>
 
       {!active ? (
         <section aria-label="모임 고르기" className="mt-8">

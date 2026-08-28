@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Play } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { CourtMotif } from '@/components/brand/CourtMotif'
+import { Shuttlecock } from '@/components/brand/Shuttlecock'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCourts, useMatches, useMembers, useMyTournaments } from '@/features/tournament/queries'
 import {
@@ -51,7 +53,19 @@ export function HomePage() {
 
   return (
     <div className="min-h-dvh bg-surface-0">
-      <Header />
+      {/*
+        코트 라인 모티프를 머리 뒤에 아주 옅게 깐다. relative 부모 +
+        absolute 모티프라 아래 내용의 높이·탭 수에 관여하지 않는다
+        (docs/design.md 시각 정체성 · 원칙 — "높이를 늘리지 않고 진해진다").
+      */}
+      <div className="relative">
+        <CourtMotif className="absolute inset-x-0 top-0 h-40" />
+        {/* 정적 배치 자식은 기본적으로 절대 위치 형제 위에 그려지지만, 명시적으로
+            얹어 둔다 — LoginPage 의 같은 주석 참고 */}
+        <div className="relative z-10">
+          <Header />
+        </div>
+      </div>
       <main className="mx-auto w-full max-w-2xl px-5 pb-16">
         <Today />
 
@@ -241,13 +255,20 @@ function GoingLine({ tournamentId }: { tournamentId: string }) {
  */
 function NothingToday({ attended }: { attended: number }) {
   return (
-    <section className="mt-6 rounded-2xl border border-border-subtle bg-surface-1 px-5 py-6">
-      <p className="font-bold text-ink-1">오늘 예정된 모임이 없습니다</p>
-      <p className="mt-1 text-sm text-ink-2">
-        {attended > 0
-          ? `이번 달에 ${attended}번 나오셨습니다.`
-          : '아래에서 모임을 열거나 코드로 참가하세요.'}
-      </p>
+    <section className="mt-6 flex items-start gap-3 rounded-2xl border border-border-subtle bg-surface-1 px-5 py-6">
+      {/*
+        원래 비어 있던 자리에 마크를 넣는다 — 줄 높이는 그대로 두고 아이콘을
+        글 옆에 둔다(탭도 높이도 늘지 않는다).
+      */}
+      <Shuttlecock size={28} className="mt-0.5 shrink-0 text-ident-navy-fg/70" />
+      <div className="min-w-0">
+        <p className="font-bold text-ink-1">오늘 예정된 모임이 없습니다</p>
+        <p className="mt-1 text-sm text-ink-2">
+          {attended > 0
+            ? `이번 달에 ${attended}번 나오셨습니다.`
+            : '아래에서 모임을 열거나 코드로 참가하세요.'}
+        </p>
+      </div>
     </section>
   )
 }
@@ -302,13 +323,18 @@ function useNow(): Date {
 function ClubDoor() {
   const { data, isPending } = useMyClubs()
 
-  if (isPending) return <div aria-hidden className="mt-6 h-16 animate-pulse rounded-2xl bg-surface-2" />
+  if (isPending)
+    return <div aria-hidden className="mt-6 h-16 animate-pulse rounded-2xl bg-surface-2" />
 
   const clubs = data ?? []
   const only = clubs.length === 1 ? clubs[0] : undefined
   const to = only ? `/c/${only.id}` : '/clubs'
   const title = only ? only.name : clubs.length === 0 ? '동아리 만들기' : '내 동아리'
-  const desc = only ? '명단 · 게스트 링크 · 모임' : clubs.length === 0 ? '명단을 만들어 두면 매번 부르지 않아도 됩니다' : `${clubs.length}개`
+  const desc = only
+    ? '명단 · 게스트 링크 · 모임'
+    : clubs.length === 0
+      ? '명단을 만들어 두면 매번 부르지 않아도 됩니다'
+      : `${clubs.length}개`
 
   return (
     <Link
@@ -343,7 +369,7 @@ function ClubDoor() {
 function Header() {
   return (
     <header className="flex items-center gap-2 px-5 pt-5 pb-1">
-      <span aria-hidden className="h-4 w-1 rounded-full bg-brand-600" />
+      <Shuttlecock size={18} className="text-ident-navy-fg" />
       <span className="text-sm font-black tracking-[0.25em] text-ink-1 uppercase">Smash</span>
     </header>
   )

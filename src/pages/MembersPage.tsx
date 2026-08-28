@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { UserMinus, Users } from 'lucide-react'
+import { EmptyState } from '@/components/brand/EmptyState'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { AddMemberForm } from '@/features/tournament/AddMemberForm'
 import { NameEditor } from '@/features/tournament/NameEditor'
@@ -185,18 +186,28 @@ function RosterSections({
   const ungrouped = members.filter((m) => !m.groupId)
 
   if (groups.length === 0) {
+    // 명단이 비었을 때는 `RosterRows` 를 담던 회색 상자 대신 EmptyState
+    // 하나만 그린다 — 점선 상자 안에 또 다른 상자를 넣지 않는다.
+    // `aria-label="명단"` 이 있는 region 은 비어 있을 때도 유지한다 —
+    // 화면 읽기 프로그램이 이 구역을 "명단" 으로 계속 찾을 수 있어야 한다.
+    if (members.length === 0) {
+      return (
+        <section aria-label="명단" className="mt-4">
+          <EmptyState
+            icon="shuttlecock"
+            title="아직 아무도 없습니다"
+            description={view.isAdmin ? '위에 이름을 적어 넣어 보세요.' : undefined}
+          />
+        </section>
+      )
+    }
+
     return (
       <section
         aria-label="명단"
         className="mt-4 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1"
       >
-        {members.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-ink-3">
-            아직 아무도 없습니다{view.isAdmin && ' — 위에 이름을 적어 넣어 보세요'}
-          </p>
-        ) : (
-          <RosterRows members={members} view={view} />
-        )}
+        <RosterRows members={members} view={view} />
       </section>
     )
   }

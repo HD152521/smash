@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { GradePicker } from '@/components/ui/GradePicker'
+import { CourtMotif } from '@/components/brand/CourtMotif'
+import { Shuttlecock } from '@/components/brand/Shuttlecock'
 import { useAuth, type SocialProvider } from '@/features/auth/useAuth'
 import { useAuthSettings } from '@/features/auth/useAuthSettings'
 import { enabledSocialProviders } from '@/features/auth/providers'
@@ -89,17 +91,30 @@ export function LoginPage() {
     <div className="min-h-dvh bg-surface-0">
       {/* 홈과 같은 표식 — 로그인 다음에 오는 화면과 같은 제품임을 바로 보여준다 */}
       <header className="flex items-center gap-2 px-5 pt-6">
-        <span aria-hidden className="h-4 w-1 rounded-full bg-brand-600" />
+        <Shuttlecock size={20} className="text-ident-navy-fg" />
         <span className="text-sm font-black tracking-[0.25em] text-ink-1 uppercase">Smash</span>
       </header>
 
-      <main className="mx-auto w-full max-w-sm px-5 pt-8 pb-10">
-        <h1 className="text-3xl leading-tight font-black tracking-tight text-ink-1">
-          코트에서 바로 쓰는
-          <br />
-          대회 운영
-        </h1>
-        <p className="mt-2 text-sm text-ink-2">대진표, 실시간 점수, 조별 순위를 한곳에서.</p>
+      {/*
+        코트 라인 모티프 — 첫인상에 정체성을 얹는다. 배경 레이어라 히어로
+        문구 높이에 관여하지 않는다(relative 부모 + absolute 모티프).
+        아주 옅게(opacity 0.07, CourtMotif 기본값) — 읽는 걸 방해하면 실패다.
+      */}
+      <main className="relative mx-auto w-full max-w-sm px-5 pt-8 pb-10">
+        {/*
+          `position` 이 있어도 z-index 를 안 주면 절대 위치 자식이 정적(static)
+          형제보다 위에 그려진다 — 배경으로 깔리려면 반대로 **내용 쪽**에
+          `relative z-10` 을 얹어야 한다(코트 카드 `CourtLines` 와 같은 방식).
+        */}
+        <CourtMotif className="absolute inset-x-0 top-0 h-44" />
+        <div className="relative z-10">
+          <h1 className="text-3xl leading-tight font-black tracking-tight text-ink-1">
+            코트에서 바로 쓰는
+            <br />
+            대회 운영
+          </h1>
+          <p className="mt-2 text-sm text-ink-2">대진표, 실시간 점수, 조별 순위를 한곳에서.</p>
+        </div>
 
         <div className="mt-8">
           {socials.length > 0 && (

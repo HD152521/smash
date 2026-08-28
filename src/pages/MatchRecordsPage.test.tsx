@@ -23,6 +23,13 @@ vi.mock('@/features/tournament/TournamentNav', () => ({
   TournamentNav: () => null,
 }))
 
+// 빈 상태의 "지난 결과 입력" 버튼(관리자 전용)이 isAdmin 을 읽는다.
+// 이 파일의 시나리오는 전부 목록에 경기가 있는 채로 시작하므로 값 자체는
+// 대부분 안 쓰이지만, useAuth 컨텍스트 없이도 렌더되도록 모킹해 둔다.
+vi.mock('@/features/tournament/useTournamentNav', () => ({
+  useTournamentNav: () => ({ isAdmin: false, isSession: false, myName: undefined }),
+}))
+
 function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
   return {
     id: 'match-1',

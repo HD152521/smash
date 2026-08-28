@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { isMatchReferee } from '@/lib/matchAccess'
+import { CourtBadge } from './CourtBadge'
 import type { MatchOverviewRow } from '@/types/database'
 
 /**
@@ -29,7 +30,11 @@ export function LiveCourtBody({
   return (
     <>
       <div className="flex items-baseline justify-between gap-3 px-4 pt-3.5">
-        <h3 className="truncate text-lg font-black text-ink-1">{courtName}</h3>
+        <div className="flex min-w-0 items-center gap-2">
+          {/* 진행 중 — 도형이 옅다(CourtBadge 주석 참고) */}
+          <CourtBadge faint />
+          <h3 className="truncate text-lg font-black text-ink-1">{courtName}</h3>
+        </div>
         {trailing}
       </div>
       <div className="flex items-stretch gap-3 px-4 pt-1.5 pb-3.5">

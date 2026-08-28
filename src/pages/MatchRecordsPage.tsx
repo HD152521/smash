@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { Link, useParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
+import { EmptyState } from '@/components/brand/EmptyState'
 import { useGroups, useMatches } from '@/features/tournament/queries'
+import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { toUserMessage } from '@/lib/errors'
 import { matchHasPlayer, orderRecords } from '@/lib/records'
 import { isUnscored } from '@/lib/session'
@@ -31,6 +33,7 @@ export function MatchRecordsPage() {
   const { id } = useParams<{ id: string }>()
   const matches = useMatches(id)
   const groups = useGroups(id)
+  const nav = useTournamentNav(id)
 
   const [groupFilter, setGroupFilter] = useState('')
   const [query, setQuery] = useState('')
@@ -101,9 +104,34 @@ export function MatchRecordsPage() {
       {matches.isPending ? (
         <div className="mt-6 h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
       ) : filtered.length === 0 ? (
-        <p className="mt-6 rounded-2xl border border-dashed border-border-subtle p-8 text-center text-sm text-ink-2">
-          {finished.length === 0 ? '아직 끝난 경기가 없습니다.' : '조건에 맞는 경기가 없습니다.'}
-        </p>
+        finished.length === 0 ? (
+          <EmptyState
+            icon="shuttlecock"
+            className="mt-6"
+            title="아직 끝난 경기가 없습니다"
+            // 앱 밖(종이)에서 이미 친 경기가 있다면 운영진만 대신 남길 수
+            // 있다 — 일반 참가자에게는 이 화면에서 할 수 있는 일이 없어
+            // 안내만 한다.
+            description={nav.isAdmin ? undefined : '경기가 끝나면 여기에 쌓입니다.'}
+            action={
+              nav.isAdmin && (
+                <Link
+                  to={`/t/${id}/matches/record`}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
+                             px-5 text-[0.95rem] font-semibold text-white shadow-sm
+                             transition-colors hover:bg-brand-700
+                             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                >
+                  지난 결과 입력
+                </Link>
+              )
+            }
+          />
+        ) : (
+          <p className="mt-6 rounded-2xl border border-dashed border-border-subtle p-8 text-center text-sm text-ink-2">
+            조건에 맞는 경기가 없습니다.
+          </p>
+        )
       ) : (
         <>
           <p className="mt-5 text-xs text-ink-3">

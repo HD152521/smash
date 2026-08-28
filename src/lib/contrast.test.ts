@@ -37,7 +37,15 @@ describe('명암비 계산', () => {
   })
 })
 
-const FG = ['--fg-brand', '--fg-ok', '--fg-live', '--fg-warn', '--fg-team-b', '--ink-3']
+const FG = [
+  '--fg-brand',
+  '--fg-ok',
+  '--fg-live',
+  '--fg-warn',
+  '--fg-team-b',
+  '--fg-ident-navy',
+  '--ink-3',
+]
 const SURFACES = ['--surface-0', '--surface-1', '--surface-2']
 
 describe('글씨 강조색은 두 테마 · 모든 면에서 AA 를 넘는다', () => {
@@ -67,11 +75,15 @@ describe('색을 배경으로 깔고 글씨를 얹는 곳도 AA 를 넘는다', 
   }
 
   it('조커 배지 (joker-ink / joker)', () => {
-    expect(contrastRatio(token('--color-joker-ink'), token('--color-joker'))).toBeGreaterThanOrEqual(AA)
+    expect(
+      contrastRatio(token('--color-joker-ink'), token('--color-joker')),
+    ).toBeGreaterThanOrEqual(AA)
   })
 
   it('승 배지 (brand-900 / brand-500)', () => {
     // 흰 글씨였을 때 2.87 이었다. 심판이 결과를 확인하는 배지다.
-    expect(contrastRatio(token('--color-brand-900'), token('--color-brand-500'))).toBeGreaterThanOrEqual(AA)
+    expect(
+      contrastRatio(token('--color-brand-900'), token('--color-brand-500')),
+    ).toBeGreaterThanOrEqual(AA)
   })
 })
