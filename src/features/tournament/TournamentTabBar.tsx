@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Gavel,
-  Home,
   LayoutGrid,
   ListOrdered,
   MoreHorizontal,
@@ -28,7 +27,7 @@ import type { TournamentTab } from './TournamentNav'
  * 실측 근거(docs/design.md '이 앱이 실제로 쓰이는 상황')는 운영진이
  * 라이브 중 오가는 화면이 **코트 ↔ 대진표** 둘이라고 말한다. 여기에
  * "경기 몇 대 몇이었지" 를 찾는 기록을 더해 셋이 남는다. 나머지
- * (심판·순위)와 관리·설정·홈은 '더보기' 시트 하나로 묶는다. 라우트는
+ * (심판·순위)와 관리·설정은 '더보기' 시트 하나로 묶는다. 라우트는
  * 그대로 있다 — 탭에서 빠졌을 뿐 어디서도 도달 못 하게 막지 않는다.
  *
  * ## 2026-08-27 — 참가자를 탭으로 되돌렸다
@@ -44,7 +43,13 @@ import type { TournamentTab } from './TournamentNav'
  * (코트·대진표) 쪽에 붙고, 지나간 것을 보는 기록이 뒤로 간다.
  *
  * 모임은 원래 심판·순위가 없다(TournamentNav 참고). 그래서 모임의
- * '더보기' 에는 관리·설정·홈만 남는다.
+ * '더보기' 에는 관리·설정만 남는다.
+ *
+ * ## 2026-08-28 — 홈을 뺐다
+ *
+ * 머리말(TournamentNav)이 오른쪽에 홈을 켰다. 같은 곳으로 가는 버튼이 한
+ * 화면에 둘이면 안 된다는 원칙(BackBar 주석)은 그대로라, 여기 있던 '홈' 은
+ * 뺀다 — 자리를 옮겼을 뿐 없앤 것이 아니다.
  */
 const PRIMARY_TABS = [
   { key: 'court', label: '코트', path: '', icon: LayoutGrid },
@@ -164,9 +169,6 @@ export function TournamentTabBar({
           )}
           <MoreLink to={`/t/${id}/settings`} icon={Settings} onClick={closeMore}>
             설정
-          </MoreLink>
-          <MoreLink to="/" icon={Home} onClick={closeMore}>
-            홈
           </MoreLink>
         </ul>
       </Modal>
