@@ -2,12 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { GradePicker } from '@/components/ui/GradePicker'
+import { GenderPicker } from '@/components/ui/GenderPicker'
 import { CourtMotif } from '@/components/brand/CourtMotif'
 import { Shuttlecock } from '@/components/brand/Shuttlecock'
 import { useAuth, type SocialProvider } from '@/features/auth/useAuth'
 import { useAuthSettings } from '@/features/auth/useAuthSettings'
 import { enabledSocialProviders } from '@/features/auth/providers'
-import type { PlayerGrade } from '@/types/database'
+import type { PlayerGender, PlayerGrade } from '@/types/database'
 
 type Mode = 'signin' | 'signup'
 
@@ -45,6 +46,13 @@ export function LoginPage() {
    * null 과 'beginner' 로 나눠 저장한다(20260901000001).
    */
   const [grade, setGrade] = useState<PlayerGrade | null>(null)
+  /*
+   * 성별도 같은 규칙이다 — 기본값은 '안 골랐다'(null)이고 서버 컬럼도
+   * nullable 이다(20260902000001). 다만 급수와 달리 비어 있으면 **종목
+   * 편성에서 통째로 빠진다** — 남복·여복·혼복은 선수 넷의 성별로 정해지기
+   * 때문이다(`matchKindOf`).
+   */
+  const [gender, setGender] = useState<PlayerGender | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState<'local' | SocialProvider | null>(null)
@@ -60,7 +68,7 @@ export function LoginPage() {
       if (mode === 'signin') {
         await signInWithPassword(email, password)
       } else {
-        await signUpWithPassword(email, password, name.trim(), grade)
+        await signUpWithPassword(email, password, name.trim(), grade, gender)
         // 이메일 확인이 켜져 있으면 가입 직후 세션이 안 생긴다.
         // 아무 반응이 없는 것처럼 보이므로 무슨 일이 일어났는지 알려준다.
         if (!settings?.mailer_autoconfirm) {
@@ -161,15 +169,30 @@ export function LoginPage() {
                   할 이유가 없다 — 서버도 profiles.grade 를 nullable 로 둬서
                   같은 판단을 구조로 못 박아 뒀다(20260901000001).
 
-                  안내 문구로 "나중에 바꿀 수 있다" 고 말하지 않는다.
-                  프로필에서 급수를 고치는 화면이 아직 없어서 그건 거짓말이
-                  된다. 그 화면이 생기면 그때 이 문구를 고친다.
+                  이제 안내 문구로 "나중에 바꿀 수 있다" 고 말한다 —
+                  마이페이지(`/me`)에서 이름·급수·성별을 본인이 고친다.
+                  그 화면이 없던 동안에는 이 문구가 거짓말이라 못 적었다.
                 */}
                 <GradePicker
                   value={grade}
                   onChange={setGrade}
                   disabled={busy !== null}
-                  hint="선택입니다 — 안 고르셔도 가입됩니다."
+                  hint="선택입니다 — 나중에 마이페이지에서 바꿀 수 있습니다."
+                />
+                {/*
+                  성별을 급수 바로 아래에 둔다. 둘 다 "어느 경기에 넣을까" 에
+                  답하는 값이라 한 덩어리이고, 떨어뜨려 놓으면 하나만 고르고
+                  지나치기 쉽다.
+
+                  ⚠ 여기도 **필수가 아니다.** 다만 급수와 달리 비면 남복·여복·
+                  혼복 편성에서 아예 빠지므로, 안 고르는 것을 막는 대신 무슨
+                  일이 생기는지를 한 줄로 말한다.
+                */}
+                <GenderPicker
+                  value={gender}
+                  onChange={setGender}
+                  disabled={busy !== null}
+                  hint="선택입니다 — 적어두면 남복·여복 편성에 자동으로 들어갑니다."
                 />
               </>
             )}

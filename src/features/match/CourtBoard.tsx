@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronRight, ListOrdered, Loader2, Play } from 'lucide-react'
-import { useClaimCourt, useStartMatch } from '@/features/tournament/queries'
+import { useClaimCourt, useDeleteMatch, useStartMatch } from '@/features/tournament/queries'
+import { AutoQueueRow } from './AutoQueueRow'
+import { AutoQueueToggle } from './AutoQueueToggle'
 import { CourtBadge } from './CourtBadge'
 import { LiveCourtBody } from './LiveCourtBody'
 import { SessionLiveCard } from './SessionLiveCard'
 import { matchTitle } from '@/lib/schedule'
 import { courtQueue, courtState, unassignedQueue } from '@/lib/court'
+import { isAutoQueued } from '@/lib/autoQueue'
 import { canRunMatch, type MatchRunAccess } from '@/lib/matchAccess'
 import { cn } from '@/lib/utils'
 import { toUserMessage } from '@/lib/errors'
@@ -27,6 +30,21 @@ interface CourtBoardProps {
    * (docs/이어서시작.md '대회와 모임').
    */
   isSession: boolean
+  /**
+   * 자동 예약 스위치. **모임장에게만** 내려온다 — null 이면 스위치를 안
+   * 그린다(`AutoQueueToggle` 주석). 자동 예약을 실제로 돌리는 것은
+   * 이 화면이 아니라 `useAutoQueue` 를 부르는 `TournamentPage` 다.
+   */
+  autoQueue?: {
+    enabled: boolean
+    onChange: (v: boolean) => void
+    /**
+     * 자동으로 걸린 경기를 지웠다. 자동 예약에게 **같은 편성을 다시 걸지
+     * 말라**고 알린다 — 안 알리면 지운 순간 똑같은 넷이 곧바로 다시 걸려
+     * × 가 아무 일도 안 하는 것처럼 보인다 (`useAutoQueue` 의 declineMatch).
+     */
+    onDeleted: (m: MatchOverviewRow) => void
+  } | null
 }
 
 /**
@@ -53,6 +71,7 @@ export function CourtBoard({
   myDisplayName,
   isAdmin,
   isSession,
+  autoQueue = null,
 }: CourtBoardProps) {
   if (courts.length === 0) {
     return (
@@ -68,6 +87,10 @@ export function CourtBoard({
 
   return (
     <div className="flex flex-col gap-2.5">
+      {autoQueue && (
+        <AutoQueueToggle enabled={autoQueue.enabled} onChange={autoQueue.onChange} />
+      )}
+
       {courts.map((court) => (
         <CourtCard
           key={court.id}
@@ -76,6 +99,7 @@ export function CourtBoard({
           shared={shared}
           tournamentId={tournamentId}
           access={access}
+          onAutoDeleted={autoQueue?.onDeleted}
         />
       ))}
 
@@ -138,6 +162,7 @@ function CourtCard({
   shared,
   tournamentId,
   access,
+  onAutoDeleted,
 }: {
   court: CourtRow
   matches: MatchOverviewRow[]
@@ -145,16 +170,26 @@ function CourtCard({
   shared: MatchOverviewRow[]
   tournamentId: string
   access: MatchRunAccess
+  /** 자동 예약을 지웠을 때 — 같은 편성이 되살아나지 않게 알린다 */
+  onAutoDeleted?: (m: MatchOverviewRow) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const claim = useClaimCourt(tournamentId)
   const start = useStartMatch(tournamentId)
+  const remove = useDeleteMatch(tournamentId)
 
   const queue = courtQueue(court, matches)
   const state = courtState({ live: queue.live, own: queue.own, sharedCount: shared.length })
   const { live, own, finishedCount } = queue
+  /*
+   * 자동으로 걸린 경기는 접히는 대기 줄에서 빼서 카드 위에 그대로 내놓는다
+   * (`AutoQueueRow` 주석 — 앱이 묶어 둔 네 명은 보이는 자리에 있어야 한다).
+   * 대신 접히는 줄에서는 빼야 한 경기가 두 번 보이지 않는다.
+   */
+  const autoWaiting = own.filter(isAutoQueued)
+  const manualWaiting = own.filter((m) => !isAutoQueued(m))
   // 이 코트 대기가 있으면 그걸 먼저 집는다. 없으면 공용 대기 맨 앞.
   const front = own[0] ?? shared[0] ?? null
   const frontFromShared = own.length === 0 && shared.length > 0
@@ -226,6 +261,27 @@ function CourtCard({
         </div>
       </div>
 
+      {autoWaiting.map((m) => (
+        <AutoQueueRow
+          key={m.id}
+          match={m}
+          canDelete={access.isAdmin}
+          deleting={remove.isPending}
+          onDelete={() => {
+            if (!m.id) return
+            setError(null)
+            /*
+             * 먼저 알리고 지운다. 지운 뒤에 알리면 그 사이 경기 목록이
+             * 갱신되며 자동 예약이 같은 편성을 다시 걸어 버린다.
+             */
+            onAutoDeleted?.(m)
+            remove.mutate(m.id, {
+              onError: (e) => setError(toUserMessage(e, '경기를 지우지 못했습니다')),
+            })
+          }}
+        />
+      ))}
+
       {error && (
         <p role="alert" className="px-4 pb-3 text-sm font-medium text-team-b-fg">
           {error}
@@ -238,13 +294,13 @@ function CourtCard({
         busy 상태의 완료 수는 여기 한 줄에 같이 얹는다(같은 정보를
         카드 안에서 두 번 말하지 않는다).
       */}
-      {own.length > 0 && (
+      {manualWaiting.length > 0 && (
         <div className="border-t border-border-subtle">
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
-            aria-label={`이 코트 대기 ${own.length}경기 ${expanded ? '접기' : '펼치기'}`}
+            aria-label={`이 코트 대기 ${manualWaiting.length}경기 ${expanded ? '접기' : '펼치기'}`}
             className="flex min-h-10 w-full items-center gap-2 px-4 py-2 text-left text-sm
                        text-ink-2 transition-colors hover:bg-surface-2
                        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
@@ -258,8 +314,8 @@ function CourtCard({
             */}
             <span className="flex-1 font-semibold">
               {state === 'busy'
-                ? `대기 ${own.length}경기${finishedCount > 0 ? ` · 완료 ${finishedCount}` : ''}`
-                : own.length}
+                ? `대기 ${manualWaiting.length}경기${finishedCount > 0 ? ` · 완료 ${finishedCount}` : ''}`
+                : manualWaiting.length}
             </span>
             <ChevronRight
               className={cn(
@@ -272,7 +328,7 @@ function CourtCard({
 
           {expanded && (
             <ul className="flex flex-col gap-2 border-t border-border-subtle bg-surface-2/50 p-3">
-              {own.map((m, i) => (
+              {manualWaiting.map((m, i) => (
                 <li key={m.id}>
                   <QueueRow
                     m={m}
@@ -300,7 +356,7 @@ function CourtCard({
         </div>
       )}
 
-      {state === 'busy' && own.length === 0 && finishedCount > 0 && (
+      {state === 'busy' && manualWaiting.length === 0 && finishedCount > 0 && (
         <p className="px-4 pb-2 text-xs text-ink-3">완료 {finishedCount}경기</p>
       )}
     </section>

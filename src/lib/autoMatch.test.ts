@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { FAIRNESS_GAP, countPlays, suggestMatch, type AutoMatchCandidate } from './autoMatch'
-import type { MatchOverviewRow, PlayerGrade } from '@/types/database'
+import {
+  FAIRNESS_GAP,
+  countPlays,
+  excludedByKind,
+  suggestMatch,
+  type AutoMatchCandidate,
+} from './autoMatch'
+import { matchKindOf } from './gender'
+import type { MatchOverviewRow, PlayerGender, PlayerGrade } from '@/types/database'
 
 /*
  * 이 파일이 곧 명세다.
@@ -25,9 +32,27 @@ function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
   } as MatchOverviewRow
 }
 
-/** 이름 = id 로 둔다 — 판수는 이름으로, 편성 결과는 id 로 오가서 헷갈리기 쉽다 */
-function member(id: string, grade: PlayerGrade | null): AutoMatchCandidate {
-  return { id, displayName: id, grade }
+/**
+ * 이름 = id 로 둔다 — 판수는 이름으로, 편성 결과는 id 로 오가서 헷갈리기 쉽다.
+ *
+ * 성별은 기본이 null('모른다') 이다. 종목이 들어오기 전에 쓰인 검사들이
+ * 그대로 남아 있어야 `'any'` 회귀를 지킨다 — 성별을 안 적은 명단에서
+ * 답이 달라지면 그건 기존 동작이 바뀐 것이다.
+ */
+function member(
+  id: string,
+  grade: PlayerGrade | null,
+  gender: PlayerGender | null = null,
+): AutoMatchCandidate {
+  return { id, displayName: id, grade, gender }
+}
+
+const man = (id: string, grade: PlayerGrade | null) => member(id, grade, 'male')
+const woman = (id: string, grade: PlayerGrade | null) => member(id, grade, 'female')
+
+/** 뽑힌 id 들의 종목 — `gender.ts` 의 판정을 그대로 쓴다 */
+function kindOf(members: readonly AutoMatchCandidate[], picked: readonly string[]) {
+  return matchKindOf(picked.map((id) => members.find((m) => m.id === id)?.gender ?? null))
 }
 
 /** 이 사람들이 `times` 판 쳤다고 치는 끝난 경기들 */
@@ -228,10 +253,7 @@ describe('suggestMatch — 2단계: 계층 안에서 급수 맞추기', () => {
       member('많이친B', 'B'),
       member('많이친C', 'C'),
     ]
-    const matches = playedMatches(
-      ['많이친S', '많이친A', '많이친B', '많이친C'],
-      FAIRNESS_GAP,
-    )
+    const matches = playedMatches(['많이친S', '많이친A', '많이친B', '많이친C'], FAIRNESS_GAP)
 
     const picked = suggestMatch(members, matches, 2)!
 
@@ -371,5 +393,246 @@ describe('suggestMatch — 같은 입력이면 같은 답', () => {
     ]
 
     expect(suggestMatch(members, [], 2)).toEqual(suggestMatch(members, [], 2))
+  })
+})
+
+describe('suggestMatch — 종목: 같은 성별이 먼저, 혼복은 대안', () => {
+  /*
+   * 사용자의 말 그대로다 — "기본적으로는 남복 여복 이렇게를 잡고".
+   * 남자 넷이 되는데 혼복을 내면 그건 앱이 마음대로 정한 것이다.
+   */
+  test('같은 성별 넷이 되면 혼복보다 먼저 뽑힌다', () => {
+    const members = [
+      man('남1', 'B'),
+      man('남2', 'B'),
+      man('남3', 'B'),
+      man('남4', 'B'),
+      woman('여1', 'B'),
+      woman('여2', 'B'),
+    ]
+
+    const picked = suggestMatch(members, [], 2)!
+
+    expect(kindOf(members, picked)).toBe('mens')
+  })
+
+  /*
+   * "여복이 안 되는 경우가 많아. 남자가 많더라고. 그럴 때 어쩔 수 없이
+   * 혼복을." — 여자가 둘뿐이면 여복은 애초에 불가능하고, 남자도 둘뿐이라
+   * 남복도 안 된다. 그때 코트를 비워 두는 대신 혼복으로 간다.
+   */
+  test('여자가 둘뿐이면 혼복으로 간다', () => {
+    const members = [man('남1', 'B'), man('남2', 'B'), woman('여1', 'B'), woman('여2', 'B')]
+
+    const picked = suggestMatch(members, [], 2)!
+
+    expect(kindOf(members, picked)).toBe('mixed')
+  })
+
+  test('남복·여복이 둘 다 되면 급수가 더 붙은 쪽을 고른다', () => {
+    const members = [
+      man('남S', 'S'),
+      man('남A', 'A'),
+      man('남C', 'C'),
+      man('남D', 'D'),
+      woman('여B1', 'B'),
+      woman('여B2', 'B'),
+      woman('여B3', 'B'),
+      woman('여B4', 'B'),
+    ]
+
+    const picked = suggestMatch(members, [], 2)!
+
+    expect(kindOf(members, picked)).toBe('womens')
+  })
+
+  /*
+   * ⚠ 이 검사가 이 기능의 순서를 지킨다. 남자 넷은 완벽한 남복이지만
+   * 방금 두 판을 쳤고 여자 둘은 아직 한 판도 못 쳤다. 종목이 판수를
+   * 이기면 "혼복 만들려고 3판 친 사람을 또 넣는" 일의 거울상 —
+   * "남복 만들려고 2판 친 남자 넷을 또 넣는" 일이 벌어진다.
+   */
+  test('판수 계층이 종목보다 위다 — 남복이 되는데도 혼복이 나온다', () => {
+    const members = [
+      woman('여1', 'B'),
+      woman('여2', 'B'),
+      man('남1', 'B'),
+      man('남2', 'B'),
+      man('남3', 'B'),
+      man('남4', 'B'),
+    ]
+    const matches = playedMatches(['남1', '남2', '남3', '남4'], FAIRNESS_GAP)
+
+    const picked = suggestMatch(members, matches, 2)!
+
+    expect(picked).toContain('여1')
+    expect(picked).toContain('여2')
+    expect(kindOf(members, picked)).toBe('mixed')
+  })
+})
+
+describe('suggestMatch — 혼복은 남남 · 여여 끼리 맞춘다', () => {
+  /*
+   * 혼복이 남복·여복과 다른 유일한 지점. **합이 같아도 나쁜 경기가 있다** —
+   * 남S+여초 vs 남초+여S 는 합이 5 대 5 로 완벽하지만, 코트에서 실제로
+   * 맞붙는 건 남자와 남자, 여자와 여자다. S 남자가 초심 남자를 상대로
+   * 치는 경기는 그냥 재미없는 경기다.
+   *
+   * 그래서 **고를 때부터** 성별 안에서 짝을 맞춘다. 넷을 골라 놓고 나누는
+   * 것만으로는 늦다 — 그때는 이미 S 와 초심이 같은 명단에 들어와 있다.
+   */
+  test('합이 맞는 조합이 아니라 성별 안에서 붙는 조합을 고른다', () => {
+    const members = [
+      man('남S1', 'S'),
+      man('남S2', 'S'),
+      man('남초1', 'beginner'),
+      man('남초2', 'beginner'),
+      woman('여S1', 'S'),
+      woman('여S2', 'S'),
+      woman('여초1', 'beginner'),
+      woman('여초2', 'beginner'),
+    ]
+
+    const picked = suggestMatch(members, [], 2, 'mixed')!
+
+    expect([...picked].sort()).toEqual(['남S1', '남S2', '여S1', '여S2'])
+  })
+
+  /*
+   * 여자 쪽이 둘뿐이라 급수 차(B–초심)가 강제될 때도, 남자 쪽은 여전히
+   * 남자끼리 붙여야 한다 — 여자 쪽 사정 때문에 남자 급수를 벌리면
+   * 못 맞는 짝이 둘이 된다.
+   */
+  test('한쪽이 강제돼도 다른 쪽은 그 성별 안에서 가장 붙는 둘을 고른다', () => {
+    const members = [
+      man('남A', 'A'),
+      man('남B1', 'B'),
+      man('남B2', 'B'),
+      woman('여B', 'B'),
+      woman('여초', 'beginner'),
+    ]
+
+    const picked = suggestMatch(members, [], 2, 'mixed')!
+
+    expect(picked).toContain('남B1')
+    expect(picked).toContain('남B2')
+    expect(picked).not.toContain('남A')
+  })
+
+  test('혼복은 남1·여1 씩 갈린다 — 남남 대 여여 가 되지 않는다', () => {
+    const members = [man('남1', 'B'), man('남2', 'B'), woman('여1', 'B'), woman('여2', 'B')]
+
+    const picked = suggestMatch(members, [], 2, 'mixed')!
+    const teamA = picked.slice(0, 2)
+    const teamB = picked.slice(2)
+    const menIn = (team: readonly string[]) => team.filter((id) => id.startsWith('남')).length
+
+    expect(menIn(teamA)).toBe(1)
+    expect(menIn(teamB)).toBe(1)
+  })
+})
+
+describe('suggestMatch — 성별을 모르는 사람', () => {
+  /*
+   * 모르는 것을 짐작해 '남복' 이라고 적을 수는 없다 (`matchKindOf` 도 같은
+   * 규율로 null 을 낸다). 대신 화면이 몇 명이 빠지는지 말한다
+   * (`excludedByKind`) — 조용히 사라지면 그 사람은 오늘 못 친다.
+   */
+  test('종목을 지정하면 빠진다', () => {
+    const members = [
+      man('남1', 'B'),
+      man('남2', 'B'),
+      man('남3', 'B'),
+      man('남4', 'B'),
+      member('모름', 'B'),
+    ]
+
+    const picked = suggestMatch(members, [], 2, 'mens')!
+
+    expect(picked).not.toContain('모름')
+    expect([...picked].sort()).toEqual(['남1', '남2', '남3', '남4'])
+  })
+
+  test('성별 미상을 빼면 넷이 안 되면 조용히 null 이다', () => {
+    const members = [man('남1', 'B'), man('남2', 'B'), man('남3', 'B'), member('모름', 'B')]
+
+    expect(suggestMatch(members, [], 2, 'mens')).toBeNull()
+  })
+
+  /*
+   * `'아무나'` 는 조건을 안 걸겠다는 선택이다. 종목을 못 만든다고 코트를
+   * 비워 두면 그 선택을 앱이 뒤집는 것이다 — 종목 없이 고르는 갈래가
+   * 남아 있어야 한다(그게 종목 도입 전 동작이기도 하다).
+   */
+  test("'아무나' 에서는 그대로 들어간다", () => {
+    const members = [man('남1', 'B'), man('남2', 'B'), man('남3', 'B'), member('모름', 'B')]
+
+    const picked = suggestMatch(members, [], 2)!
+
+    expect(picked).toContain('모름')
+    expect(kindOf(members, picked)).toBeNull()
+  })
+
+  test('excludedByKind — 종목을 지정할 때만 셈이 뜻이 있다', () => {
+    const members = [man('남1', 'B'), member('모름1', 'B'), member('모름2', null)]
+
+    expect(excludedByKind(members, 'any')).toBe(0)
+    expect(excludedByKind(members, 'mens')).toBe(2)
+    expect(excludedByKind(members, 'mixed')).toBe(2)
+  })
+})
+
+describe('suggestMatch — 종목을 못 만들면 조용히 null', () => {
+  test('여자가 둘뿐이면 여복은 null 이다', () => {
+    const members = [
+      man('남1', 'B'),
+      man('남2', 'B'),
+      man('남3', 'B'),
+      man('남4', 'B'),
+      woman('여1', 'B'),
+      woman('여2', 'B'),
+    ]
+
+    expect(suggestMatch(members, [], 2, 'womens')).toBeNull()
+    // 같은 명단으로 남복은 된다 — null 은 '사람이 없다' 가 아니라 '그 종목이 안 된다'
+    expect(suggestMatch(members, [], 2, 'mens')).toHaveLength(4)
+  })
+
+  test('여자가 하나뿐이면 혼복도 null 이다', () => {
+    const members = [man('남1', 'B'), man('남2', 'B'), man('남3', 'B'), woman('여1', 'B')]
+
+    expect(suggestMatch(members, [], 2, 'mixed')).toBeNull()
+  })
+})
+
+describe("suggestMatch — 'any' 는 종목이 없던 때와 같다", () => {
+  /*
+   * 종목 인자는 기본값이 `'any'` 다. 기존 호출부(인자 셋)와 명시적으로
+   * `'any'` 를 넘긴 호출이 갈리면, 화면 한 곳만 고친 날 조용히 어긋난다.
+   */
+  test('기본값과 명시적 any 가 같다', () => {
+    const members = [
+      man('a', 'S'),
+      woman('b', 'A'),
+      man('c', 'B'),
+      woman('d', 'C'),
+      member('e', null),
+      man('f', 'D'),
+    ]
+
+    expect(suggestMatch(members, [], 2)).toEqual(suggestMatch(members, [], 2, 'any'))
+  })
+
+  test('성별을 아무도 안 적었으면 판수·급수만으로 고른다', () => {
+    const members = [
+      member('S', 'S'),
+      member('C1', 'C'),
+      member('C2', 'C'),
+      member('C3', 'C'),
+      member('C4', 'C'),
+      member('초심', 'beginner'),
+    ]
+
+    expect([...suggestMatch(members, [], 2)!].sort()).toEqual(['C1', 'C2', 'C3', 'C4'])
   })
 })

@@ -84,6 +84,7 @@ const ROUTES = [
   `/t/${TOURNAMENT_ID}/admin/rules`,
   '/new/session',
   '/settings/alerts',
+  '/me',
 
   // 동아리 — 허브 하나에 하위 넷
   '/clubs',

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import type { GuestBoardOutcome } from '@/lib/guest'
-import type { PlayerGrade } from '@/types/database'
+import type { PlayerGender, PlayerGrade } from '@/types/database'
 import { fetchGuestBoard, fetchGuestSessions, joinAsGuest } from './api'
 
 const guestKeys = {
@@ -41,13 +41,16 @@ export function useJoinAsGuest() {
       sessionId,
       name,
       grade,
+      gender,
     }: {
       code: string
       sessionId: string
       name: string
       /** 선택이다 — 안 고르면 null 이고 서버는 인자 없이 부른 것과 같이 다룬다 */
       grade: PlayerGrade | null
-    }) => joinAsGuest(code, sessionId, name, grade),
+      /** 급수와 같은 규칙. 비면 그날 종목(남복·여복·혼복) 편성에서 빠진다 */
+      gender: PlayerGender | null
+    }) => joinAsGuest(code, sessionId, name, grade, gender),
   })
 }
 

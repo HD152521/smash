@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Play } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 import { CourtMotif } from '@/components/brand/CourtMotif'
 import { Shuttlecock } from '@/components/brand/Shuttlecock'
 import { useAuth } from '@/features/auth/useAuth'
@@ -49,8 +48,6 @@ import { useMyClubs } from '@/features/club/queries'
  * (`enabled`).
  */
 export function HomePage() {
-  const { signOut } = useAuth()
-
   return (
     <div className="min-h-dvh bg-surface-0">
       {/*
@@ -81,22 +78,14 @@ export function HomePage() {
           <SmallRow to="/new" title="대회 만들기" />
           <SmallRow to="/join" title="대회 참가하기" />
           {/*
-            알림은 대회가 아니라 이 브라우저에 붙는다. 대회 설정 안에 두면
-            참가한 대회 수만큼 같은 스위치가 생기고, 아직 어느 대회에도 안
-            들어간 사람은 켤 자리가 없다.
+            나에 관한 것은 이 줄 하나로 모았다 — 이름·급수·성별 고치기,
+            알림, 로그아웃. 전에는 알림이 이 목록의 마지막 칸이었고
+            로그아웃은 그 아래 따로 떠 있었는데, 둘 다 성격이 같은 것
+            (계정·기기 설정)이라 한 문 뒤에 있는 편이 맞다. 메인의 책임은
+            '오늘을 보여준다' 이고, 설정이 여기 늘어설수록 오늘이 밀린다.
           */}
-          <SmallRow to="/settings/alerts" title="알림" last />
+          <SmallRow to="/me" title="내 정보" last />
         </nav>
-
-        {/*
-          로그아웃은 몇 달에 한 번 누른다. 화면 맨 위가 아니라 여기가 맞다.
-          링크가 아니라 동작이라 줄 목록 밖에 따로 둔다.
-        */}
-        <div className="mt-6 flex justify-center">
-          <Button size="sm" variant="ghost" onClick={() => void signOut()}>
-            로그아웃
-          </Button>
-        </div>
       </main>
     </div>
   )

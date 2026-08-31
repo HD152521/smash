@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { GuestJoinPage } from './GuestJoinPage'
@@ -26,6 +26,16 @@ import { browserGuestMeStorage, loadGuestName, saveGuestName } from '@/lib/guest
  */
 
 const GUEST_CODE = 'ABCDEFGHJKMNPQRSTUVWX2'
+
+/**
+ * 급수와 성별 두 그룹에 **똑같이 '모름' 칸이 있다.** 화면 전체에서
+ * `getByRole('radio', { name: '모름' })` 을 부르면 둘이 잡혀 터진다 —
+ * fieldset/legend 가 만들어 주는 group 이름으로 먼저 좁힌 뒤 고른다.
+ */
+function pick(groupName: '급수' | '성별', optionName: string) {
+  const group = screen.getByRole('group', { name: groupName })
+  fireEvent.click(within(group).getByRole('radio', { name: optionName }))
+}
 
 const state = {
   sessions: { ok: true, clubName: '수요 배드민턴', sessions: [] } as GuestSessionsOutcome,
@@ -151,6 +161,7 @@ describe('게스트 등록 화면', () => {
       sessionId: 's1',
       name: '홍길동',
       grade: null,
+      gender: null,
     })
   })
 
@@ -165,7 +176,7 @@ describe('게스트 등록 화면', () => {
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '홍길동' } })
     // 화면에는 '초심' 이지만 실려 가는 값은 'beginner' 다 — DB 값에 한글을
     // 넣지 않는다는 규율(src/lib/grade.ts)이 여기서 눈에 보인다
-    fireEvent.click(screen.getByRole('radio', { name: '초심' }))
+    pick('급수', '초심')
     fireEvent.click(screen.getByRole('button', { name: '명단에 들어가기' }))
 
     expect(mutateAsync).toHaveBeenCalledWith({
@@ -173,6 +184,36 @@ describe('게스트 등록 화면', () => {
       sessionId: 's1',
       name: '홍길동',
       grade: 'beginner',
+      gender: null,
+    })
+  })
+
+  /*
+   * 성별은 급수와 **다른 무게**를 갖는다. 급수가 비면 편성은 되고 짝만
+   * 덜 맞지만, 성별이 비면 남복·여복·혼복 어디에도 못 들어간다
+   * (`matchKindOf`). 코트 앞에 서 있는 게스트가 그래서 빠지면 아깝다.
+   *
+   * 화면 값은 '여' 지만 실려 가는 값은 'female' 이다 — DB 값에 한글을
+   * 넣지 않는다는 규율(src/lib/gender.ts)이 여기서 눈에 보인다.
+   */
+  test('성별을 고르면 급수와 함께 실려 간다 (화면은 한글, 값은 영문)', () => {
+    state.sessions = {
+      ok: true,
+      clubName: '수요 배드민턴',
+      sessions: [{ id: 's1', name: '8/25 정기모임', startsAt: null }],
+    }
+    renderAt(GUEST_CODE)
+
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '홍길동' } })
+    pick('성별', '여')
+    fireEvent.click(screen.getByRole('button', { name: '명단에 들어가기' }))
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      code: GUEST_CODE,
+      sessionId: 's1',
+      name: '홍길동',
+      grade: null,
+      gender: 'female',
     })
   })
 
@@ -190,8 +231,8 @@ describe('게스트 등록 화면', () => {
     renderAt(GUEST_CODE)
 
     fireEvent.change(screen.getByLabelText('이름'), { target: { value: '홍길동' } })
-    fireEvent.click(screen.getByRole('radio', { name: 'S' }))
-    fireEvent.click(screen.getByRole('radio', { name: '모름' }))
+    pick('급수', 'S')
+    pick('급수', '모름')
     fireEvent.click(screen.getByRole('button', { name: '명단에 들어가기' }))
 
     expect(mutateAsync).toHaveBeenCalledWith({
@@ -199,6 +240,7 @@ describe('게스트 등록 화면', () => {
       sessionId: 's1',
       name: '홍길동',
       grade: null,
+      gender: null,
     })
   })
 

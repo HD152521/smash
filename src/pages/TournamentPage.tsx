@@ -3,6 +3,7 @@ import { Plus, WifiOff } from 'lucide-react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { CourtBoard } from '@/features/match/CourtBoard'
+import { useAutoQueue, useAutoQueueEnabled } from '@/features/match/useAutoQueue'
 import { SessionRsvpPanel } from '@/features/tournament/SessionRsvpPanel'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { useRealtimeMatches } from '@/features/match/useRealtimeMatches'
@@ -67,6 +68,35 @@ export function TournamentPage() {
 
   const me = members.data?.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
+
+  /*
+   * ── 자동 예약 (docs: src/lib/autoQueue.ts) ─────────────────────────
+   *
+   * 코트마다 다음 경기 하나를 미리 걸어 둔다. 훅은 조건부로 못 부르므로
+   * 여기서 부르고 **`enabled` 로만 켠다** — 조건이 하나라도 어긋나면
+   * 아무 일도 안 일어난다.
+   *
+   * 켜지는 조건이 여럿인 이유:
+   *   · `sessionKind` — 대회 경기는 조·심판·조커가 있어 편성 규칙이 다르다
+   *   · `isAdmin`     — 서버가 남을 코트에 넣는 걸 관리자에게만 허락한다.
+   *                     동시에 폭주를 열두 대에서 한 대로 줄이는 장치다
+   *   · `started`     — 시작 전 화면은 참가 신청이다. 아직 안 온 사람으로
+   *                     경기를 짜 두면 그날 저녁 전부 지워야 한다
+   *   · 데이터 도착   — 명단·경기·코트가 오기 전에는 "대기가 비었다" 가
+   *                     참이 아니라 **모른다** 이다. 빈 배열을 보고 만들면
+   *                     새로고침할 때마다 중복 편성이 쌓인다
+   */
+  const [autoQueueOn, setAutoQueueOn] = useAutoQueueEnabled(id)
+  const started = showCourts || hasStarted(startsAt, now)
+  const loaded = Boolean(members.data && matches.data && courts.data)
+  const autoQueueHandle = useAutoQueue({
+    tournamentId: id ?? '',
+    enabled: Boolean(id) && sessionKind && isAdmin && started && loaded && autoQueueOn,
+    courts: courts.data ?? [],
+    matches: matches.data ?? [],
+    members: members.data ?? [],
+    squad: tournament.data?.config.format === 'singles' ? 1 : 2,
+  })
 
   if (tournament.error) {
     return (
@@ -168,6 +198,16 @@ export function TournamentPage() {
                */
               isAdmin={isAdmin}
               isSession={session}
+              /* 스위치는 실제로 돌릴 수 있는 사람에게만 — AutoQueueToggle 주석 */
+              autoQueue={
+                session && isAdmin
+                  ? {
+                      enabled: autoQueueOn,
+                      onChange: setAutoQueueOn,
+                      onDeleted: autoQueueHandle.declineMatch,
+                    }
+                  : null
+              }
             />
           )}
         </section>

@@ -1,5 +1,6 @@
-import type { MatchOverviewRow, PlayerGrade } from '@/types/database'
+import type { MatchOverviewRow, PlayerGender, PlayerGrade } from '@/types/database'
 import { buildBusyMap } from './busy'
+import type { MatchKind, MatchKindFilter } from './gender'
 import { gradeRankOrUnknown } from './grade'
 
 /**
@@ -29,6 +30,23 @@ import { gradeRankOrUnknown } from './grade'
  * 조금만 어긋나도 "3판 뒤처진 사람이 급수 때문에 또 밀렸다" 가 생기는데,
  * 그건 이 기능이 없애려던 바로 그 상황이다. 계층으로 자르면 그 일이
  * **구조적으로** 못 일어난다.
+ *
+ * ── 종목(남복 · 여복 · 혼복)이 들어가는 자리 ───────────────────────
+ * 사용자의 말: *"기본적으로는 남복 여복 이렇게를 잡고, 여복이 안 되는
+ * 경우가 많아 — 남자가 많더라고. 그럴 때 어쩔 수 없이 혼복을 들어가게
+ * 하자. 근데 혼복은 남남 여여 끼리 실력이 비슷해야 좋아."*
+ *
+ * 종목은 **1단계 아래**에 들어간다. 계층을 먼저 자르고 그 안에서 종목을
+ * 본다 — 순서가 뒤집히면 "혼복 하나 만들자고 방금 3판 친 사람을 또
+ * 넣는" 일이 생긴다. 그건 판수 계층을 만든 이유를 통째로 없앤다.
+ *
+ *   `'any'`  계층 안에서 **같은 성별 넷(남복·여복)을 먼저** 찾고, 없으면
+ *            혼복(남2·여2), 그것도 안 되면 종목을 안 보고 고른다.
+ *            마지막 갈래가 있어야 성별을 아직 안 적은 명단에서도 코트가
+ *            빈 채로 남지 않는다 (그리고 그때 동작이 종목 도입 전과 같다).
+ *   지정 시  그 종목만. 성별을 모르는 사람은 **후보에서 빠진다** —
+ *            모르는 것을 짐작해 '남복' 이라고 적을 수는 없다. 대신 화면이
+ *            몇 명이 빠졌는지 말해야 한다 (`excludedByKind`).
  *
  * ── 안 하는 것 ─────────────────────────────────────────────────────
  * · 대기열에 자동으로 넣지 않는다. 화면에 채워 놓는 데서 멈춘다 — 자동
@@ -60,16 +78,26 @@ export interface AutoMatchCandidate {
   displayName: string
   /** null 은 '모른다'. **후보에서 빼지 않는다** — 아래 `bestGradeFit` 참고 */
   grade: PlayerGrade | null
+  /**
+   * null 은 '모른다'. 급수와 달리 **종목이 지정되면 후보에서 뺀다** —
+   * 급수는 몰라도 한가운데로 메워 줄을 세울 수 있지만 성별은 메울 수 없다.
+   * 짐작해서 채우면 '남복' 이라고 적힌 경기에 여자가 들어간다.
+   */
+  gender: PlayerGender | null
 }
 
-/** 계산하는 동안만 쓰는 모양 — 후보 한 사람의 판수·급수·원래 자리 */
+/** 계산하는 동안만 쓰는 모양 — 후보 한 사람의 판수·급수·성별·원래 자리 */
 interface Ranked {
   id: string
   plays: number
   rank: number
+  gender: PlayerGender | null
   /** 명단에서 몇 번째였나. 마지막 동점 기준이자 결과를 안 흔들리게 하는 닻 */
   order: number
 }
+
+/** 계층 안에서 `need` 명을 고르는 방법 — 종목을 보느냐 마느냐가 여기서 갈린다 */
+type TierPicker = (tier: readonly Ranked[], need: number, anchor: number | null) => Ranked[]
 
 /**
  * 오늘 누가 몇 판 했나 — 이름 → 판수.
@@ -94,6 +122,22 @@ export function countPlays(matches: readonly MatchOverviewRow[]): Map<string, nu
 }
 
 /**
+ * 종목을 지정하면 제안에서 빠지는 사람 수 — 성별을 안 적은 사람.
+ *
+ * **화면이 이 숫자를 말해야 한다.** 종목을 고른 순간 성별 미상인 사람은
+ * 제안에 영영 안 뜨는데, 아무 말도 없으면 총무는 그 사람이 왜 안 나오는지
+ * 알 길이 없다 — 그리고 그건 그 사람이 오늘 경기를 못 하게 되는 일이다.
+ * 판단은 여기 있고 화면은 숫자를 그리기만 한다 (`busyCount` 와 같은 규율).
+ */
+export function excludedByKind(
+  members: readonly AutoMatchCandidate[],
+  kind: MatchKindFilter,
+): number {
+  if (kind === 'any') return 0
+  return members.filter((m) => m.gender === null).length
+}
+
+/**
  * 지금 고를 수 있는 사람 — 다른 경기에 안 묶인 사람.
  *
  * '묶였다' 의 판단은 `busy.ts` 하나뿐이다. 화면이 흐리게 만드는 기준과
@@ -113,6 +157,7 @@ function availableCandidates(
       id: m.id,
       plays: plays.get(m.displayName) ?? 0,
       rank: gradeRankOrUnknown(m.grade),
+      gender: m.gender,
       order,
     })
   }
@@ -141,20 +186,27 @@ function availableCandidates(
  * 고르면 폭이 늘 0 이라 정렬 맨 앞, 즉 **가장 센 사람이 매번 뽑혔다.**
  * 초심 셋에 S 하나가 끼는 편성이 계속 나온다. 남는 자리는 센 사람 자리가
  * 아니라 **앞사람들에 어울리는 자리**다.
+ *
+ * ⚠ 남는 자리를 채울 때는 종목을 **안 본다** (`bestGradeFit` 고정). 뒤
+ * 계층 호출은 앞에서 확정된 사람들의 성별을 모르는데, 모른 채로 "남자
+ * 둘"을 채우면 남3여1 이 나온다. 게다가 여기까지 왔다는 건 계층이 이미
+ * 모자란 상황이라, 종목을 맞추려면 더 많이 친 사람을 끌어와야 한다.
+ * 그건 판수 규칙을 이기는 일이고 **종목은 판수보다 아래다.**
  */
 function fairPick(
   candidates: readonly Ranked[],
   need: number,
+  pickInTier: TierPicker = bestGradeFit,
   anchor: number | null = null,
 ): Ranked[] {
   if (candidates.length < need) return []
 
   const limit = Math.min(...candidates.map((c) => c.plays)) + FAIRNESS_GAP - 1
   const tier = candidates.filter((c) => c.plays <= limit)
-  if (tier.length >= need) return bestGradeFit(tier, need, anchor)
+  if (tier.length >= need) return pickInTier(tier, need, anchor)
 
   const rest = candidates.filter((c) => c.plays > limit)
-  return [...tier, ...fairPick(rest, need - tier.length, meanRank(tier))]
+  return [...tier, ...fairPick(rest, need - tier.length, bestGradeFit, meanRank(tier))]
 }
 
 /**
@@ -174,6 +226,23 @@ function meanRank(people: readonly Ranked[]): number {
 }
 
 /**
+ * 한 묶음이 얼마나 잘 맞나 — 작을수록 좋다.
+ *
+ * **급수 폭** → **기준(anchor)과의 거리** → **판수 합** 순이다. 폭이 첫
+ * 칸인 이유는 그게 경기의 재미를 결정하기 때문이고, 판수가 마지막인 이유는
+ * 판수가 이미 1단계에서 계층으로 걸러졌기 때문이다 — 여기 남은 판수 차이는
+ * 최대 한 판이라 동점을 가르는 데만 쓴다.
+ */
+function fitScore(people: readonly Ranked[], anchor: number | null): [number, number, number] {
+  const ranks = people.map((p) => p.rank)
+  return [
+    Math.max(...ranks) - Math.min(...ranks),
+    anchor === null ? 0 : Math.abs(meanRank(people) - anchor),
+    people.reduce((sum, p) => sum + p.plays, 0),
+  ]
+}
+
+/**
  * 2단계 — 계층 안에서 급수가 가장 붙어 있는 네 명.
  *
  * 급수 순으로 세운 뒤 연속한 `need` 명씩 훑어 폭(맨 뒤 − 맨 앞)이 가장
@@ -186,24 +255,18 @@ function meanRank(people: readonly Ranked[]): number {
  * 사람은 영영 경기에 못 들어갔을 것이다.
  *
  * 폭이 같은 창이 여럿이면 **기준(anchor)에 가까운 쪽** → **판수 합이 적은
- * 쪽** → 명단 순서 순으로 고른다. anchor 는 앞 계층에서 이미 확정된
- * 사람들의 급수 한가운데다(없으면 안 본다). (다음 단계에서 '직전 경기와
- * 같은 짝' 감점을 얹는다면 이 동점 처리에 한 항을 더하는 자리다.)
+ * 쪽** → 명단 순서 순으로 고른다(`fitScore`). anchor 는 앞 계층에서 이미
+ * 확정된 사람들의 급수 한가운데다(없으면 안 본다). (다음 단계에서 '직전
+ * 경기와 같은 짝' 감점을 얹는다면 이 동점 처리에 한 항을 더하는 자리다.)
  */
 function bestGradeFit(tier: readonly Ranked[], need: number, anchor: number | null): Ranked[] {
-  const sorted = [...tier].sort(
-    (a, b) => a.rank - b.rank || a.plays - b.plays || a.order - b.order,
-  )
+  const sorted = [...tier].sort((a, b) => a.rank - b.rank || a.plays - b.plays || a.order - b.order)
 
   let best: Ranked[] = []
   let bestScore: [number, number, number] = [Infinity, Infinity, Infinity]
   for (let i = 0; i + need <= sorted.length; i += 1) {
     const window = sorted.slice(i, i + need)
-    const score: [number, number, number] = [
-      window[need - 1]!.rank - window[0]!.rank,
-      anchor === null ? 0 : Math.abs(meanRank(window) - anchor),
-      window.reduce((sum, p) => sum + p.plays, 0),
-    ]
+    const score = fitScore(window, anchor)
     if (isBetter(score, bestScore)) {
       best = window
       bestScore = score
@@ -212,29 +275,138 @@ function bestGradeFit(tier: readonly Ranked[], need: number, anchor: number | nu
   return best
 }
 
+// ── 종목 ──────────────────────────────────────────────────────────────
+
+/** 그 성별인 사람만. **성별을 모르는 사람은 여기서 빠진다** */
+function ofGender(pool: readonly Ranked[], gender: PlayerGender): Ranked[] {
+  return pool.filter((p) => p.gender === gender)
+}
+
 /**
- * 3단계 — 두 편의 급수 합이 비슷하게 가른다.
+ * 종목 하나를 만들어 본다. 못 만들면 빈 배열.
+ *
+ * 남복·여복은 **후보 명단을 그 성별로 좁힌 뒤 1단계를 그대로 돌린다.**
+ * 조건을 나중에 걸러 내지 않고 앞에서 좁히는 이유: 남복을 고른 순간
+ * 여자의 판수는 이 편성과 아무 상관이 없다. "여자 한 명이 0판이라 계층이
+ * 그 사람뿐" 인 상황에서 남복이 안 만들어지면 그건 버그다.
+ */
+function pickKind(
+  pool: readonly Ranked[],
+  need: number,
+  kind: MatchKind,
+  anchor: number | null = null,
+): Ranked[] {
+  if (kind === 'mens') return fairPick(ofGender(pool, 'male'), need, bestGradeFit, anchor)
+  if (kind === 'womens') return fairPick(ofGender(pool, 'female'), need, bestGradeFit, anchor)
+  return pickMixed(pool, need, anchor)
+}
+
+/**
+ * 혼복 — **남자끼리 · 여자끼리 급수를 맞춰서 고른다.**
+ *
+ * 이게 혼복이 남복·여복과 다른 유일한 지점이다. 넷의 급수 합만 비슷하면
+ * 된다고 보면 **S남 + 초심여 vs B남 + B여** 가 나온다. 합은 같지만 실제로는
+ * 엉망인 경기다 — 코트에서 실제로 맞붙는 건 합이 아니라 **같은 성별끼리**다.
+ *
+ * 그래서 넷을 골라 놓고 나누는 게 아니라 **고를 때부터** 성별로 나눠 각각
+ * 두 명씩 뽑는다. 각 뽑기가 이미 급수 폭을 최소로 하므로(`bestGradeFit`)
+ * 두 남자의 차이와 두 여자의 차이가 그 자리에서 작아진다. 넷을 고른 뒤에
+ * 나누기만 해서는 늦다 — 그때는 이미 S남과 초심여가 명단에 들어와 있다.
+ *
+ * 적은 쪽이 **먼저** 고른다. 여자가 둘뿐인 날 그 둘은 사실상 이미 정해져
+ * 있고 남는 남자 자리가 거기 맞춰 가는 게 맞다 — 반대로 하면 남자 둘을
+ * 먼저 박아 놓고 여자 쪽이 못 따라간다. (`fairPick` 의 "남는 자리는
+ * 앞사람들에 어울리는 자리" 와 같은 규율이라 anchor 로 넘긴다.)
+ */
+function pickMixed(pool: readonly Ranked[], need: number, anchor: number | null): Ranked[] {
+  const half = need / 2
+  if (!Number.isInteger(half)) return []
+
+  const men = ofGender(pool, 'male')
+  const women = ofGender(pool, 'female')
+  const [scarce, plenty] = men.length <= women.length ? [men, women] : [women, men]
+
+  const first = fairPick(scarce, half, bestGradeFit, anchor)
+  if (first.length < half) return []
+  const second = fairPick(plenty, half, bestGradeFit, meanRank(first))
+  if (second.length < half) return []
+  return [...first, ...second]
+}
+
+/** 다 찬 묶음끼리만 견준다 — 둘 다 되면 잘 맞는 쪽, 완전 동점이면 앞(a) */
+function betterFit(
+  a: readonly Ranked[],
+  b: readonly Ranked[],
+  need: number,
+  anchor: number | null,
+): Ranked[] {
+  if (a.length < need) return b.length < need ? [] : [...b]
+  if (b.length < need) return [...a]
+  return isBetter(fitScore(b, anchor), fitScore(a, anchor)) ? [...b] : [...a]
+}
+
+/**
+ * `'any'` 일 때 계층 안에서 고르는 방법 — **같은 성별이 먼저, 혼복은 대안.**
+ *
+ * 사용자의 말 그대로다. 남복과 여복이 둘 다 되면 더 잘 맞는 쪽(급수 폭이
+ * 좁은 쪽)을 고르고, 완전히 같으면 남복이 남는다 — 무작위를 안 써야 화면을
+ * 다시 그릴 때 제안이 흔들리지 않는다.
+ *
+ * ⚠ 마지막 갈래(종목을 안 보고 고르기)를 반드시 남긴다. 성별을 아직 아무도
+ * 안 적은 명단이나 남3여1 만 남은 시간대에서 이게 없으면 코트가 빈 채로
+ * 남는다. 사용자는 `'아무나'` 를 골랐는데 종목을 못 만들었다고 경기를 안
+ * 짜 주는 것은 그 선택을 뒤집는 일이다. (종목이 없던 때의 동작이 그대로
+ * 남아 있는 자리이기도 하다.)
+ */
+const preferKind: TierPicker = (tier, need, anchor) => {
+  const same = betterFit(
+    pickKind(tier, need, 'mens', anchor),
+    pickKind(tier, need, 'womens', anchor),
+    need,
+    anchor,
+  )
+  if (same.length === need) return same
+
+  const mixed = pickKind(tier, need, 'mixed', anchor)
+  if (mixed.length === need) return mixed
+
+  return bestGradeFit(tier, need, anchor)
+}
+
+/**
+ * 3단계 — 두 편을 가른다. **성별 균형이 먼저, 그 다음 급수 합.**
  *
  * 급수가 붙은 네 명을 골라 놔도 나누기를 잘못하면 S·A 대 C·D 가 된다.
  * 인원이 넷(복식)이나 둘(단식)뿐이라 가능한 편 가르기를 전부 세어 보는
  * 게 제일 짧고 확실하다 — 0번 사람을 늘 A편에 고정해(홀수 mask) 좌우가
  * 뒤집힌 같은 편성을 두 번 보지 않는다.
  *
+ * **성별 균형이 급수보다 앞이다.** 혼복 넷(남2·여2)을 급수 합만 보고 가르면
+ * 남남 대 여여 가 나올 수 있는데, 그건 혼복이 아니라 그냥 이상한 경기다.
+ * 남자 수가 양 편에 같아지는 가르기를 먼저 고르고 그 안에서 급수 합을
+ * 맞춘다. 남복·여복·성별 미상 편성에서는 이 값이 늘 0 이라 아무것도 안
+ * 바뀐다 — 종목이 없던 때와 결과가 같다.
+ *
  * 돌려주는 순서는 `splitTeams` 의 약속과 같다 — 앞 `squad` 명이 A편.
  */
 function balancedSplit(picked: readonly Ranked[], squad: number): string[] {
   const need = squad * 2
-  let bestGap = Infinity
+  const men = (team: readonly Ranked[]) => team.filter((p) => p.gender === 'male').length
+  const sum = (team: readonly Ranked[]) => team.reduce((s, p) => s + p.rank, 0)
+
+  let bestScore: [number, number] = [Infinity, Infinity]
   let best: string[] = picked.map((p) => p.id)
 
   for (let mask = 1; mask < 1 << need; mask += 2) {
     const teamA = picked.filter((_, i) => (mask >> i) & 1)
     if (teamA.length !== squad) continue
     const teamB = picked.filter((_, i) => !((mask >> i) & 1))
-    const sum = (team: readonly Ranked[]) => team.reduce((s, p) => s + p.rank, 0)
-    const gap = Math.abs(sum(teamA) - sum(teamB))
-    if (gap < bestGap) {
-      bestGap = gap
+    const score: [number, number] = [
+      Math.abs(men(teamA) - men(teamB)),
+      Math.abs(sum(teamA) - sum(teamB)),
+    ]
+    if (isBetter(score, bestScore)) {
+      bestScore = score
       best = [...teamA, ...teamB].map((p) => p.id)
     }
   }
@@ -247,17 +419,23 @@ function balancedSplit(picked: readonly Ranked[], squad: number): string[] {
  * **사람이 모자라면 null 이다.** 셋으로 억지 편성을 내거나 이미 뛰는 사람을
  * 채워 넣지 않는다. 반쯤 채워진 제안은 총무가 고쳐야 할 것이 뭔지 안
  * 알려주면서 화면만 어지럽힌다 — 그럴 바에는 빈 화면이 정직하다.
+ *
+ * 종목을 지정했는데 못 만드는 경우도 **조용히 null** 이다. "여복을 만들 수
+ * 없습니다" 를 띄우는 대신, 화면은 성별을 안 적은 사람이 몇인지만 미리 말해
+ * 둔다(`excludedByKind`) — 그게 총무가 실제로 고칠 수 있는 것이다.
  */
 export function suggestMatch(
   members: readonly AutoMatchCandidate[],
   matches: readonly MatchOverviewRow[],
   squad: number,
+  kind: MatchKindFilter = 'any',
 ): string[] | null {
   const need = squad * 2
   if (need <= 0) return null
 
   const plays = countPlays(matches)
-  const picked = fairPick(availableCandidates(members, matches, plays), need)
+  const pool = availableCandidates(members, matches, plays)
+  const picked = kind === 'any' ? fairPick(pool, need, preferKind) : pickKind(pool, need, kind)
   if (picked.length < need) return null
 
   return balancedSplit(picked, squad)

@@ -11,7 +11,8 @@ import {
   useTournament,
 } from '@/features/tournament/queries'
 import { hasAccountContrast, partitionGoing } from '@/lib/rsvp'
-import { countPlays, suggestMatch } from '@/lib/autoMatch'
+import { countPlays, excludedByKind, suggestMatch } from '@/lib/autoMatch'
+import { MATCH_KIND_FILTERS, matchKindLabel, type MatchKindFilter } from '@/lib/gender'
 import { buildBusyMap, busyLabel, busyReason, type BusyInfo } from '@/lib/busy'
 import { removePick, splitTeams, togglePick } from '@/lib/matchPicker'
 import { isSession } from '@/lib/session'
@@ -41,6 +42,12 @@ import type { MemberSummary } from '@/features/tournament/api'
  *
  *     한 번이라도 이름을 누르면 그때부터는 사람의 목록이고, 제안은 다시
  *     덮지 않는다. 총무가 다르게 짜는 데는 대개 앱이 모르는 이유가 있다.
+ *
+ *     종목(남복·여복·혼복)을 고르면 제안이 그 조건으로 다시 계산된다.
+ *     기본은 `'아무나'` 이고, 그때도 앱은 같은 성별 넷을 먼저 찾는다
+ *     (`src/lib/autoMatch.ts`). 종목을 고르면 **성별을 안 적은 사람은
+ *     제안에서 빠지는데, 그 사실을 화면이 한 줄로 말한다** — 조용히
+ *     사라지면 그 사람은 오늘 경기를 못 하고 아무도 이유를 모른다.
  *
  *  3. **참가를 누른 사람이 먼저 온다.** 그날 온 사람이 대개 그 사람들이라
  *     스무 명 명단에서 매번 찾아 내려가지 않게 된다. 하지만 참가는
@@ -76,6 +83,13 @@ export function SessionMatchCreatePage() {
   const [manual, setManual] = useState<string[] | null>(null)
   const [courtId, setCourtId] = useState<string | null>(null)
 
+  /*
+   * 종목. 기본은 `'any'` — 대부분의 날은 그냥 돌아가면 되고, 그때도 앱은
+   * 같은 성별 넷을 먼저 찾는다. 종목을 고르는 건 "오늘은 여복 좀 돌리자"
+   * 같은 **예외**라서 기본값 자리를 차지하면 안 된다.
+   */
+  const [kind, setKind] = useState<MatchKindFilter>('any')
+
   const squad = tournament.data?.config.format === 'singles' ? 1 : 2
   const need = squad * 2
 
@@ -105,8 +119,16 @@ export function SessionMatchCreatePage() {
    * 가 생기고, 한 번 그러면 총무는 제안을 매번 갈아엎는다.
    */
   const plays = countPlays(matches.data ?? [])
-  const suggestion = suggestMatch(roster, matches.data ?? [], squad)
+  const suggestion = suggestMatch(roster, matches.data ?? [], squad, kind)
   const picked = manual ?? suggestion ?? []
+
+  /*
+   * 종목을 고르면 성별을 안 적은 사람이 제안에서 빠진다 — 그 판단은
+   * `autoMatch.ts` 에 있고 화면은 숫자만 그린다(`busyCount` 와 같은 규율).
+   * 이건 **그 사람이 오늘 경기를 못 하게 되는 결정**이라, 말없이 넘어가면
+   * 안 된다.
+   */
+  const excludedCount = excludedByKind(roster, kind)
 
   /*
    * 판수 배지는 **차이가 있을 때만** 붙인다 ('명단만' 배지와 같은 규율 —
@@ -201,16 +223,44 @@ export function SessionMatchCreatePage() {
         </div>
 
         {/*
+          종목 칩. 같은 성별(남복·여복)이 앞이고 혼복이 마지막이다 —
+          순서의 정본은 `MATCH_KIND_FILTERS` 다. "혼복은 대안이지 기본이
+          아니다" 는 말이 고르는 순서에 그대로 남아 있어야 한다.
+        */}
+        <div role="group" aria-label="종목" className="mt-3 flex flex-wrap gap-2">
+          {MATCH_KIND_FILTERS.map((k) => (
+            <Chip key={k} active={kind === k} onClick={() => setKind(k)}>
+              {matchKindLabel(k)}
+            </Chip>
+          ))}
+        </div>
+
+        {/*
+          종목을 고른 순간 성별을 안 적은 사람은 제안에 영영 안 뜬다.
+          말없이 빠지면 총무는 그 사람이 왜 안 나오는지 알 수 없고, 그건
+          그 사람이 오늘 못 친다는 뜻이다. 고칠 방법(성별 적기)과 지금
+          당장의 우회(직접 고르기)를 한 줄에 같이 적는다.
+        */}
+        {excludedCount > 0 && (
+          <p className="mt-2 text-xs text-ink-3">
+            성별을 안 적은 {excludedCount}명은 {matchKindLabel(kind)} 제안에서 빠집니다 · 직접 고를
+            수는 있습니다
+          </p>
+        )}
+
+        {/*
           왜 이 넷인지 화면이 말한다. 근거 없는 제안은 매번 갈아엎게 된다 —
           "적게 친 사람부터" 라고 적혀 있고 이름 옆에 판수가 보이면, 총무는
-          제안을 믿거나 어디를 고쳐야 하는지 안다.
+          제안을 믿거나 어디를 고쳐야 하는지 안다. 종목을 골랐으면 그것도
+          같이 적는다 — 고른 조건과 제안이 한 문장에 있어야 짝이 맞는다.
 
           손대는 순간 사라진다. 사람이 자기 손으로 짠 목록 위에 앱의 변명이
           남아 있으면 그건 설명이 아니라 잔소리다.
         */}
         {manual === null && suggestion && (
           <p className="mt-2 text-xs text-ink-3">
-            적게 친 사람부터 골라 뒀습니다 · 이름을 눌러 바꾸세요
+            적게 친 사람부터 {kind === 'any' ? '' : `${matchKindLabel(kind)}으로 `}골라 뒀습니다 ·
+            이름을 눌러 바꾸세요
           </p>
         )}
 

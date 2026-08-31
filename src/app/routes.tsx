@@ -106,6 +106,12 @@ const NotificationSettingsPage = lazyPage(() =>
     default: m.NotificationSettingsPage,
   })),
 )
+/*
+ * 마이페이지 — 이름·급수·성별을 본인이 고치는 곳. 알림과 로그아웃도 여기
+ * 모인다. 대회 밑이 아니라 홈 밑인 이유는 알림 설정과 같다: 계정 하나에
+ * 하나뿐인 것을 대회 화면에 두면 참가한 대회 수만큼 같은 화면이 생긴다.
+ */
+const MyPage = lazyPage(() => import('@/pages/MyPage').then((m) => ({ default: m.MyPage })))
 
 const MyClubsPage = lazyPage(() =>
   import('@/pages/MyClubsPage').then((m) => ({ default: m.MyClubsPage })),
@@ -259,6 +265,19 @@ export function AppRoutes() {
         element={
           <Protected>
             <NotificationSettingsPage />
+          </Protected>
+        }
+      />
+      {/*
+        `/my`(내 목록)와 한 글자 차이라 헷갈릴 수 있다. 그래도 `/me` 다 —
+        '나' 를 뜻하는 주소로 이보다 짧고 관습적인 것이 없고, 화면 제목
+        ('내 정보' 대 '내 목록')과 들어가는 자리가 서로 다르다.
+      */}
+      <Route
+        path="/me"
+        element={
+          <Protected>
+            <MyPage />
           </Protected>
         }
       />

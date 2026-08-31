@@ -23,6 +23,8 @@ import {
   claimCourt,
   fetchScoreEvents,
   setDisplayName,
+  setMemberGender,
+  setMemberGrade,
   addRosterMember,
   removeMember,
   linkMemberAccount,
@@ -49,7 +51,13 @@ import {
   type CreateTournamentInput,
   type MemberSummary,
 } from './api'
-import type { RsvpStatus, TournamentConfigPatch, TournamentStatus } from '@/types/database'
+import type {
+  PlayerGender,
+  PlayerGrade,
+  RsvpStatus,
+  TournamentConfigPatch,
+  TournamentStatus,
+} from '@/types/database'
 
 const tournamentKeys = {
   mine: ['tournaments', 'mine'] as const,
@@ -111,8 +119,13 @@ export function useCreateSession() {
 export function useCreateSessionMatch(tournamentId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (input: { courtId: string | null; playersA: string[]; playersB: string[] }) =>
-      createSessionMatch({ tournamentId, ...input }),
+    mutationFn: (input: {
+      courtId: string | null
+      playersA: string[]
+      playersB: string[]
+      /** 자동 예약이 '자동' 을 적는다 — 화면 배지와 삭제 버튼의 근거 */
+      label?: string | null
+    }) => createSessionMatch({ tournamentId, ...input }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
       kickPushSender()
@@ -382,6 +395,42 @@ export function useSetDisplayName(tournamentId: string) {
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
     },
   })
+}
+
+/**
+ * 명단 행의 급수·성별 바꾸기.
+ *
+ * 무효화 대상이 `useSetDisplayName` 과 같다 — 이 값들은 경기 편성 후보를
+ * 고르는 근거라(종목 판정 · 짝 맞추기) 명단만 새로 읽으면 편성 화면이
+ * 옛 값으로 계속 판단한다.
+ *
+ * **프로필 캐시는 안 건드린다.** 서버가 profiles 를 안 고치기 때문이다 —
+ * 명단의 값은 그 명단에서의 값이다(20260902000001).
+ */
+function useMemberTraitMutation<T>(tournamentId: string, fn: (input: T) => Promise<unknown>) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'members'] })
+    },
+  })
+}
+
+export function useSetMemberGrade(tournamentId: string) {
+  return useMemberTraitMutation(
+    tournamentId,
+    ({ memberId, grade }: { memberId: string; grade: PlayerGrade | null }) =>
+      setMemberGrade(memberId, grade),
+  )
+}
+
+export function useSetMemberGender(tournamentId: string) {
+  return useMemberTraitMutation(
+    tournamentId,
+    ({ memberId, gender }: { memberId: string; gender: PlayerGender | null }) =>
+      setMemberGender(memberId, gender),
+  )
 }
 
 function useRosterMutation<T>(tournamentId: string, fn: (input: T) => Promise<void>) {

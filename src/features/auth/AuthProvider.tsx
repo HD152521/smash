@@ -39,17 +39,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw toKoreanAuthError(error.message)
       },
 
-      async signUpWithPassword(email, password, name, grade) {
+      async signUpWithPassword(email, password, name, grade, gender) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
           /*
-           * handle_new_user 트리거가 이 값을 읽어 profiles.name · profiles.grade
-           * 를 채운다. 급수를 안 골랐으면 키 자체를 안 싣는다 — 트리거의
-           * parse_player_grade 가 없는 키도 빈 문자열도 똑같이 null 로
-           * 떨어뜨리므로 결과는 같고, 안 실어 보내는 쪽이 정직하다.
+           * handle_new_user 트리거가 이 값을 읽어 profiles 의 name · grade ·
+           * gender 를 채운다. 안 고른 값은 키 자체를 안 싣는다 — 트리거의
+           * parse_player_grade / parse_player_gender 가 없는 키도 빈 문자열도
+           * 똑같이 null 로 떨어뜨리므로 결과는 같고, 안 실어 보내는 쪽이
+           * 정직하다.
            */
-          options: { data: grade ? { name, grade } : { name } },
+          options: {
+            data: { name, ...(grade ? { grade } : {}), ...(gender ? { gender } : {}) },
+          },
         })
         if (error) throw toKoreanAuthError(error.message)
       },

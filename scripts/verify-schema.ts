@@ -50,11 +50,12 @@ const ANON_EXECUTABLE_FUNCTIONS = [
   'guest_board(p_code text, p_session_id uuid)',
   'guest_sessions(p_code text)',
   'is_direct_api_call()',
-  // p_grade 는 20260901000001 에서 **맨 뒤 default null** 로 붙었다. 옛
-  // 3인자 함수는 같은 파일에서 drop 했다 — 남겨 두면 이름이 같은 함수가 둘이
-  // 되어 PostgREST 가 `function is not unique` 로 떨어지고 게스트 등록이
-  // 통째로 막힌다. 이 줄이 그 drop 이 실제로 됐는지까지 함께 지킨다.
-  'join_as_guest(p_code text, p_session_id uuid, p_name text, p_grade text DEFAULT NULL::text)',
+  // p_grade 는 20260901000001, p_gender 는 20260902000001 에서 각각 **맨 뒤
+  // default null** 로 붙었다. 옛 3인자·4인자 함수는 붙인 그 파일에서 각각
+  // drop 했다 — 남겨 두면 이름이 같은 함수가 둘이 되어 PostgREST 가
+  // `function is not unique` 로 떨어지고 게스트 등록이 통째로 막힌다.
+  // 이 줄이 그 drop 이 실제로 됐는지까지 함께 지킨다.
+  'join_as_guest(p_code text, p_session_id uuid, p_name text, p_grade text DEFAULT NULL::text, p_gender text DEFAULT NULL::text)',
 ]
 
 const checks: Check[] = [
@@ -218,6 +219,85 @@ const checks: Check[] = [
       JSON.stringify(r[0]?.['labels'] ?? []) ===
       JSON.stringify(['S', 'A', 'B', 'C', 'D', 'beginner']),
     detail: (r) => `순서: ${JSON.stringify(r[0]?.['labels'] ?? '(없음)')}`,
+  },
+  {
+    /*
+     * 급수와 **글자 그대로 같은 이유**다(위 검사 참고). 성별은 한 걸음 더
+     * 나쁘다 — not null 로 굳히면 채울 책임이 모든 경로로 번지는 데 더해,
+     * 억지 기본값('male')이 들어간 사람은 여복에서 조용히 빠진다.
+     * '모른다' 와 '남자다' 는 다른 값이어야 한다.
+     */
+    name: '성별 컬럼 둘이 nullable 인가 (default 도 없는가)',
+    sql: `select table_name, is_nullable, column_default, udt_name
+          from information_schema.columns
+          where table_schema = 'public' and column_name = 'gender'
+          order by table_name`,
+    pass: (r) =>
+      r.length === 2 &&
+      r.every(
+        (x) =>
+          x['is_nullable'] === 'YES' &&
+          x['column_default'] === null &&
+          x['udt_name'] === 'player_gender',
+      ),
+    detail: (r) =>
+      r.length
+        ? r
+            .map(
+              (x) =>
+                `${x['table_name']}.gender ${x['udt_name']} ${x['is_nullable'] === 'YES' ? 'nullable' : '⚠ NOT NULL'}${x['column_default'] ? ` ⚠ default=${x['column_default']}` : ''}`,
+            )
+            .join(' · ')
+        : '⚠ gender 컬럼이 하나도 없다',
+  },
+  {
+    /*
+     * 라벨에 한글이 섞이면 나중에 문구를 못 바꾼다 — '남'·'여' 는 화면에서만
+     * 산다(src/lib/gender.ts 의 PLAYER_GENDERS 와 같은 순서·같은 값).
+     * 급수와 달리 선언 순서는 서열이 아니라 그리는 순서일 뿐이지만, 화면
+     * 배열과 어긋나면 고르는 칸의 순서가 화면마다 달라진다.
+     */
+    name: 'player_gender 가 male·female 둘뿐이고 한글이 없는가',
+    sql: `select array_agg(e.enumlabel::text order by e.enumsortorder) as labels
+          from pg_type t join pg_enum e on e.enumtypid = t.oid
+          where t.typnamespace = 'public'::regnamespace and t.typname = 'player_gender'`,
+    pass: (r) => JSON.stringify(r[0]?.['labels'] ?? []) === JSON.stringify(['male', 'female']),
+    detail: (r) => `순서: ${JSON.stringify(r[0]?.['labels'] ?? '(없음)')}`,
+  },
+  {
+    /*
+     * 명단의 급수·성별을 고치는 두 RPC 는 **로그인 사용자에게만** 열려야
+     * 한다. anon 에게 새면 게스트 링크를 아는 사람이 남의 명단 값을 고칠 수
+     * 있고, 그건 곧 편성 조작이다. 파서 둘은 아무에게도 안 열린다 —
+     * 내부 전용(log_audit·gen_invite_code 와 같은 취급)이다.
+     */
+    name: '급수·성별 RPC 가 authenticated 에게만, 파서는 아무에게도 안 열렸는가',
+    sql: `select p.proname,
+                 has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth_ok,
+                 has_function_privilege('anon',          p.oid, 'EXECUTE') as anon_ok
+          from pg_proc p
+          where p.pronamespace='public'::regnamespace
+            and p.proname in ('set_member_grade','set_member_gender',
+                              'parse_player_grade','parse_player_gender')
+          order by p.proname`,
+    pass: (r) => {
+      if (r.length !== 4) return false
+      const byName = new Map(r.map((x) => [String(x['proname']), x]))
+      const setters = ['set_member_grade', 'set_member_gender'].every(
+        (n) => byName.get(n)?.['auth_ok'] === true && byName.get(n)?.['anon_ok'] === false,
+      )
+      const parsers = ['parse_player_grade', 'parse_player_gender'].every(
+        (n) => byName.get(n)?.['auth_ok'] === false && byName.get(n)?.['anon_ok'] === false,
+      )
+      return setters && parsers
+    },
+    detail: (r) =>
+      r
+        .map(
+          (x) =>
+            `${x['proname']}: auth=${x['auth_ok'] ? 'O' : 'X'} anon=${x['anon_ok'] ? '⚠O' : 'X'}`,
+        )
+        .join(' · ') || '⚠ 함수가 하나도 없다',
   },
   {
     name: 'get_standings 가 실제로 실행되는가',
