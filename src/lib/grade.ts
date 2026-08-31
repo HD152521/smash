@@ -63,3 +63,51 @@ export function parseGrade(raw: unknown): PlayerGrade | null {
     ? (raw as PlayerGrade)
     : null
 }
+
+/**
+ * 급수의 숫자 순위 — 0 이 가장 강하다 (S 0 · A 1 · B 2 · C 3 · D 4 · 초심 5).
+ *
+ * `PLAYER_GRADES` 의 자리 그대로다. 순위표를 따로 두지 않는 이유는 그러면
+ * 배열과 표 둘 다 고쳐야 하고, 한쪽만 고친 날 조용히 어긋나기 때문이다.
+ *
+ * 모르면 null 이다. **`gradeLabel` 과 같은 규율** — '모른다' 를 아무 숫자로
+ * 바꿔 놓으면 부르는 쪽이 그게 진짜 급수인지 메운 값인지 구분할 수 없다.
+ * 메울지 말지는 부르는 쪽이 정한다 (`gradeRankOrUnknown`).
+ */
+export function gradeRank(grade: PlayerGrade | null | undefined): number | null {
+  if (!grade) return null
+  const i = PLAYER_GRADES.indexOf(grade)
+  return i < 0 ? null : i
+}
+
+/**
+ * 급수를 모르는 사람의 자리 — 한가운데.
+ *
+ * 급수는 **선택 입력**이라 비어 있는 사람이 흔하다. 모르는 사람을 맨 끝
+ * (초심)으로 밀면 그 사람은 초심들하고만 묶이고, 맨 앞(S)으로 당기면
+ * 고수들 사이에 끼어 매번 진다. 둘 다 실제로는 '모른다' 가 아니라
+ * 우리가 지어낸 답이다.
+ *
+ * 한가운데는 아무 주장도 하지 않는다 — 누구와 묶여도 거리가 절반이라,
+ * 급수를 안 적었다는 이유로 특정 무리에 갇히지 않는다.
+ */
+export const UNKNOWN_GRADE_RANK = (PLAYER_GRADES.length - 1) / 2
+
+/** 순위. 모르면 한가운데로 메운다 — 편성 계산처럼 숫자가 꼭 필요한 곳에서 쓴다 */
+export function gradeRankOrUnknown(grade: PlayerGrade | null | undefined): number {
+  return gradeRank(grade) ?? UNKNOWN_GRADE_RANK
+}
+
+/**
+ * 두 급수가 얼마나 떨어져 있나. 0 이면 같은 급수다.
+ *
+ * 모르는 급수는 한가운데로 본다 — 그래서 S 와 '모름' 의 거리(2.5)는
+ * S 와 초심의 거리(5)보다 가깝다. 확신이 없을 때는 덜 극단적인 쪽으로
+ * 틀리는 게 맞다.
+ */
+export function gradeDistance(
+  a: PlayerGrade | null | undefined,
+  b: PlayerGrade | null | undefined,
+): number {
+  return Math.abs(gradeRankOrUnknown(a) - gradeRankOrUnknown(b))
+}

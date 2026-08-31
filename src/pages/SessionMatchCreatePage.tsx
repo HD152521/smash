@@ -11,6 +11,7 @@ import {
   useTournament,
 } from '@/features/tournament/queries'
 import { hasAccountContrast, partitionGoing } from '@/lib/rsvp'
+import { countPlays, suggestMatch } from '@/lib/autoMatch'
 import { buildBusyMap, busyLabel, busyReason, type BusyInfo } from '@/lib/busy'
 import { removePick, splitTeams, togglePick } from '@/lib/matchPicker'
 import { isSession } from '@/lib/session'
@@ -32,7 +33,16 @@ import type { MemberSummary } from '@/features/tournament/api'
  *     동시에 불려 간다. 고를 때 막는 게 낫다. 다만 **목록에서 지우지는
  *     않는다** — 사람이 조용히 사라지면 "쟤 어디 갔지" 가 된다. 흐리게 두고
  *     어느 코트에 있는지 옆에 적는다(`src/lib/busy.ts`).
- *  2. **참가를 누른 사람이 먼저 온다.** 그날 온 사람이 대개 그 사람들이라
+ *  2. **경기 짜기 화면을 열면 네 명이 이미 들어가 있다.** 판수가 적은
+ *     사람부터 급수를 맞춰 앱이 골라 둔다(`src/lib/autoMatch.ts`). 그대로
+ *     좋으면 한 번 눌러 끝내고, 아니면 이름을 눌러 바꾼다 — **앱이 고른
+ *     게 기본값이고 손대는 게 예외다.** 옆에 `[자동으로 짜기]` 버튼을
+ *     달았다면 아무도 안 눌렀을 것이다.
+ *
+ *     한 번이라도 이름을 누르면 그때부터는 사람의 목록이고, 제안은 다시
+ *     덮지 않는다. 총무가 다르게 짜는 데는 대개 앱이 모르는 이유가 있다.
+ *
+ *  3. **참가를 누른 사람이 먼저 온다.** 그날 온 사람이 대개 그 사람들이라
  *     스무 명 명단에서 매번 찾아 내려가지 않게 된다. 하지만 참가는
  *     **게이트가 아니다** — 불참·미응답도 그대로 펼쳐 두고 고를 수 있다.
  *     누르지 않으면 못 치게 하는 앱은 동아리에서 미움받는다.
@@ -51,7 +61,19 @@ export function SessionMatchCreatePage() {
   const matches = useMatches(id)
   const create = useCreateSessionMatch(id ?? '')
 
-  const [picked, setPicked] = useState<string[]>([])
+  /*
+   * 사람이 손댄 목록. null 이면 **아직 아무도 안 건드렸다** 는 뜻이고,
+   * 그때 화면에 보이는 것은 앱의 제안이다.
+   *
+   * 효과(useEffect)로 제안을 상태에 밀어 넣지 않고 **파생**으로 푼다.
+   * 효과로 하면 "언제 덮어쓰는가" 가 실행 순서에 달리고, 명단·경기 목록이
+   * 다시 불려 올 때마다(포커스 복귀·실시간 갱신) 그 순서를 또 따져야 한다.
+   * 한 번이라도 순서를 잘못 잡으면 총무가 방금 고른 사람이 제안으로
+   * 되돌아간다 — 그 화면은 못 쓴다.
+   *
+   * 파생이면 규칙이 한 줄로 남는다: **손댔으면 사람 것, 아니면 제안.**
+   */
+  const [manual, setManual] = useState<string[] | null>(null)
   const [courtId, setCourtId] = useState<string | null>(null)
 
   const squad = tournament.data?.config.format === 'singles' ? 1 : 2
@@ -76,12 +98,29 @@ export function SessionMatchCreatePage() {
    */
   const { going, others } = partitionGoing(roster)
 
+  /*
+   * 오늘 몇 판씩 쳤나 — 제안의 근거이자 화면에 그리는 숫자다.
+   *
+   * 같은 함수에서 나와야 한다. 근거를 따로 세면 "2판이라며 왜 얘가 빠졌지"
+   * 가 생기고, 한 번 그러면 총무는 제안을 매번 갈아엎는다.
+   */
+  const plays = countPlays(matches.data ?? [])
+  const suggestion = suggestMatch(roster, matches.data ?? [], squad)
+  const picked = manual ?? suggestion ?? []
+
+  /*
+   * 판수 배지는 **차이가 있을 때만** 붙인다 ('명단만' 배지와 같은 규율 —
+   * `hasAccountContrast`). 모임 첫 경기에는 전원이 0판이라 모두에게 '0판'
+   * 이 붙는데, 모두에게 붙는 배지는 배지가 아니라 배경이 된다.
+   */
+  const showPlays = roster.some((m) => (plays.get(m.displayName) ?? 0) > 0)
+
   function toggle(memberId: string) {
-    setPicked((prev) => togglePick(prev, memberId, need))
+    setManual((prev) => togglePick(prev ?? picked, memberId, need))
   }
 
   function remove(memberId: string) {
-    setPicked((prev) => removePick(prev, memberId))
+    setManual((prev) => removePick(prev ?? picked, memberId))
   }
 
   const { teamA, teamB, ready } = splitTeams(picked, squad)
@@ -161,6 +200,20 @@ export function SessionMatchCreatePage() {
           </span>
         </div>
 
+        {/*
+          왜 이 넷인지 화면이 말한다. 근거 없는 제안은 매번 갈아엎게 된다 —
+          "적게 친 사람부터" 라고 적혀 있고 이름 옆에 판수가 보이면, 총무는
+          제안을 믿거나 어디를 고쳐야 하는지 안다.
+
+          손대는 순간 사라진다. 사람이 자기 손으로 짠 목록 위에 앱의 변명이
+          남아 있으면 그건 설명이 아니라 잔소리다.
+        */}
+        {manual === null && suggestion && (
+          <p className="mt-2 text-xs text-ink-3">
+            적게 친 사람부터 골라 뒀습니다 · 이름을 눌러 바꾸세요
+          </p>
+        )}
+
         {roster.length === 0 ? (
           <p className="mt-3 rounded-2xl border border-dashed border-border-subtle p-6 text-center text-sm text-ink-2">
             아직 명단에 아무도 없습니다.
@@ -174,6 +227,8 @@ export function SessionMatchCreatePage() {
                   members={going}
                   picked={picked}
                   busy={busy}
+                  plays={plays}
+                  showPlays={showPlays}
                   squad={squad}
                   showAccountBadge={showGoingBadge}
                   onToggle={toggle}
@@ -198,6 +253,8 @@ export function SessionMatchCreatePage() {
                   members={others}
                   picked={picked}
                   busy={busy}
+                  plays={plays}
+                  showPlays={showPlays}
                   squad={squad}
                   showAccountBadge={showOthersBadge}
                   onToggle={toggle}
@@ -229,7 +286,15 @@ export function SessionMatchCreatePage() {
         지금까지 고른 편이 그대로 보이고, 잘못 골랐으면 여기서 바로 뺀다.
         제출 버튼도 같은 자리라 엄지 한 번으로 끝난다.
       */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-1/95 px-4 pt-3 pb-3 backdrop-blur">
+      {/*
+        아이폰 홈 인디케이터 자리를 비켜 준다. 하단탭(TournamentTabBar)이
+        이미 같은 규율을 쓰는데 여기만 빠져 있었다 — 이 화면에서 가장
+        중요한 버튼('경기 만들기')이 손가락 바에 깔리는 자리다.
+      */}
+      <div
+        className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-1/95 px-4 pt-3 backdrop-blur"
+        style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+      >
         <div className="mx-auto max-w-2xl">
           <PickedBar teamA={teamA} teamB={teamB} squad={squad} nameOf={nameOf} onRemove={remove} />
           <Button
@@ -252,6 +317,8 @@ function PersonGrid({
   members,
   picked,
   busy,
+  plays,
+  showPlays,
   squad,
   showAccountBadge,
   onToggle,
@@ -260,6 +327,10 @@ function PersonGrid({
   picked: string[]
   /** 이름 → 다른 경기에 묶인 사정 (`buildBusyMap`) */
   busy: Map<string, BusyInfo>
+  /** 이름 → 오늘 판수 (`countPlays`) */
+  plays: Map<string, number>
+  /** 판수 배지를 붙일 값어치가 있는가 — 전원이 0판이면 아무 정보도 아니다 */
+  showPlays: boolean
   squad: number
   /** 이 묶음 안에 계정 있는 사람과 없는 사람이 섞여 있을 때만 true (`hasAccountContrast`) */
   showAccountBadge: boolean
@@ -273,6 +344,7 @@ function PersonGrid({
             member={m}
             order={picked.indexOf(m.id)}
             busy={busy.get(m.displayName) ?? null}
+            plays={showPlays ? (plays.get(m.displayName) ?? 0) : null}
             squad={squad}
             showAccountBadge={showAccountBadge}
             onClick={() => onToggle(m.id)}
@@ -408,6 +480,7 @@ function PersonButton({
   member,
   order,
   busy,
+  plays,
   squad,
   showAccountBadge,
   onClick,
@@ -417,6 +490,8 @@ function PersonButton({
   order: number
   /** 다른 경기에 묶여 있으면 그 사정, 아니면 null */
   busy: BusyInfo | null
+  /** 오늘 판수. null 이면 안 그린다 (전원이 0판이라 볼 값어치가 없는 경우) */
+  plays: number | null
   squad: number
   /** 이 목록 안에 계정 있는 사람도 섞여 있을 때만 true — 아니면 배지가 아무 정보도 안 준다 */
   showAccountBadge: boolean
@@ -427,13 +502,26 @@ function PersonButton({
   const sideA = picked && order < squad
   const locked = Boolean(busy) && !picked
 
+  /*
+   * 읽어 주는 이름 — "다라 — 오늘 0판 — 1번 코트에서 경기 중이라…".
+   *
+   * 배지들은 aria-hidden 이고 사정은 여기 한 줄로 모은다. 배지에 각각
+   * aria-label 을 달면 스크린 리더가 이름과 배지를 이어 붙여
+   * "다라오늘 0판" 처럼 읽는다 (실제로 이 검사에서 걸렸다).
+   */
+  const parts = [
+    member.displayName,
+    plays !== null ? `오늘 ${plays}판` : null,
+    locked && busy ? busyReason(busy) : null,
+  ].filter((x): x is string => x !== null)
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={locked}
       aria-pressed={picked}
-      aria-label={locked && busy ? `${member.displayName} — ${busyReason(busy)}` : undefined}
+      aria-label={parts.length > 1 ? parts.join(' — ') : undefined}
       className={cn(
         'flex min-h-12 w-full items-center gap-2 rounded-xl border px-3 text-left',
         'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
@@ -448,6 +536,23 @@ function PersonButton({
       >
         {member.displayName}
       </span>
+      {/*
+        오늘 몇 판 쳤나. 제안이 왜 이 사람을 골랐는지(혹은 왜 안 골랐는지)를
+        총무가 눈으로 확인하는 유일한 자리다 — 숫자가 없으면 제안은 그냥
+        "앱이 시킨 것" 이고, 그러면 매번 다시 짜게 된다.
+      */}
+      {/*
+        ⚠ 처음에는 이것도 알약 배지였는데, 찍어 보니 "2판  2번 코트" 처럼
+        똑같이 생긴 회색 알약 둘이 나란히 붙어 한 덩어리로 읽혔다. 둘은
+        말하는 게 전혀 다르다 — 판수는 **제안의 근거**고, 코트 이름은
+        **못 고르는 이유**다. 알약 모양은 "이 사람은 예외다" 쪽에만 남기고
+        판수는 맨 글자로 둔다. 그래야 눈이 둘을 구분한다.
+      */}
+      {plays !== null && (
+        <span aria-hidden className="tabular shrink-0 text-[11px] font-semibold text-ink-3">
+          {plays}판
+        </span>
+      )}
       {/*
         왜 못 고르는지 옆에 적는다 — 코트 이름이 있으면 코트를 부른다.
         "3번 코트" 는 상태이면서 동시에 그 사람을 찾아갈 자리다.

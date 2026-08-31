@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { SessionMatchCreatePage } from './SessionMatchCreatePage'
@@ -135,5 +136,91 @@ describe('사라지지 않고 잠긴다', () => {
     renderPage()
 
     expect(screen.queryByText(/다른 경기에 들어가 있어/)).not.toBeInTheDocument()
+  })
+})
+
+/*
+ * 자동 편성은 **버튼이 아니라 기본값**이다.
+ *
+ * 고르는 규칙 자체는 `src/lib/autoMatch.test.ts` 가 지킨다. 여기서 지키는
+ * 것은 화면 쪽 약속 셋이다 — 열면 차 있는가, 근거가 보이는가, 사람이 손대면
+ * 앱이 물러나는가.
+ */
+describe('열면 이미 채워져 있다', () => {
+  test('제안이 기본값이라 곧바로 만들 수 있다', () => {
+    renderPage()
+
+    expect(screen.getByRole('button', { name: '경기 만들기' })).toBeEnabled()
+  })
+
+  test('왜 이 사람들인지 한 줄로 말한다', () => {
+    renderPage()
+
+    expect(screen.getByText(/적게 친 사람부터 골라 뒀습니다/)).toBeInTheDocument()
+  })
+
+  /*
+   * 셋으로 억지 편성하지 않는다. 다섯 중 둘이 코트에 있으면 남는 건 셋뿐이라
+   * 제안할 게 없고, 그때는 빈 화면이 정직하다.
+   */
+  test('사람이 넷에 못 미치면 아무도 안 고른 채로 연다', () => {
+    matches.data = [
+      match({ status: 'live', court_name: '1번 코트', players_a: ['가나'], players_b: ['나다'] }),
+    ]
+    renderPage()
+
+    expect(screen.getByRole('button', { name: '4명 더 고르기' })).toBeDisabled()
+    expect(screen.queryByText(/적게 친 사람부터/)).not.toBeInTheDocument()
+  })
+})
+
+describe('판수를 옆에 적는다 — 제안의 근거', () => {
+  test('오늘 친 사람이 있으면 이름 옆에 판수가 붙는다', () => {
+    matches.data = [match({ id: 'done', status: 'finished', players_a: ['가나'] })]
+    renderPage()
+
+    expect(personButton('가나')).toHaveTextContent('1판')
+    expect(personButton('다라')).toHaveTextContent('0판')
+  })
+
+  /*
+   * '명단만' 배지와 같은 규율이다. 첫 경기에는 전원이 0판이라 모두에게
+   * 같은 배지가 붙는데, 모두에게 붙는 배지는 배지가 아니라 배경이 된다.
+   */
+  test('아무도 안 쳤으면 판수를 안 그린다', () => {
+    renderPage()
+
+    expect(personButton('가나')).not.toHaveTextContent('0판')
+  })
+})
+
+describe('사람이 손대면 앱이 물러난다', () => {
+  test('뺀 사람은 다시 안 들어온다 — 목록이 새로 들어와도', async () => {
+    const user = userEvent.setup()
+    const { rerender } = renderPage()
+
+    await user.click(personButton('다라'))
+    expect(personButton('다라')).toHaveAttribute('aria-pressed', 'false')
+
+    // 다른 기기가 경기를 하나 만들어 목록이 새로 들어온 상황
+    matches.data = [match({ id: 'new', status: 'scheduled', players_a: ['심판이'] })]
+    rerender(
+      <MemoryRouter initialEntries={[`/t/${TOURNAMENT_ID}/matches/new-session`]}>
+        <Routes>
+          <Route path="/t/:id/matches/new-session" element={<SessionMatchCreatePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(personButton('다라')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  test('손댄 뒤에는 제안 안내가 사라진다 — 사람이 짠 목록 위의 변명은 잔소리다', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(personButton('다라'))
+
+    expect(screen.queryByText(/적게 친 사람부터/)).not.toBeInTheDocument()
   })
 })
