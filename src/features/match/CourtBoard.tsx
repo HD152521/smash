@@ -7,7 +7,7 @@ import { AutoQueueToggle } from './AutoQueueToggle'
 import { CourtBadge } from './CourtBadge'
 import { LiveCourtBody } from './LiveCourtBody'
 import { SessionLiveCard } from './SessionLiveCard'
-import { matchTitle } from '@/lib/schedule'
+import { matchEditPath, matchTitle } from '@/lib/schedule'
 import { courtQueue, courtState, unassignedQueue } from '@/lib/court'
 import { isAutoQueued } from '@/lib/autoQueue'
 import { canRunMatch, type MatchRunAccess } from '@/lib/matchAccess'
@@ -87,9 +87,7 @@ export function CourtBoard({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {autoQueue && (
-        <AutoQueueToggle enabled={autoQueue.enabled} onChange={autoQueue.onChange} />
-      )}
+      {autoQueue && <AutoQueueToggle enabled={autoQueue.enabled} onChange={autoQueue.onChange} />}
 
       {courts.map((court) => (
         <CourtCard
@@ -265,6 +263,22 @@ function CourtCard({
         <AutoQueueRow
           key={m.id}
           match={m}
+          /*
+           * 고치러 가는 길. 관리자에게만 준다.
+           *
+           * ⚠ **이제 서버가 막는 것이 아니라 이 줄이 정하는 것이다.**
+           * 전에는 고치기가 '지웠다 다시 만들기' 라서 삭제 권한(관리자)이
+           * 필요했다. 지금은 `update_session_match` 가 `can_run_match` 를
+           * 쓰므로 **그 경기에 뛰는 사람도 서버는 허락한다.**
+           *
+           * 그래도 여기서는 안 연다. 이 줄의 다른 행동(× 지우기)은 여전히
+           * 관리자 전용이라, 고치기만 열면 한 줄 안에서 되는 것과 안 되는
+           * 것이 갈린다. 선수에게 연필을 주는 것은 대진표(`SchedulePage`)와
+           * 함께 정할 일이지 여기서 혼자 앞서 갈 자리가 아니다.
+           *
+           * 돌아올 자리는 기본값(`/t/:id`)이 정확히 이 화면이라 안 넘긴다.
+           */
+          editTo={access.isAdmin && m.id ? matchEditPath(tournamentId, m.id, true) : null}
           canDelete={access.isAdmin}
           deleting={remove.isPending}
           onDelete={() => {

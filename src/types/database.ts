@@ -414,6 +414,25 @@ export type Database = {
         }
         Returns: MatchRow
       }
+      /**
+       * 모임 경기 고치기 — **제자리에서, 한 트랜잭션 안에서.**
+       *
+       * `update_match` 는 조를 필수로 받아 모임에 못 쓴다(조가 0개다).
+       * 경기 id 와 `queue_order` 가 유지되므로 대기 줄 자리가 안 밀린다.
+       * 예정(`scheduled`) 모임 경기만 대상이고 권한은 `can_run_match` 다
+       * (관리자 ∨ 그 경기 선수).
+       */
+      update_session_match: {
+        Args: {
+          p_match_id: string
+          p_court_id: string | null
+          p_players_a: string[]
+          p_players_b: string[]
+          /** ⚠ 안 보내면 이름이 지워진다 — 편성을 통째로 다시 쓰는 함수다 */
+          p_label?: string | null
+        }
+        Returns: MatchRow
+      }
       set_display_name: {
         Args: { p_member_id: string; p_name: string }
         Returns: TournamentMemberRow

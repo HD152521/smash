@@ -87,7 +87,20 @@ const db = new Client({
 })
 
 /**
- * 열두 명 — 급수를 골고루 흩어 놓는다.
+ * 열여섯 명 — 급수와 성별을 골고루 흩어 놓는다.
+ *
+ * **남9 · 여6 · 성별 미상 1** 로 짰다. 일부러 치우쳤다 — 사용자가 말한
+ * 그대로다: *"여복이 안 되는 경우가 많아. 인원이 남자가 많더라고.
+ * 그럴 때 어쩔 수 없이 혼복을 들어가게 하자."*
+ *
+ * 이 성비라야 종목 칩 넷이 각각 다르게 나온다.
+ *   남복  → 넉넉히 된다
+ *   여복  → 넷을 겨우 채우거나 판수 계층에 따라 못 채운다
+ *   혼복  → 여자 둘이 먼저 정해지고 남자가 거기 맞춘다
+ *   아무나 → 같은 성별이 먼저 잡힌다
+ *
+ * **성별 미상 하나**가 중요하다 — 종목을 고른 순간 그 사람이 제안에서
+ * 빠지고, 화면이 그 사실을 말하는지 확인할 수 있다.
  *
  * 급수가 전원 같으면 2단계(급수 맞추기)가 화면에서 안 보이고, 전원 비어
  * 있으면 '급수를 모르는 사람도 후보다' 가 안 보인다. **급수 없는 사람 둘**
@@ -97,19 +110,27 @@ const db = new Client({
  * (지시받은 분포는 열넷이 되어 열둘에 맞게 B·C 를 한 명씩 줄였다. 골고루
  *  + 급수 없는 둘 이라는 뜻은 그대로다.)
  */
-const ROSTER: readonly { name: string; grade: string | null }[] = [
-  { name: '데모김민수', grade: 'S' },
-  { name: '데모이서연', grade: 'A' },
-  { name: '데모박지훈', grade: 'A' },
-  { name: '데모최유진', grade: 'B' },
-  { name: '데모정하늘', grade: 'B' },
-  { name: '데모강도윤', grade: 'B' },
-  { name: '데모윤채원', grade: 'C' },
-  { name: '데모임태호', grade: 'C' },
-  { name: '데모오세훈', grade: 'D' },
-  { name: '데모신유진', grade: 'beginner' },
-  { name: '데모배준호', grade: null },
-  { name: '데모문가영', grade: null },
+const ROSTER: readonly { name: string; grade: string | null; gender: string | null }[] = [
+  { name: '데모김민수', grade: 'S', gender: 'male' },
+  { name: '데모이서연', grade: 'A', gender: 'female' },
+  { name: '데모박지훈', grade: 'A', gender: 'male' },
+  { name: '데모최유진', grade: 'B', gender: 'female' },
+  { name: '데모정하늘', grade: 'B', gender: 'male' },
+  { name: '데모강도윤', grade: 'B', gender: 'male' },
+  { name: '데모윤채원', grade: 'C', gender: 'female' },
+  { name: '데모임태호', grade: 'C', gender: 'male' },
+  { name: '데모오세훈', grade: 'D', gender: 'male' },
+  { name: '데모신유진', grade: 'beginner', gender: 'female' },
+  { name: '데모배준호', grade: null, gender: 'male' },
+  { name: '데모문가영', grade: null, gender: null },
+  // ── 여기부터 넷은 '예비' 를 보이게 하려고 있다 ────────────────────
+  // 12명 · 코트 3개면 4+4+4 로 딱 떨어져 남는 사람이 0이다. 그러면
+  // 진행 중인 코트에 다음 경기를 걸 사람이 없어 "다음은 나구나" 가
+  // 화면에 안 나타난다. 넷을 더 두면 한 코트에 예비가 걸린다.
+  { name: '데모한지우', grade: 'A', gender: 'female' },
+  { name: '데모조은서', grade: 'B', gender: 'female' },
+  { name: '데모서준영', grade: 'C', gender: 'male' },
+  { name: '데모양가은', grade: 'D', gender: 'female' },
 ]
 
 async function main(): Promise<void> {
@@ -208,11 +229,14 @@ async function addRoster(token: string, tournamentId: string): Promise<Map<strin
       p_name: person.name,
     })) as { id: string }
     byName.set(person.name, row.id)
-    if (person.grade) {
-      await db.query(`update tournament_members set grade = $1::player_grade where id = $2`, [
-        person.grade,
-        row.id,
-      ])
+    if (person.grade || person.gender) {
+      await db.query(
+        `update tournament_members
+            set grade  = coalesce($1::player_grade,  grade),
+                gender = coalesce($2::player_gender, gender)
+          where id = $3`,
+        [person.grade, person.gender, row.id],
+      )
     }
   }
   return byName
@@ -280,7 +304,7 @@ function report(email: string, tournamentId: string): void {
   console.log(`  이메일   ${email}`)
   console.log(`  비밀번호 ${PASSWORD}`)
   console.log('')
-  console.log('  코트 3개 · 명단 12명 · 지난 경기 3판(1판은 진행 중)')
+  console.log(`  코트 3개 · 명단 ${ROSTER.length}명 · 지난 경기 3판(1판은 진행 중)`)
   console.log('  로그인하면 코트마다 [자동] 대기 경기가 하나씩 걸립니다.')
   console.log('  오른쪽 위 "자동 예약 켬" 을 누르면 꺼집니다.')
   console.log('')

@@ -127,6 +127,27 @@ describe('자동 예약 — 보이고, 한 번에 지운다', () => {
     expect(screen.getByText('정하늘 · 강도윤 vs 윤채원 · 임태호')).toBeInTheDocument()
   })
 
+  /*
+   * 넷 중 하나만 마음에 안 들 때 통째로 지우고 처음부터 짜게 하면, 지우는
+   * 순간 나머지 셋도 풀려 명단에서 다시 찾아 눌러야 한다. 자동 편성은
+   * 대개 셋은 맞히므로 그건 거의 매번 하는 일이 된다.
+   */
+  test('연필로 그 경기를 고치러 간다 — 지우고 처음부터 짜지 않아도 되게', () => {
+    renderBoard({ matches: [autoQueuedMatch()] })
+
+    const edit = screen.getByRole('link', { name: /자동으로 걸린 .* 고치기/ })
+    expect(edit).toHaveAttribute(
+      'href',
+      `/t/${TOURNAMENT_ID}/matches/auto-1/edit-session`,
+    )
+  })
+
+  test('고칠 권한이 없으면 연필도 안 그린다 — 고치기는 지웠다 다시 만드는 일이다', () => {
+    renderBoard({ matches: [autoQueuedMatch()], isAdmin: false, myDisplayName: '정하늘' })
+
+    expect(screen.queryByRole('link', { name: /고치기/ })).not.toBeInTheDocument()
+  })
+
   test('× 한 번으로 지운다 — 확인 창을 거치지 않는다', async () => {
     renderBoard({ matches: [autoQueuedMatch()] })
 

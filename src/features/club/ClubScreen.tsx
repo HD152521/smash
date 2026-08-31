@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { BackBar } from '@/components/ui/BackBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { useClub, useClubMembers } from './queries'
@@ -74,8 +75,14 @@ export function ClubScreen({
   const pending = !club.data || !members.data
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to={`/c/${clubId}`} label="동아리" />
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6" style={{ paddingBottom: APP_TAB_PADDING }}>
+      {/*
+        홈 버튼은 끈다 — 동아리 화면에는 이제 전역 하단탭이 깔리고 그 안에
+        '홈' 이 있다. 같은 화면에 같은 곳으로 가는 버튼이 둘이면 둘 다 덜
+        믿게 된다(BackBar 주석). 뒤로가기는 그대로 둔다 — 되짚어 나가는
+        것과 처음으로 돌아가는 것은 다른 일이다.
+      */}
+      <BackBar to={`/c/${clubId}`} label="동아리" home={false} />
 
       <h1 className="mt-4 text-3xl font-black tracking-tight text-ink-1">{title}</h1>
       {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
@@ -101,8 +108,8 @@ export function ClubScreen({
  */
 export function ClubUnavailable({ error }: { error: unknown }) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to="/clubs" label="내 동아리" />
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6" style={{ paddingBottom: APP_TAB_PADDING }}>
+      <BackBar to="/clubs" label="내 동아리" home={false} />
       <p role="alert" className="mt-8 text-sm font-medium text-team-b-fg">
         {toUserMessage(error, '동아리를 불러오지 못했습니다')}
       </p>

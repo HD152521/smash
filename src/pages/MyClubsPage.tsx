@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
-import { BackBar } from '@/components/ui/BackBar'
+import { AppHeader } from '@/components/nav/AppHeader'
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/brand/EmptyState'
 import { useMyClubs } from '@/features/club/queries'
@@ -18,16 +19,17 @@ export function MyClubsPage() {
   const { data, isPending, error } = useMyClubs()
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to="/" label="메인으로" />
-
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 동아리</h1>
-      <p className="mt-2 text-sm text-ink-2">
-        동아리 밑에 대회와 모임을 열면 운영진이 관리자로 함께 들어갑니다.
-      </p>
+    <main className="mx-auto w-full max-w-2xl px-5" style={{ paddingBottom: APP_TAB_PADDING }}>
+      {/*
+        설명문("동아리 밑에 대회와 모임을 열면…")을 뺐다. 하단탭의 목적지라
+        매번 보게 되는 화면인데, 매번 볼 것이 아니라 처음 한 번만 필요한
+        문장이었다(docs/design.md 「제목을 지우고 정보를 키운다」). 아직
+        동아리가 없는 사람에게는 아래 빈 상태가 같은 말을 더 자세히 한다.
+      */}
+      <AppHeader title="내 동아리" meta={data ? `${data.length}개` : undefined} />
 
       {isPending && (
-        <div className="mt-8 flex flex-col gap-3" aria-busy>
+        <div className="mt-6 flex flex-col gap-3" aria-busy>
           {[0, 1].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface-2" />
           ))}
@@ -79,9 +81,11 @@ export function MyClubsPage() {
                 <Link
                   to={`/c/${c.id}`}
                   className="group flex items-center gap-4 rounded-2xl border border-border-subtle
-                             bg-surface-1 p-5 transition-colors hover:bg-surface-2
-                             focus-visible:outline-2 focus-visible:outline-offset-2
-                             focus-visible:outline-brand-600"
+                             bg-surface-1 p-5 shadow-[var(--shadow-card)]
+                             transition-transform hover:-translate-y-0.5
+                             focus-visible:-translate-y-0.5 focus-visible:outline-2
+                             focus-visible:outline-offset-2 focus-visible:outline-brand-600
+                             active:translate-y-0 active:scale-[0.99]"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -125,7 +129,7 @@ export function MyClubsPage() {
               to="/clubs/new"
               className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border
                          border-border-subtle px-4 text-sm font-semibold text-ink-1
-                         transition-colors hover:bg-surface-2
+                         transition-colors hover:bg-surface-2 active:bg-surface-2
                          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               동아리 만들기
@@ -134,7 +138,7 @@ export function MyClubsPage() {
               to="/clubs/join"
               className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border
                          border-border-subtle px-4 text-sm font-semibold text-ink-1
-                         transition-colors hover:bg-surface-2
+                         transition-colors hover:bg-surface-2 active:bg-surface-2
                          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
             >
               동아리 코드로 들어가기

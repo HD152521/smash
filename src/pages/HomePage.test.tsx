@@ -12,10 +12,16 @@ import type { MyTournament } from '@/features/tournament/api'
  *
  * 여기서 지키는 것 넷.
  *
- * 하나 — **문 넷은 서버와 무관하게 항상 있어야 한다.** 오늘 요약이 못
- * 와도(회선 끊김·오류) 모임 열기·대회 만들기·참가하기·내 목록은 멀쩡히
- * 눌려야 한다. 요약 한 칸 때문에 첫 화면이 멈추면 체육관에서 아무것도
- * 못 한다.
+ * 하나 — **'모임 열기' 는 서버와 무관하게 항상 눌려야 한다.** 오늘 요약이
+ * 못 와도(회선 끊김·오류) 오늘 모임을 여는 길이 막히면 체육관에서
+ * 아무것도 못 한다.
+ *
+ * ⚠ 2026-08-31 에 계약이 바뀌었다. 전에는 여기서 **문 넷**(모임 열기 ·
+ * 대회 만들기 · 참가하기 · 내 목록)을 지켰는데, 전역 하단탭(`AppTabBar`)이
+ * 생기면서 그 문들이 갈 곳을 찾았다 — 내 목록·내 정보·동아리는 **탭**
+ * 으로(모든 화면에서 한 번에 닿는다), 대회 만들기·참가하기는 「내 목록」
+ * 으로. 홈에 남은 동작은 오늘을 만드는 하나뿐이다. 그 문들이 여전히
+ * 열려 있다는 것은 `AppTabBar.test.tsx` · `appTabs.test.ts` 가 지킨다.
  *
  * 둘 — **하나만 고른다.** 진행 중인 것이 여럿이어도 하나다. 셋을 나란히
  * 놓으면 그건 다시 목록이고, 목록은 「내 목록」이 할 일이다.
@@ -33,15 +39,10 @@ const state = {
   members: undefined as { rsvp: string; userId: string | null; displayName?: string }[] | undefined,
   matches: undefined as unknown[] | undefined,
   courts: undefined as unknown[] | undefined,
-  clubs: [] as { id: string; name: string }[],
 }
 
 vi.mock('@/features/auth/useAuth', () => ({
   useAuth: () => ({ user: { id: 'u1', email: '안용식@example.com' }, signOut: vi.fn() }),
-}))
-
-vi.mock('@/features/club/queries', () => ({
-  useMyClubs: () => ({ data: state.clubs, isPending: false }),
 }))
 
 vi.mock('@/features/tournament/queries', () => ({
@@ -84,7 +85,6 @@ beforeEach(() => {
   state.members = undefined
   state.matches = undefined
   state.courts = undefined
-  state.clubs = []
   // 화면이 마운트 시각으로 "오늘/내일" 을 센다. 날짜를 고정하지 않으면
   // 이 파일이 실제 오늘 날짜에 따라 흔들린다.
   vi.useFakeTimers()
@@ -96,13 +96,21 @@ afterEach(() => {
 })
 
 describe('문은 언제나 열려 있다', () => {
-  test('오늘 아무것도 없어도 갈 수 있는 곳 넷이 전부 있다', () => {
+  test('오늘 아무것도 없어도 모임 열기는 있다', () => {
     renderHome()
 
     expect(screen.getByRole('link', { name: /모임 열기/ })).toHaveAttribute('href', '/new/session')
-    expect(screen.getByRole('link', { name: /대회 만들기/ })).toHaveAttribute('href', '/new')
-    expect(screen.getByRole('link', { name: /대회 참가하기/ })).toHaveAttribute('href', '/join')
-    expect(screen.getByRole('link', { name: /내 목록/ })).toHaveAttribute('href', '/my')
+  })
+
+  test('나머지 문은 홈에 없다 — 하단탭과 「내 목록」으로 내려갔다', () => {
+    // 홈의 책임은 '오늘을 보여준다' 하나다. 링크 목록이 다시 쌓이면
+    // 매일 보는 것(오늘)이 그만큼 아래로 밀린다.
+    renderHome()
+
+    expect(screen.queryByRole('link', { name: /대회 만들기/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /대회 참가하기/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /내 목록/ })).toBeNull()
+    expect(screen.queryByRole('link', { name: /내 정보/ })).toBeNull()
   })
 
   test('목록을 못 받아 와도(undefined) 화면이 멈추지 않는다', () => {
@@ -287,36 +295,22 @@ describe('진행 중일 때 — 내 차례 한 줄', () => {
   })
 })
 
-describe('동아리로 가는 문이 가장 크다', () => {
-  test('동아리가 하나면 목록을 거치지 않고 바로 그 동아리로', () => {
-    // 고를 것이 하나뿐인 목록을 한 번 더 보여주는 것은 탭만 하나 늘리는 일이다
-    state.clubs = [{ id: 'c1', name: '수요 배드민턴' }]
-
+describe('동아리 문은 하단탭으로 옮겼다', () => {
+  /*
+   * 전에는 홈에서 가장 큰 초록 버튼이 동아리였고, 동아리가 하나뿐이면
+   * 목록을 건너뛰고 바로 그 동아리로 갔다. 그 규칙은 없어진 게 아니라
+   * **탭이 그대로 이어받았다**(`AppTabBar`) — 검사도 그쪽으로 옮겼다.
+   *
+   * 여기서는 홈에 그 버튼이 **다시 생기지 않는지**만 본다. 탭과 홈에
+   * 같은 곳으로 가는 버튼이 둘이면 둘 다 덜 믿게 된다(BackBar 주석).
+   */
+  test('홈에는 동아리로 가는 버튼이 없다', () => {
     renderHome()
 
-    expect(screen.getByRole('link', { name: /수요 배드민턴/ })).toHaveAttribute('href', '/c/c1')
+    expect(screen.queryByRole('link', { name: /동아리/ })).toBeNull()
   })
 
-  test('여럿이면 목록으로', () => {
-    state.clubs = [
-      { id: 'c1', name: '수요 배드민턴' },
-      { id: 'c2', name: '금요 클럽' },
-    ]
-
-    renderHome()
-
-    expect(screen.getByRole('link', { name: /내 동아리/ })).toHaveAttribute('href', '/clubs')
-  })
-
-  test('아직 없으면 만드는 곳으로 — 빈 목록을 열게 하지 않는다', () => {
-    state.clubs = []
-
-    renderHome()
-
-    expect(screen.getByRole('link', { name: /동아리 만들기/ })).toHaveAttribute('href', '/clubs')
-  })
-
-  test('모임 열기는 작은 줄로 내려간다', () => {
+  test('모임 열기는 홈에 남는다 — 오늘을 만드는 일이라서다', () => {
     renderHome()
 
     expect(screen.getByRole('link', { name: /모임 열기/ })).toHaveAttribute('href', '/new/session')

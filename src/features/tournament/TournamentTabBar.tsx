@@ -107,6 +107,8 @@ export function TournamentTabBar({
                   className={cn(
                     'flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
                     'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
+                    // 폰에는 hover 가 없다 — 누르는 순간 반응하는 것은 active 뿐이다
+                    'transition-colors active:bg-surface-2',
                     // 색만으로 현재 탭을 말하지 않는다 — 굵기(아이콘 선 두께)도 같이 바뀐다
                     current ? 'text-brand-fg' : 'text-ink-3',
                   )}
@@ -127,6 +129,7 @@ export function TournamentTabBar({
               className={cn(
                 'flex min-h-16 w-full flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
                 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
+                'transition-colors active:bg-surface-2',
                 moreActive ? 'text-brand-fg' : 'text-ink-3',
               )}
             >

@@ -19,6 +19,7 @@ vi.mock('@/features/auth/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }
 
 const update = { mutateAsync: vi.fn(), isPending: false, error: null as unknown }
 const matches = { data: undefined as MatchOverviewRow[] | undefined }
+const tournament = { data: TOURNAMENT as unknown }
 
 const SCHEDULED = {
   id: 'match-1',
@@ -32,7 +33,7 @@ const SCHEDULED = {
 } as MatchOverviewRow
 
 vi.mock('@/features/tournament/queries', () => ({
-  useTournament: () => ({ data: TOURNAMENT }),
+  useTournament: () => tournament,
   useGroups: () => ({ data: GROUPS }),
   useMembers: () => ({ data: MEMBERS }),
   useCourts: () => ({ data: [COURT] }),
@@ -46,6 +47,10 @@ function renderEdit(matchId = 'match-1') {
       <Routes>
         <Route path="/t/:id/matches/:matchId/edit" element={<MatchEditPage />} />
         <Route path="/t/:id/schedule" element={<p>대진표 화면</p>} />
+        <Route
+          path="/t/:id/matches/:matchId/edit-session"
+          element={<p>모임 경기 고치기 화면</p>}
+        />
       </Routes>
     </MemoryRouter>,
   )
@@ -55,6 +60,7 @@ beforeEach(() => {
   update.mutateAsync = vi.fn().mockResolvedValue({})
   update.error = null
   matches.data = [SCHEDULED]
+  tournament.data = TOURNAMENT
 })
 
 describe('기존 편성을 채워 온다', () => {
@@ -142,5 +148,25 @@ describe('고치는 그 경기의 선수', () => {
 
     const teamA = within(screen.getByRole('region', { name: 'A팀' }))
     expect(teamA.getByRole('button', { name: '가나' })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+/*
+ * 모임 경기가 여기로 들어오면 **아무것도 못 한다.** 조가 한 개도 없어서
+ * A팀·B팀 칸이 통째로 비고, 저장 조건("양 팀의 조와 선수")은 영영 만족되지
+ * 않는다. 대진표의 연필은 이미 갈라 보내지만 주소를 직접 치는 길이 남는다.
+ */
+describe('모임 경기는 여기서 못 고친다', () => {
+  test('사람을 고르는 화면으로 보낸다', () => {
+    tournament.data = { ...TOURNAMENT, kind: 'session' }
+    renderEdit()
+
+    expect(screen.getByText('모임 경기 고치기 화면')).toBeInTheDocument()
+  })
+
+  test('대회 경기는 지금처럼 이 화면이 받는다', () => {
+    renderEdit()
+
+    expect(screen.getByRole('region', { name: 'A팀' })).toBeInTheDocument()
   })
 })

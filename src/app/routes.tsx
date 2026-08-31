@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { lazyPage } from './lazyPage'
+import { AppTabBar } from '@/components/nav/AppTabBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
@@ -63,6 +64,9 @@ const PastMatchEntryPage = lazyPage(() =>
 )
 const MatchEditPage = lazyPage(() =>
   import('@/pages/MatchEditPage').then((m) => ({ default: m.MatchEditPage })),
+)
+const SessionMatchEditPage = lazyPage(() =>
+  import('@/pages/SessionMatchEditPage').then((m) => ({ default: m.SessionMatchEditPage })),
 )
 const MatchScorePage = lazyPage(() =>
   import('@/pages/MatchScorePage').then((m) => ({ default: m.MatchScorePage })),
@@ -185,6 +189,21 @@ function Public({ children }: { children: ReactNode }) {
 }
 
 export function AppRoutes() {
+  return (
+    <>
+      <AppRouteTable />
+      {/*
+        전역 하단탭은 라우트 **밖에** 한 번만 둔다. 화면마다 붙이면 새
+        화면을 만드는 사람이 빠뜨리거나 두 번 붙일 수 있고, 대회 화면에
+        실수로 붙으면 `TournamentTabBar` 와 겹친다. 여기 하나면 규칙
+        (`appTabs.ts`)이 곧 답이라 겹칠 자리가 없다.
+      */}
+      <AppTabBar />
+    </>
+  )
+}
+
+function AppRouteTable() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -466,6 +485,19 @@ export function AppRoutes() {
         element={
           <Protected>
             <MatchEditPage />
+          </Protected>
+        }
+      />
+      {/*
+        모임 경기 고치기. 대회의 `edit` 와 **주소를 갈라 둔다** — 대회는 조를
+        먼저 고르고 모임에는 조가 없어, 같은 화면으로는 둘 다 못 그린다.
+        한 주소에 모드를 얹지 않는 이유는 위 셋과 같다.
+      */}
+      <Route
+        path="/t/:id/matches/:matchId/edit-session"
+        element={
+          <Protected>
+            <SessionMatchEditPage />
           </Protected>
         }
       />

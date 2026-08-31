@@ -1,3 +1,4 @@
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { BackBar } from '@/components/ui/BackBar'
 import { PushToggle } from '@/features/notifications/PushToggle'
 
@@ -19,8 +20,13 @@ import { PushToggle } from '@/features/notifications/PushToggle'
  */
 export function NotificationSettingsPage() {
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to="/" label="메인으로" />
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6" style={{ paddingBottom: APP_TAB_PADDING }}>
+      {/*
+        되짚을 것이 없을 때 갈 곳이 '/me' 다 — 알림은 '나' 의 하위 화면이고
+        (routes.tsx), 하단탭에서도 '나' 가 켜진 채로 열린다. 홈은 그 탭에
+        있으므로 머리말에서는 끈다.
+      */}
+      <BackBar to="/me" label="내 정보" home={false} />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">알림</h1>
       <p className="mt-2 text-sm text-ink-2">

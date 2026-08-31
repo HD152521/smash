@@ -182,3 +182,22 @@ export function myNextLabel(next: MyNext): string {
   if (next.ahead === 0) return `다음 차례 · ${next.courtName}`
   return `${next.courtName} · 앞에 ${next.ahead}경기`
 }
+
+// ── 오늘이 며칠인가 ───────────────────────────────────────────────────
+
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'] as const
+
+/**
+ * "8월 31일 일요일" — 홈 큰 제목 '오늘' 아래 한 줄.
+ *
+ * 요일까지 적는다. 모임은 요일로 기억되기 때문이다(`rsvp.ts`
+ * `startsAtLabel` 과 같은 근거) — 날짜만 적으면 매주 여는 사람은 이게
+ * 무슨 날인지 한 번 더 계산해야 한다.
+ *
+ * `startsAtLabel` 이 '(일)' 로 줄여 쓰는 것과 달리 여기는 '일요일' 로
+ * 편다. 저기는 목록 한 줄 안에 시각까지 들어가야 해서 좁고, 여기는
+ * 제목 아래 한 줄뿐이라 좁을 이유가 없다.
+ */
+export function todayLabel(now: Date): string {
+  return `${now.getMonth() + 1}월 ${now.getDate()}일 ${WEEKDAY[now.getDay()]}요일`
+}

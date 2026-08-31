@@ -107,3 +107,24 @@ export function matchTitle(m: MatchOverviewRow): string {
   if (hasNoGroups(m)) return playerTitle(m)
   return `${m.group_a_name ?? '—'} vs ${m.group_b_name ?? '—'}`
 }
+
+/**
+ * 경기를 고치러 가는 자리 — **대회와 모임은 화면이 다르다.**
+ *
+ * 대회는 조를 먼저 고르고 그 조에서 선수를 고른다(`MatchEditPage`). 모임에는
+ * 조가 한 개도 없어서 그 화면을 열면 고를 조가 없다 — 그래서 사람을 바로
+ * 고르는 화면으로 보낸다(`SessionMatchEditPage`).
+ *
+ * 판단을 여기 둔 이유는 이 파일의 나머지와 같다. 고치러 가는 문이 둘이고
+ * (대진표의 연필 · 코트 화면의 자동 경기 줄) 앞으로 더 생길 텐데, 문마다
+ * `isSession ? … : …` 를 적으면 새 문을 다는 날 하나가 조용히 어긋난다.
+ * 그때 나는 사고는 "모임 경기를 눌렀는데 조를 고르라고 한다" 이고, 그건
+ * 고칠 방법이 없는 화면이다.
+ */
+export function matchEditPath(
+  tournamentId: string,
+  matchId: string,
+  session: boolean,
+): string {
+  return `/t/${tournamentId}/matches/${matchId}/${session ? 'edit-session' : 'edit'}`
+}

@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { AUTO_QUEUE_LABEL, autoQueueKeyOfMatch, isAutoQueued, planAutoQueue } from './autoQueue'
+import {
+  AUTO_QUEUE_LABEL,
+  autoQueueKeyOfMatch,
+  isAutoQueued,
+  labelAfterHumanEdit,
+  planAutoQueue,
+} from './autoQueue'
 import type { AutoMatchCandidate } from './autoMatch'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
@@ -333,5 +339,24 @@ describe('isAutoQueued — 자동으로 만든 경기 표시', () => {
     expect(isAutoQueued(match({ label: AUTO_QUEUE_LABEL }))).toBe(true)
     expect(isAutoQueued(match({ label: null }))).toBe(false)
     expect(isAutoQueued(match({ label: '결승' }))).toBe(false)
+  })
+})
+
+/*
+ * 총무가 자동 편성을 들여다보고 고친 순간, 그 편성은 더 이상 앱이 짠 것이
+ * 아니다. 배지를 남겨 두면 앱이 남의 결정을 자기 것이라고 우기게 된다.
+ */
+describe('labelAfterHumanEdit', () => {
+  test("'자동' 은 뗀다", () => {
+    expect(labelAfterHumanEdit(AUTO_QUEUE_LABEL)).toBeNull()
+  })
+
+  test('사람이 직접 붙인 이름은 그대로 둔다 — 고치기가 건드릴 것이 아니다', () => {
+    expect(labelAfterHumanEdit('결승')).toBe('결승')
+  })
+
+  test('이름이 없던 경기는 그대로 없다', () => {
+    expect(labelAfterHumanEdit(null)).toBeNull()
+    expect(labelAfterHumanEdit(undefined)).toBeNull()
   })
 })

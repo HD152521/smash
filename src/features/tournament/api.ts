@@ -163,6 +163,54 @@ export async function createSessionMatch(input: {
   return unwrap(res) as MatchRow
 }
 
+export interface UpdateSessionMatchInput {
+  /** 고칠 경기. **경기 id 는 그대로 유지된다** — 서버가 제자리에서 고친다 */
+  matchId: string
+  courtId: string | null
+  playersA: string[]
+  playersB: string[]
+  /**
+   * 경기 이름. ⚠ **항상 보낸다.** 서버는 편성을 통째로 다시 쓰므로 안 보내면
+   * 이름이 지워진다. 사람이 고친 편성에서 '자동' 을 떼는 판단은 화면에 있다
+   * (`labelAfterHumanEdit`) — 서버는 받은 대로 저장한다.
+   */
+  label?: string | null
+}
+
+/**
+ * 모임 경기의 편성을 바꾼다 — **한 번의 RPC, 한 트랜잭션.**
+ *
+ * ── 왜 update_match 가 아닌가 (실측 2026-08-31) ────────────────────
+ * `update_match` 는 모임 경기에 **못 쓴다.** 조를 필수로 받아 `groups` 에서
+ * 찾는데, 모임에는 조가 한 개도 없다. 조를 NULL 로 보내면 서버가
+ * `22023 "A팀 조를 찾을 수 없습니다"` 로 거절한다(프로덕션 DB 에 실제로
+ * 쏴서 확인했다). 그래서 서버에 `update_session_match` 를 따로 두었다
+ * (20260903000001).
+ *
+ * ── 여기 있었던 우회를 지운 이유 ───────────────────────────────────
+ * 전에는 `deleteMatch` → `createSessionMatch` 로 우회했다. 지우기가 성공하고
+ * 만들기가 실패하면 **고치려던 경기가 사라졌다.** 순서를 반대로 하면 잠깐
+ * 같은 넷이 두 경기에 들어가고, 그 사이에 누가 시작하면 한 사람이 두 코트에서
+ * 불려 간다 — 화면에서 두 번 부르는 것으로는 안전한 순서가 없었다.
+ *
+ * 경기 id 가 유지되므로 `queue_order` 도 그대로다. 줄 맨 뒤로 밀린 경기를
+ * `set_court_queue` 로 다시 세우던 보정(`queueAfterReplace`)이 통째로
+ * 필요 없어졌다 — 실패할 자리가 하나 줄었다.
+ *
+ * 거절은 전부 예외로 온다(PT404 · 42501 · 22023). 문구는 서버가 만든 것을
+ * 그대로 보여준다.
+ */
+export async function updateSessionMatch(input: UpdateSessionMatchInput): Promise<MatchRow> {
+  const res = await supabase.rpc('update_session_match', {
+    p_match_id: input.matchId,
+    p_court_id: input.courtId,
+    p_players_a: input.playersA,
+    p_players_b: input.playersB,
+    p_label: input.label ?? null,
+  })
+  return unwrap(res) as MatchRow
+}
+
 /**
  * 참가. 서버가 예외 대신 결과 객체를 돌려주므로 여기서 예외로 바꿔 준다.
  * (예외를 던지면 브루트포스 시도 기록이 롤백되어 차단이 무력화된다)

@@ -204,3 +204,28 @@ export function autoQueueKeyOfMatch(
 function playedCount(matches: readonly MatchOverviewRow[]): number {
   return matches.filter((m) => m.status === 'finished' || m.status === 'void').length
 }
+
+/**
+ * 사람이 편성을 고친 뒤 남길 이름.
+ *
+ * **'자동' 은 지운다.** 배지가 하는 말은 "앱이 멋대로 짠 편성이 네 명을
+ * 묶어 놨다 — 그러니 접힌 줄에 숨기지 말고 한 번에 지울 수 있게 두자"
+ * 였다(`AutoQueueRow` 주석). 총무가 그 넷을 들여다보고 고친 순간 그 전제가
+ * 사라진다. 이제 그 편성은 사람이 고른 것이고, 그 위에 '자동' 을 남겨 두면
+ * 앱이 남의 결정을 자기 것이라고 우기는 셈이다.
+ *
+ * 같은 규율이 이미 경기 짜기 화면에 있다 — 이름을 한 번이라도 누르면
+ * "적게 친 사람부터 골라 뒀습니다" 가 사라진다. *사람이 자기 손으로 짠
+ * 목록 위에 앱의 변명이 남아 있으면 그건 설명이 아니라 잔소리다.*
+ *
+ * 자동 예약이 이 편성을 되살리지는 않는다. `planAutoQueue` 는 **대기 경기가
+ * 없는 코트**만 고르는데, 고친 경기는 그 코트에 그대로 서 있기 때문이다.
+ * 이름(`autoQueueKeyOfMatch`)이 선수 이름으로 만들어져 편성이 바뀌면 열쇠도
+ * 바뀌지만, 열쇠는 '코트를 고른 뒤' 에야 쓰인다 — 코트가 안 뽑히면 열쇠까지
+ * 가지 않는다.
+ *
+ * 사람이 직접 붙인 다른 이름은 그대로 둔다 — 그건 고치기가 건드릴 것이 아니다.
+ */
+export function labelAfterHumanEdit(label: string | null | undefined): string | null {
+  return label === AUTO_QUEUE_LABEL ? null : (label ?? null)
+}

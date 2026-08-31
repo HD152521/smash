@@ -39,6 +39,7 @@ import {
   fetchStandings,
   fetchAuditLog,
   recordManualMatch,
+  updateSessionMatch,
   regenerateInviteCode,
   setMemberGroup,
   setMemberRole,
@@ -49,6 +50,7 @@ import {
   type ManualMatchInput,
   type CreateSessionInput,
   type CreateTournamentInput,
+  type UpdateSessionMatchInput,
   type MemberSummary,
 } from './api'
 import type {
@@ -128,6 +130,28 @@ export function useCreateSessionMatch(tournamentId: string) {
     }) => createSessionMatch({ tournamentId, ...input }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+      kickPushSender()
+    },
+  })
+}
+
+/**
+ * 모임 경기 고치기 — 서버가 제자리에서 고친다(`update_session_match`).
+ *
+ * 경기 id 가 유지되므로 대기 줄의 자리(`queue_order`)도 그대로다. 전에
+ * 쓰던 '지우고 다시 만들기' 우회는 새 경기를 줄 맨 뒤에 세워서, 고친 뒤
+ * `set_court_queue` 로 다시 세우는 보정이 따라붙었다 — 그 보정이 통째로
+ * 없어졌다.
+ *
+ * `tournamentId` 는 서버가 경기에서 읽으므로 안 보낸다. 캐시 열쇠로만 쓴다.
+ */
+export function useUpdateSessionMatch(tournamentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: UpdateSessionMatchInput) => updateSessionMatch(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournaments', tournamentId, 'matches'] })
+      // 코트가 바뀌었으면 '곧 차례' 알림이 새로 생긴다
       kickPushSender()
     },
   })

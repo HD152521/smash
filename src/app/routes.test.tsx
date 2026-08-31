@@ -81,6 +81,7 @@ const ROUTES = [
   `/t/${TOURNAMENT_ID}/matches/${MATCH_ID}/edit`,
   `/t/${TOURNAMENT_ID}/matches/${MATCH_ID}`,
   `/t/${TOURNAMENT_ID}/matches/new-session`,
+  `/t/${TOURNAMENT_ID}/matches/${MATCH_ID}/edit-session`,
   `/t/${TOURNAMENT_ID}/admin/rules`,
   '/new/session',
   '/settings/alerts',

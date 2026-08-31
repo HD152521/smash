@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
-import { BackBar } from '@/components/ui/BackBar'
+import { AppHeader } from '@/components/nav/AppHeader'
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { Button } from '@/components/ui/Button'
 import { GradePicker } from '@/components/ui/GradePicker'
 import { GenderPicker } from '@/components/ui/GenderPicker'
@@ -91,11 +92,11 @@ export function MyPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to="/" label="메인으로" />
+    <main className="mx-auto w-full max-w-2xl px-5" style={{ paddingBottom: APP_TAB_PADDING }}>
+      {/* 하단탭의 목적지라 되짚어 나갈 위가 없다 — 큰 제목으로 시작한다(AppHeader 주석) */}
+      <AppHeader title="내 정보" />
 
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 정보</h1>
-      <p className="mt-2 text-sm text-ink-2">
+      <p className="mt-3 text-sm text-ink-2">
         여기서 바꾼 값은 <b className="font-bold text-ink-1">앞으로 들어가는 명단</b>에 적용됩니다.
         오늘 이미 들어간 명단은 그대로 남아요 — 지난 기록의 편성 근거가 나중에 바뀌면 안 되기
         때문입니다.
@@ -179,7 +180,8 @@ export function MyPage() {
         <Link
           to="/settings/alerts"
           className="flex min-h-12 items-center gap-3 px-5 py-2.5 text-sm transition-colors
-                     hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2
+                     hover:bg-surface-2 active:bg-surface-2
+                     focus-visible:outline-2 focus-visible:-outline-offset-2
                      focus-visible:outline-brand-600"
         >
           <span className="min-w-0 flex-1 font-bold text-ink-1">알림</span>

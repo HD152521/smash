@@ -20,6 +20,7 @@ import type { MatchOverviewRow } from '@/types/database'
 vi.mock('@/features/auth/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 
 const create = { mutateAsync: vi.fn(), isPending: false, error: null as unknown }
+const edit = { mutateAsync: vi.fn(), isPending: false, error: null as unknown }
 const matches = { data: [] as MatchOverviewRow[] }
 
 vi.mock('@/features/tournament/queries', () => ({
@@ -28,6 +29,7 @@ vi.mock('@/features/tournament/queries', () => ({
   useCourts: () => ({ data: [COURT] }),
   useMatches: () => matches,
   useCreateSessionMatch: () => create,
+  useUpdateSessionMatch: () => edit,
 }))
 
 /** 이 화면이 보는 칸만 채운다 */
