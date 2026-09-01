@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { AppHeader } from '@/components/nav/AppHeader'
 import { APP_TAB_PADDING } from '@/components/nav/appTabs'
-import { BackBar } from '@/components/ui/BackBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { useClub, useClubMembers } from './queries'
 import { isClubStaff } from '@/lib/club'
@@ -39,8 +39,17 @@ interface ClubScreenProps {
  * **게스트 링크를 카톡에 붙여넣기** — 인데, 그게 회원 30명 명단 밑에
  * 있었다.
  *
- * 뒤로는 허브로 보낸다. 허브에서 들어오는 게 유일한 길이라 되짚는 것과
- * 결과가 같고, 주소로 바로 들어온 사람도 갈 곳이 생긴다.
+ * ## 2026-09-01 — 위쪽 이동을 없앴다
+ *
+ * 여기엔 머리말이 있었다(`BackBar('동아리')`). 지금은 없다 — 동아리 하위
+ * 화면에는 전역 하단탭이 깔리고(`appTabs.ts` 의 `/c/` 접두사), 그 '동아리'
+ * 탭이 이미 나가는 길이다. 회원이 동아리 하나뿐이면 이 동아리 허브로,
+ * 여럿이면 `/clubs` 목록으로 간다 — **어느 쪽이든 여기서 나간다.**
+ * 출구가 둘이면 둘 다 덜 믿게 된다(`BackBar` 주석).
+ *
+ * 대신 최상위 네 화면과 같은 `AppHeader` 로 시작한다. 탭으로 오가는
+ * 화면들이 같은 모양으로 시작해야 "같은 앱 안에서 자리를 옮겼다" 로 읽힌다
+ * (`AppHeader` 주석). 노치 여백도 거기서 함께 진다.
  */
 export function ClubScreen({
   clubId,
@@ -75,17 +84,14 @@ export function ClubScreen({
   const pending = !club.data || !members.data
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6" style={{ paddingBottom: APP_TAB_PADDING }}>
+    <main className="mx-auto w-full max-w-2xl px-5" style={{ paddingBottom: APP_TAB_PADDING }}>
       {/*
-        홈 버튼은 끈다 — 동아리 화면에는 이제 전역 하단탭이 깔리고 그 안에
-        '홈' 이 있다. 같은 화면에 같은 곳으로 가는 버튼이 둘이면 둘 다 덜
-        믿게 된다(BackBar 주석). 뒤로가기는 그대로 둔다 — 되짚어 나가는
-        것과 처음으로 돌아가는 것은 다른 일이다.
+        설명문은 `meta` 로 넘기지 않는다 — 그 자리는 날짜·개수 같은 **사실**
+        자리라 굵게 그려진다(`AppHeader` 주석). 한 문장짜리 설명이 거기
+        들어가면 제목만큼 무거워진다.
       */}
-      <BackBar to={`/c/${clubId}`} label="동아리" home={false} />
-
-      <h1 className="mt-4 text-3xl font-black tracking-tight text-ink-1">{title}</h1>
-      {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
+      <AppHeader title={title} />
+      {description && <p className="mt-2 text-sm text-ink-2">{description}</p>}
 
       {members.error && (
         <p role="alert" className="mt-6 text-sm font-medium text-team-b-fg">
@@ -108,8 +114,9 @@ export function ClubScreen({
  */
 export function ClubUnavailable({ error }: { error: unknown }) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6" style={{ paddingBottom: APP_TAB_PADDING }}>
-      <BackBar to="/clubs" label="내 동아리" home={false} />
+    <main className="mx-auto w-full max-w-2xl px-5" style={{ paddingBottom: APP_TAB_PADDING }}>
+      {/* 나가는 길은 하단탭이 진다 — 이 화면도 `/c/` 라 탭이 깔린다 */}
+      <AppHeader title="동아리" />
       <p role="alert" className="mt-8 text-sm font-medium text-team-b-fg">
         {toUserMessage(error, '동아리를 불러오지 못했습니다')}
       </p>

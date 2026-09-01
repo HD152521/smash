@@ -15,14 +15,15 @@ interface AdminScreenProps {
 }
 
 /**
- * 관리 하위 화면의 공통 껍데기 — 권한 확인 · 뒤로가기 · 제목 · 로딩.
+ * 관리 하위 화면의 공통 껍데기 — 권한 확인 · 나가는 길 · 제목 · 로딩.
  *
  * 관리를 화면 하나에 다 얹으면 정작 급할 때 필요한 항목이 스크롤 밑으로
  * 밀린다. 코트 · 참가자 · 조를 각자 화면으로 떼면서 세 화면이 똑같은
  * 껍데기를 갖게 됐고, 그걸 여기 모았다.
  *
- * 뒤로는 히스토리를 되짚는다. 관리 목록에서 들어오는 게 유일한 길이라
- * 되짚으면 목록으로 돌아간다. 주소로 바로 들어온 경우에만 목록으로 보낸다.
+ * 나가는 길은 관리 목록으로 못 박는다. 여기 들어오는 문이 관리 목록
+ * 하나뿐이라 결과가 같고, 주소로 바로 들어온 사람도 갈 곳이 생긴다.
+ * 이 화면들에는 하단탭이 없다 — 이 링크가 유일한 출구다.
  */
 export function AdminScreen({
   tournamentId,
@@ -37,7 +38,7 @@ export function AdminScreen({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to={`/t/${tournamentId}/admin`} label="관리" />
+      <BackBar to={`/t/${tournamentId}/admin`} label="관리로" />
 
       <h1 className="mt-4 text-3xl font-black tracking-tight text-ink-1">{title}</h1>
       {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}

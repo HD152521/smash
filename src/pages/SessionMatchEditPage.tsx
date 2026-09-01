@@ -32,12 +32,19 @@ export function SessionMatchEditPage() {
     return <Navigate to={`/t/${id}/matches/${matchId}/edit`} replace />
   }
 
+  const to = backTo(id, location.state)
+
   return (
     <SessionMatchEditor
       tournamentId={id ?? ''}
       editMatchId={matchId}
-      backTo={backTo(id, location.state)}
-      backLabel="돌아가기"
+      backTo={to}
+      /*
+        글자와 실제로 가는 곳이 어긋나면 안 된다(`BackLink` 주석). 여기는
+        목적지가 둘 중 하나라 라벨도 목적지에서 뽑는다 — '돌아가기' 처럼
+        어디로 가는지 안 밝히는 말은 쓰지 않는다.
+      */
+      backLabel={backLabel(to)}
     />
   )
 }
@@ -56,4 +63,9 @@ function backTo(tournamentId: string | undefined, state: unknown): string {
   const home = `/t/${tournamentId}`
   const from = (state as { from?: unknown } | null)?.from
   return typeof from === 'string' && from.startsWith(`${home}/`) ? from : home
+}
+
+/** 목적지의 이름. 들어오는 문이 둘(코트 · 대진표)이라 글자도 둘이다 */
+function backLabel(to: string): string {
+  return to.endsWith('/schedule') ? '대진표로' : '모임으로'
 }

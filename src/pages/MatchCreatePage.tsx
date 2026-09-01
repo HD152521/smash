@@ -95,8 +95,6 @@ export function MatchCreatePage() {
       title="경기 편성"
       backTo={`/t/${id}/admin`}
       backLabel="관리로"
-      // 편성을 반복하면 히스토리가 이 화면으로 쌓인다. 부모를 못 박는다.
-      fixedBack
       pending={!config || !groups.data}
       bottomBar={
         teams.ready && (
