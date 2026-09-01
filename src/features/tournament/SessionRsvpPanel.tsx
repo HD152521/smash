@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Check, X } from 'lucide-react'
 import { useSetMyRsvp } from './queries'
 import { useAutoJoin } from './useAutoJoin'
@@ -32,6 +33,21 @@ export function SessionRsvpPanel({
   onShowCourts: () => void
 }) {
   const setRsvp = useSetMyRsvp(tournamentId)
+  const navigate = useNavigate()
+
+  /*
+   * 나간다고 눌렀으면 이 화면에 남아 있을 이유가 없다. 여기서 볼 것은
+   * "몇 명 오나" 와 "누가 오나" 뿐인데, 안 가는 사람에게는 둘 다 남의
+   * 일이다.
+   *
+   * `replace` 로 보낸다 — 밀어 넣으면 폰 뒤로가기가 방금 나온 모임으로
+   * 도로 데려간다.
+   */
+  function leave() {
+    setRsvp.mutate('declined', {
+      onSuccess: () => navigate('/', { replace: true }),
+    })
+  }
 
   /*
    * 들어오면 참가로 표시한다. 바꾸는 것은 '미정' 하나뿐이고 한 번만
@@ -71,7 +87,7 @@ export function SessionRsvpPanel({
             rsvp={me.rsvp}
             pending={setRsvp.isPending}
             onGoing={() => setRsvp.mutate('going')}
-            onDecline={() => setRsvp.mutate('declined')}
+            onDecline={leave}
           />
         ) : (
           <p className="mt-4 text-sm text-ink-2">
@@ -175,6 +191,11 @@ function MyRsvpLine({
   onGoing: () => void
   onDecline: () => void
 }) {
+  /*
+   * 나가기를 누르면 화면을 떠나므로 이 분기는 **다시 들어온 사람**만 본다
+   * (마음이 바뀌었거나, 주소를 다시 열었거나). 그래서 여기서 크게 말할
+   * 것은 '다시 참가' 하나다.
+   */
   if (rsvp === 'declined') {
     return (
       <div className="mt-4 flex flex-wrap items-center gap-3">
