@@ -85,7 +85,9 @@ function hasUpLink(file: string, depth = 2, seen = new Set<string>()): boolean {
 function routeTable(): { path: string; component: string }[] {
   const src = read('/src/app/routes.tsx')
   const out: { path: string; component: string }[] = []
-  for (const m of src.matchAll(/path="([^"]+)"[\s\S]{0,400}?element=\{([\s\S]{0,400}?)\}\s*\/?>/g)) {
+  for (const m of src.matchAll(
+    /path="([^"]+)"[\s\S]{0,400}?element=\{([\s\S]{0,400}?)\}\s*\/?>/g,
+  )) {
     const path = m[1]!
     if (path === '*') continue
     // element 안의 컴포넌트들 중 가드(Protected · Public · RequireAuth 등)가

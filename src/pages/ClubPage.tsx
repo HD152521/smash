@@ -43,7 +43,10 @@ export function ClubPage() {
 
   if (!club.data) {
     return (
-      <main className="mx-auto w-full max-w-2xl px-5 pt-10" style={{ paddingBottom: APP_TAB_PADDING }}>
+      <main
+        className="mx-auto w-full max-w-2xl px-5 pt-10"
+        style={{ paddingBottom: APP_TAB_PADDING }}
+      >
         <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
       </main>
     )

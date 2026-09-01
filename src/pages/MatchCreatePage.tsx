@@ -93,8 +93,10 @@ export function MatchCreatePage() {
     <MatchEditorScreen
       tournamentId={id ?? ''}
       title="경기 편성"
-      backTo={`/t/${id}/admin`}
-      backLabel="관리로"
+      // 관리 허브가 아니라 대회 화면으로. 경기를 짜고 나면 대개 코트를
+      // 보러 간다 — 허브를 한 번 더 지나게 할 이유가 없다.
+      backTo={`/t/${id}`}
+      backLabel="대회로"
       pending={!config || !groups.data}
       bottomBar={
         teams.ready && (
