@@ -1,7 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowRight, KeyRound, Link2, Settings, Users } from 'lucide-react'
 import { APP_TAB_PADDING } from '@/components/nav/appTabs'
-import { BackBar } from '@/components/ui/BackBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { ClubTournamentList } from '@/features/club/ClubTournamentList'
 import { ClubUnavailable } from '@/features/club/ClubScreen'
@@ -57,21 +56,6 @@ export function ClubPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6" style={{ paddingBottom: APP_TAB_PADDING }}>
-      {/*
-        하단탭이 뜨는 화면에는 위쪽 이동을 두지 않는 게 규칙인데(`BackBar`
-        주석) **여기만 예외다.**
-
-        전역탭의 '동아리' 는 회원의 동아리가 하나뿐이면 그 동아리로 바로
-        간다(`AppTabBar`). 그러면 이 화면에서 그 탭은 **자기 자신을 가리킨다**
-        — 탭이 이 화면의 출구가 아니다. 그 사람에게서 이 링크를 걷어내면
-        `/clubs` 에 닿을 길이 사라지고, 거기에만 있는 '동아리 만들기 · 코드로
-        참가' 도 같이 사라진다. 동아리를 하나 가진 사람은 두 번째 동아리를
-        영영 못 만든다.
-
-        동아리가 여럿인 사람에게는 탭과 이 링크가 같은 곳(`/clubs`)으로 간다.
-        출구가 겹치는 값보다 **닿지 못하는 화면이 생기는 쪽이 훨씬 나쁘다.**
-      */}
-      <BackBar to="/clubs" label="내 동아리" />
 
       <p className="mt-6 text-sm font-semibold tracking-widest text-brand-fg uppercase">CLUB</p>
       <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{c.name}</h1>

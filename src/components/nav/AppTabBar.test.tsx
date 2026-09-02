@@ -73,29 +73,38 @@ describe('지금 있는 곳을 표시한다', () => {
   })
 })
 
-describe('동아리 탭 — 하나뿐이면 목록을 건너뛴다', () => {
-  test('동아리가 하나면 바로 그 동아리로', () => {
-    // 홈의 큰 초록 버튼이 쓰던 규칙 그대로다 — 고를 것이 하나뿐인 목록을
-    // 한 번 더 보여주는 것은 탭만 하나 늘리는 일이다.
-    clubs.data = [{ id: 'c1', name: '수요 배드민턴' }]
-    renderAt('/')
-
-    expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('href', '/c/c1')
-  })
-
-  test('여럿이면 목록으로', () => {
-    clubs.data = [
-      { id: 'c1', name: '수요 배드민턴' },
-      { id: 'c2', name: '금요 클럽' },
-    ]
+describe('동아리 탭 — 언제나 목록으로', () => {
+  /*
+   * 한때 동아리가 하나면 그 동아리로 바로 보냈다. 탭에는 그 규칙이 안
+   * 맞는다 — 늘 화면 아래에 있는 것이라 **누르기 전에 어디로 갈지 알아야**
+   * 하고, 동아리 수에 따라 목적지가 달라지면 두 번째 동아리에 들어간
+   * 날부터 같은 탭이 다른 곳으로 간다.
+   *
+   * 게다가 동아리 하나짜리 사용자는 그 바로가기 때문에 `/clubs` 에 영영
+   * 못 갔다 — 거기에만 있는 '동아리 만들기 · 코드로 참가' 와 함께.
+   */
+  test.each([
+    ['없을 때', []],
+    ['하나일 때', [{ id: 'c1', name: '수요 배드민턴' }]],
+    [
+      '여럿일 때',
+      [
+        { id: 'c1', name: '수요 배드민턴' },
+        { id: 'c2', name: '금요 클럽' },
+      ],
+    ],
+  ])('%s 목록으로 간다', (_name, list) => {
+    clubs.data = list
     renderAt('/')
 
     expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('href', '/clubs')
   })
 
-  test('아직 안 왔으면 목록으로 — 잘못 가는 게 아니라 한 칸 덜 가는 것이다', () => {
-    clubs.data = []
-    renderAt('/')
+  test('동아리 화면에서도 탭은 목록으로 간다 — 자기 자신을 가리키지 않는다', () => {
+    // 이게 깨지면 탭이 그 화면의 출구가 아니게 되고, 위쪽 이동을 다시
+    // 세워야 한다(everyRouteHasAnExit 의 예외 목록이 그때 늘어난다).
+    clubs.data = [{ id: 'c1', name: '수요 배드민턴' }]
+    renderAt('/c/c1')
 
     expect(screen.getByRole('link', { name: '동아리' })).toHaveAttribute('href', '/clubs')
   })

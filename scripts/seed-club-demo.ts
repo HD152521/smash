@@ -502,10 +502,7 @@ interface SessionMember {
 }
 
 /** 계정이 없어 프로필이 없는 회원의 급수·성별을 그 모임 명단에만 찍는다 */
-async function fillRosterTraits(
-  ownerId: string,
-  members: readonly SessionMember[],
-): Promise<void> {
+async function fillRosterTraits(ownerId: string, members: readonly SessionMember[]): Promise<void> {
   await asUser(ownerId)
   for (const m of members) {
     if (m.userId) continue // 계정이 있으면 프로필에서 이미 따라왔다
@@ -961,7 +958,9 @@ async function clean(): Promise<void> {
   // 기록 파일이 어떤 이유로든 남의 것을 가리키면 손을 뗀다
   const stray = targets.filter((t) => t.club_id !== m.clubId)
   if (stray.length > 0) {
-    console.log(`🚨 이 동아리 것이 아닌 대상이 섞여 있다 — 아무것도 지우지 않는다: ${stray.length}건`)
+    console.log(
+      `🚨 이 동아리 것이 아닌 대상이 섞여 있다 — 아무것도 지우지 않는다: ${stray.length}건`,
+    )
     process.exitCode = 1
     return
   }
