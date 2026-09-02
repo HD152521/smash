@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildRosterStats,
+  countMissingTraits,
+  hasGenderContrast,
   hasGradeContrast,
   hasRsvpContrast,
   namesInAnyMatch,
@@ -8,7 +10,7 @@ import {
   presenceTier,
   rosterStat,
 } from './roster'
-import type { MatchOverviewRow, PlayerGrade, RsvpStatus } from '@/types/database'
+import type { MatchOverviewRow, PlayerGender, PlayerGrade, RsvpStatus } from '@/types/database'
 
 function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
   return {
@@ -223,5 +225,56 @@ describe('hasGradeContrast — 급수 배지도 같은 규율이다', () => {
 
   it('빈 명단은 띄울 것이 없다', () => {
     expect(hasGradeContrast([])).toBe(false)
+  })
+})
+
+describe('hasGenderContrast — 성별 배지도 같은 규율이다', () => {
+  const g = (gender: PlayerGender | null) => ({ gender })
+
+  it('아무도 성별을 안 적었으면 띄우지 않는다', () => {
+    expect(hasGenderContrast([g(null), g(null)])).toBe(false)
+  })
+
+  /*
+   * 남자만 오는 모임이 실제로 흔하다. 거기서 20줄 전부에 '남' 이 붙으면
+   * 아무도 갈라 주지 못하면서 이름만 읽기 어려워진다.
+   */
+  it('전원이 같은 성별이면 띄우지 않는다', () => {
+    expect(hasGenderContrast([g('male'), g('male'), g('male')])).toBe(false)
+  })
+
+  it('섞여 있으면 띄운다', () => {
+    expect(hasGenderContrast([g('male'), g('female')])).toBe(true)
+  })
+
+  it('일부만 적혀 있으면 그것이 곧 대비다 — null 도 한 가지 값으로 센다', () => {
+    expect(hasGenderContrast([g('female'), g(null)])).toBe(true)
+  })
+})
+
+describe('countMissingTraits — 총무가 채울 이유를 화면에 놓는다', () => {
+  const p = (grade: PlayerGrade | null, gender: PlayerGender | null) => ({ grade, gender })
+
+  it('둘 다 채워져 있으면 0 이다 — 그때 화면은 아무 말도 안 한다', () => {
+    expect(countMissingTraits([p('B', 'male'), p('S', 'female')])).toEqual({
+      gender: 0,
+      grade: 0,
+    })
+  })
+
+  /*
+   * 둘을 한 숫자로 합치지 않는 이유가 이 시험에 있다. 성별만 비어 있는
+   * 사람은 **편성에서 통째로 빠지고**, 급수만 비어 있는 사람은 짝이 덜
+   * 맞을 뿐이다 — 합치면 그 차이가 사라진다.
+   */
+  it('성별과 급수를 따로 센다 — 무게가 다르다', () => {
+    expect(countMissingTraits([p('B', null), p(null, 'male'), p(null, null)])).toEqual({
+      gender: 2,
+      grade: 2,
+    })
+  })
+
+  it('빈 명단은 셀 것이 없다', () => {
+    expect(countMissingTraits([])).toEqual({ gender: 0, grade: 0 })
   })
 })

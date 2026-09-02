@@ -1,4 +1,4 @@
-import type { MatchOverviewRow, PlayerGrade, RsvpStatus } from '@/types/database'
+import type { MatchOverviewRow, PlayerGender, PlayerGrade, RsvpStatus } from '@/types/database'
 
 /**
  * 명단 화면의 판단 — "오늘 누가 왔고 누가 어떤 상태인가".
@@ -202,4 +202,50 @@ export function hasGradeContrast(members: readonly { grade: PlayerGrade | null }
   const kinds = new Set(members.map((m) => m.grade))
   // 전원 null 이면 size 가 1 이라 자연히 걸러진다 — 따로 분기하지 않는다
   return kinds.size >= 2
+}
+
+/**
+ * 성별 배지를 이 목록에서 띄울 값어치가 있는가.
+ *
+ * `hasGradeContrast` 와 **같은 판단**이다 — 모두에게 붙는 배지는 배지가
+ * 아니라 잡음이다. 남자만 모인 모임에서 20줄 전부에 '남' 이 붙으면
+ * 이름만 읽기 어려워진다. null(모른다)도 한 가지 값으로 센다.
+ */
+export function hasGenderContrast(members: readonly { gender: PlayerGender | null }[]): boolean {
+  const kinds = new Set(members.map((m) => m.gender))
+  return kinds.size >= 2
+}
+
+/** 급수·성별을 안 적은 사람 수 */
+export interface MissingTraitCounts {
+  /** 성별이 비어 있는 사람 수. 이 사람들은 종목 편성에서 통째로 빠진다 */
+  gender: number
+  /** 급수가 비어 있는 사람 수. 짝 맞추기만 덜 정확해진다 */
+  grade: number
+}
+
+/**
+ * 명단에서 급수·성별이 비어 있는 사람을 센다.
+ *
+ * **왜 화면에 이 숫자가 있어야 하나.** 종목(남복·여복·혼복)은 선수 넷의
+ * 성별에서 그대로 나오므로(`matchKindOf`), 성별을 안 적은 사람은 자동
+ * 편성이 아예 못 쓴다. 그런데 그 사실은 편성 화면에 가서 "왜 저 사람이
+ * 후보에 없지" 로만 드러난다 — 그때는 이미 코트가 비어 있고 총무는
+ * 급한 상태다.
+ *
+ * 그래서 명단 **위**에서 미리 말한다. 총무는 회원들의 급수·성별을 이미
+ * 알고 있어서, 채우는 데 드는 비용이 회원 하나하나에게 물어보는 것보다
+ * 훨씬 싸다. 숫자가 0 이면 화면은 아무 말도 안 한다 — 다 채워진 명단에
+ * 안내 문구가 남아 있으면 그 문구를 아무도 안 읽게 된다.
+ *
+ * 둘을 한 숫자로 합치지 않는다. 무게가 다르기 때문이다 — 급수가 비면
+ * 짝이 덜 맞을 뿐이지만 성별이 비면 편성에서 빠진다.
+ */
+export function countMissingTraits(
+  members: readonly { grade: PlayerGrade | null; gender: PlayerGender | null }[],
+): MissingTraitCounts {
+  return {
+    gender: members.filter((m) => m.gender === null).length,
+    grade: members.filter((m) => m.grade === null).length,
+  }
 }

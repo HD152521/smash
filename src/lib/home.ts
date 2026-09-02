@@ -1,4 +1,5 @@
 import { buildSchedule, myMatchRole, queuePosition } from './schedule'
+import { hasStarted } from './rsvp'
 import type { MyTournament } from '@/features/tournament/api'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
@@ -50,7 +51,16 @@ export type TodayFocus =
  * 모임 안내보다 지금 서 있는 코트가 급하다.
  */
 export function pickTodayFocus(tournaments: readonly MyTournament[], now: Date): TodayFocus | null {
-  const live = tournaments.find((t) => t.status === 'live')
+  /*
+   * ⚠ `status === 'live'` 만 보면 안 된다. `create_session` 은 **모임을
+   * 항상 live 로 만든다** — 다음 주 화요일 모임도 만든 순간부터 live 다.
+   * 시작했는지는 status 가 아니라 `hasStarted` 가 판단한다(서버는 시각을
+   * 판단하지 않는다는 규율 — `docs/이어서시작.md` 「참가 신청」).
+   *
+   * 이걸 빠뜨려서 홈이 **다음 주 모임을 "진행 중"** 으로 표시했다.
+   * 실제 명단에 미래 모임을 넣어 보고서야 드러났다.
+   */
+  const live = tournaments.find((t) => t.status === 'live' && hasStarted(t.startsAt, now))
   if (live) return { kind: 'live', tournament: live }
 
   const upcoming = tournaments
@@ -181,4 +191,23 @@ export function myNextLabel(next: MyNext): string {
   if (next.kind === 'unassigned') return '코트가 정해지지 않았습니다'
   if (next.ahead === 0) return `다음 차례 · ${next.courtName}`
   return `${next.courtName} · 앞에 ${next.ahead}경기`
+}
+
+// ── 오늘이 며칠인가 ───────────────────────────────────────────────────
+
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'] as const
+
+/**
+ * "8월 31일 일요일" — 홈 큰 제목 '오늘' 아래 한 줄.
+ *
+ * 요일까지 적는다. 모임은 요일로 기억되기 때문이다(`rsvp.ts`
+ * `startsAtLabel` 과 같은 근거) — 날짜만 적으면 매주 여는 사람은 이게
+ * 무슨 날인지 한 번 더 계산해야 한다.
+ *
+ * `startsAtLabel` 이 '(일)' 로 줄여 쓰는 것과 달리 여기는 '일요일' 로
+ * 편다. 저기는 목록 한 줄 안에 시각까지 들어가야 해서 좁고, 여기는
+ * 제목 아래 한 줄뿐이라 좁을 이유가 없다.
+ */
+export function todayLabel(now: Date): string {
+  return `${now.getMonth() + 1}월 ${now.getDate()}일 ${WEEKDAY[now.getDay()]}요일`
 }

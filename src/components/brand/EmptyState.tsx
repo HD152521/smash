@@ -46,7 +46,14 @@ export function EmptyState({ icon, title, description, action, className }: Empt
         <EmptyCourt height={88} className="text-ident-navy-fg/80" />
       )}
       <p className="mt-6 text-base font-bold text-ink-1">{title}</p>
-      {description && <p className="mt-1.5 max-w-sm text-sm text-ink-2">{description}</p>}
+      {/*
+        `break-keep` — 한글은 기본값(word-break: normal)에서 음절 아무
+        데서나 끊긴다. 320px 화면에서 "…코드로 참가하세 / 요." 처럼
+        마지막 한 글자가 혼자 넘어갔다. 단어를 통째로 넘긴다.
+      */}
+      {description && (
+        <p className="mt-1.5 max-w-sm text-sm break-keep text-ink-2">{description}</p>
+      )}
       {action && <div className="mt-5">{action}</div>}
     </div>
   )

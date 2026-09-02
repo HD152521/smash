@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BackBar } from '@/components/ui/BackBar'
-import { ChevronRight } from 'lucide-react'
+import { AppHeader } from '@/components/nav/AppHeader'
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
+import { ChevronRight, KeyRound, Plus, Trophy } from 'lucide-react'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/brand/EmptyState'
 import { useMyClubs } from '@/features/club/queries'
@@ -54,10 +55,16 @@ export function MyTournamentsPage() {
   const shown = (data ?? []).filter((t) => t.kind === kind)
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to="/" label="메인으로" />
+    <main className="mx-auto w-full max-w-2xl px-5" style={{ paddingBottom: APP_TAB_PADDING }}>
+      {/*
+        뒤로가기 대신 큰 제목이다 — 이 화면은 하단탭의 목적지라 되짚어
+        나갈 위가 없다(`AppHeader` 주석).
 
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">내 목록</h1>
+        개수는 제목 아래에 안 적는다. 바로 밑의 필터 칩이 이미 종류별로
+        세고 있어서, 찍어 보니 '1개' 와 '모임 1' 이 한 뼘 안에 나란히
+        섰다 — 같은 숫자를 두 번 말하는 셈이다.
+      */}
+      <AppHeader title="내 목록" />
 
       {/*
         대회와 모임을 섞어 놓으면 '지난 3월 정기전' 과 '지난 화요일 모임' 이
@@ -118,26 +125,6 @@ export function MyTournamentsPage() {
           className="mt-10 rounded-3xl px-6 py-12"
           title="아직 참가한 대회나 모임이 없습니다"
           description="초대 코드를 받으셨다면 참가하고, 오늘 모여서 치는 날이면 모임을 여세요."
-          action={
-            <div className="flex flex-col justify-center gap-2.5 sm:flex-row">
-              <Link
-                to="/join"
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
-                           px-4 text-[0.95rem] font-semibold text-white shadow-sm
-                           transition-colors hover:bg-brand-700"
-              >
-                대회 참가하기
-              </Link>
-              <Link
-                to="/new/session"
-                className="inline-flex h-11 items-center justify-center rounded-xl border
-                           border-border-subtle px-4 text-[0.95rem] font-semibold text-ink-1
-                           transition-colors hover:bg-surface-2"
-              >
-                모임 열기
-              </Link>
-            </div>
-          }
         />
       )}
 
@@ -148,9 +135,11 @@ export function MyTournamentsPage() {
               <Link
                 to={`/t/${t.id}`}
                 className="group flex items-center gap-4 rounded-2xl border border-border-subtle
-                           bg-surface-1 p-5 transition-colors hover:bg-surface-2
-                           focus-visible:outline-2 focus-visible:outline-offset-2
-                           focus-visible:outline-brand-600"
+                           bg-surface-1 p-5 shadow-[var(--shadow-card)]
+                           transition-transform hover:-translate-y-0.5
+                           focus-visible:-translate-y-0.5 focus-visible:outline-2
+                           focus-visible:outline-offset-2 focus-visible:outline-brand-600
+                           active:translate-y-0 active:scale-[0.99]"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -198,6 +187,65 @@ export function MyTournamentsPage() {
           ))}
         </ul>
       )}
+
+      <MakeOrJoin />
     </main>
+  )
+}
+
+/**
+ * 새로 만들거나 코드로 들어오는 문 셋.
+ *
+ * 원래 메인에 작은 줄로 쌓여 있었다. 메인의 책임이 "오늘을 보여준다"
+ * 하나인데 대회 만들기·참가하기가 거기 있으면 매일 보는 것(오늘)이 그만큼
+ * 밀린다(`HomePage` 주석). 여기가 제 자리다 — **이 화면이 답하는 질문이
+ * "내 대회·모임" 이고, 하나 더 만들거나 새로 들어오는 것은 그 목록을
+ * 늘리는 일**이다.
+ *
+ * 목록이 비었을 때도 같은 줄이 그대로 있다. 빈 상태에만 버튼을 띄우면
+ * 화면이 상태에 따라 다른 곳이 되고, 두 번째 대회를 만들려는 사람은
+ * 갈 곳을 잃는다.
+ */
+function MakeOrJoin() {
+  return (
+    <nav className="mt-6 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
+      <MakeRow to="/new/session" icon={Plus} title="모임 열기" desc="오늘 모여서 치는 날" />
+      <MakeRow to="/new" icon={Trophy} title="대회 만들기" desc="조·순위가 있는 대회" />
+      <MakeRow to="/join" icon={KeyRound} title="대회 참가하기" desc="초대 코드로 들어가기" last />
+    </nav>
+  )
+}
+
+function MakeRow({
+  to,
+  icon: Icon,
+  title,
+  desc,
+  last = false,
+}: {
+  to: string
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
+  title: string
+  desc: string
+  last?: boolean
+}) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'flex min-h-14 items-center gap-3.5 px-5 py-3 transition-colors',
+        // 폰에는 hover 가 없다 — 누르는 순간 반응하는 것은 active 뿐이다
+        'hover:bg-surface-2 active:bg-surface-2',
+        'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
+        last ? '' : 'border-b border-border-subtle',
+      )}
+    >
+      <Icon className="size-5 shrink-0 text-ink-2" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-ink-1">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-ink-3">{desc}</span>
+      </span>
+      <ChevronRight aria-hidden className="size-4 shrink-0 text-ink-3" />
+    </Link>
   )
 }

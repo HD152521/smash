@@ -135,14 +135,19 @@ export function MatchScorePage() {
         className={cn('flex items-center justify-between gap-3 px-4', wide ? 'py-1.5' : 'py-3')}
       >
         {/*
-          대진표에서 들어왔으면 대진표로, 코트에서 들어왔으면 코트로.
+          점수판을 떠나는 **유일한 길**이다 — 이 화면에는 하단탭이 없다
+          (전체화면이라 일부러 없앴다: 점수를 세는 중에 탭이 눌리면 안 된다).
 
           여기만 `BackBar`(고정 머리말)를 쓰지 않는다. 이 화면은 스크롤이
           없다 — `Wrap` 이 화면 높이에 맞춰 세로로 꽉 채우고, 가로 모드에서는
           `fixed` + `rotate-90` 으로 통째로 돌린다. `sticky` 는 그 안에서
-          기준이 뒤틀리고, 애초에 나가기가 사라질 일이 없다.
+          기준이 뒤틀리고, 애초에 출구가 사라질 일이 없다.
+
+          글자는 '나가기' 가 아니라 목적지다. '나가기' 는 어디로 나가는지
+          말하지 않는데, 심판이 이걸 누르는 이유는 대개 "다음 경기를 보러"
+          라서 어디에 떨어지는지가 중요하다.
         */}
-        <BackLink to={`/t/${id}`}>나가기</BackLink>
+        <BackLink to={`/t/${id}`}>대회로</BackLink>
 
         <div className="flex items-center gap-2 text-xs font-semibold">
           {m.court_name && <span className="text-ink-2">{m.court_name}</span>}

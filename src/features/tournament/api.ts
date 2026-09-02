@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { unwrap, unwrapVoid } from '@/lib/errors'
 import { parseGrade } from '@/lib/grade'
+import { parseGender } from '@/lib/gender'
 import type {
   CourtRow,
   JoinTournamentResult,
@@ -8,6 +9,7 @@ import type {
   MatchOverviewRow,
   MatchRow,
   MemberRole,
+  PlayerGender,
   PlayerGrade,
   RsvpStatus,
   ScoreEventRow,
@@ -145,12 +147,66 @@ export async function createSessionMatch(input: {
   courtId: string | null
   playersA: string[]
   playersB: string[]
+  /**
+   * 경기에 붙는 자유 입력 이름. 자동 예약이 '자동' 을 적어 화면이 배지를
+   * 그릴 근거로 쓴다 (`src/lib/autoQueue.ts`). 서버가 공백을 NULL 로 정리한다.
+   */
+  label?: string | null
 }): Promise<MatchRow> {
   const res = await supabase.rpc('create_session_match', {
     p_tournament_id: input.tournamentId,
     p_court_id: input.courtId,
     p_players_a: input.playersA,
     p_players_b: input.playersB,
+    p_label: input.label ?? null,
+  })
+  return unwrap(res) as MatchRow
+}
+
+export interface UpdateSessionMatchInput {
+  /** 고칠 경기. **경기 id 는 그대로 유지된다** — 서버가 제자리에서 고친다 */
+  matchId: string
+  courtId: string | null
+  playersA: string[]
+  playersB: string[]
+  /**
+   * 경기 이름. ⚠ **항상 보낸다.** 서버는 편성을 통째로 다시 쓰므로 안 보내면
+   * 이름이 지워진다. 사람이 고친 편성에서 '자동' 을 떼는 판단은 화면에 있다
+   * (`labelAfterHumanEdit`) — 서버는 받은 대로 저장한다.
+   */
+  label?: string | null
+}
+
+/**
+ * 모임 경기의 편성을 바꾼다 — **한 번의 RPC, 한 트랜잭션.**
+ *
+ * ── 왜 update_match 가 아닌가 (실측 2026-08-31) ────────────────────
+ * `update_match` 는 모임 경기에 **못 쓴다.** 조를 필수로 받아 `groups` 에서
+ * 찾는데, 모임에는 조가 한 개도 없다. 조를 NULL 로 보내면 서버가
+ * `22023 "A팀 조를 찾을 수 없습니다"` 로 거절한다(프로덕션 DB 에 실제로
+ * 쏴서 확인했다). 그래서 서버에 `update_session_match` 를 따로 두었다
+ * (20260903000001).
+ *
+ * ── 여기 있었던 우회를 지운 이유 ───────────────────────────────────
+ * 전에는 `deleteMatch` → `createSessionMatch` 로 우회했다. 지우기가 성공하고
+ * 만들기가 실패하면 **고치려던 경기가 사라졌다.** 순서를 반대로 하면 잠깐
+ * 같은 넷이 두 경기에 들어가고, 그 사이에 누가 시작하면 한 사람이 두 코트에서
+ * 불려 간다 — 화면에서 두 번 부르는 것으로는 안전한 순서가 없었다.
+ *
+ * 경기 id 가 유지되므로 `queue_order` 도 그대로다. 줄 맨 뒤로 밀린 경기를
+ * `set_court_queue` 로 다시 세우던 보정(`queueAfterReplace`)이 통째로
+ * 필요 없어졌다 — 실패할 자리가 하나 줄었다.
+ *
+ * 거절은 전부 예외로 온다(PT404 · 42501 · 22023). 문구는 서버가 만든 것을
+ * 그대로 보여준다.
+ */
+export async function updateSessionMatch(input: UpdateSessionMatchInput): Promise<MatchRow> {
+  const res = await supabase.rpc('update_session_match', {
+    p_match_id: input.matchId,
+    p_court_id: input.courtId,
+    p_players_a: input.playersA,
+    p_players_b: input.playersB,
+    p_label: input.label ?? null,
   })
   return unwrap(res) as MatchRow
 }
@@ -289,12 +345,22 @@ export interface MemberSummary {
    * (`add_roster_member`)과 급수를 안 고르고 가입한 사람이 여기 있다.
    */
   grade: PlayerGrade | null
+  /**
+   * **이 명단에서의 성별 스냅샷.** `grade` 와 글자 그대로 같은 규율이다
+   * (20260902000001_player_gender.sql).
+   *
+   * null 은 '모른다' 이고, 그 사람은 **종목(남복·여복·혼복) 편성에서
+   * 빠진다** — 종목은 선수 넷의 성별에서 나오기 때문이다(`matchKindOf`).
+   * 그래서 이 값이 비어 있는 것은 급수가 비어 있는 것보다 무겁고,
+   * 명단 화면이 미입력 인원을 세어 보여 준다.
+   */
+  gender: PlayerGender | null
 }
 
 export async function fetchMembers(tournamentId: string): Promise<MemberSummary[]> {
   const res = await supabase
     .from('tournament_members')
-    .select('id, user_id, display_name, role, group_id, rsvp, is_guest, grade')
+    .select('id, user_id, display_name, role, group_id, rsvp, is_guest, grade, gender')
     .eq('tournament_id', tournamentId)
     .order('display_name')
 
@@ -307,6 +373,7 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
     rsvp: RsvpStatus
     is_guest: boolean
     grade: unknown
+    gender: unknown
   }[]
 
   return rows.map((r) => ({
@@ -324,6 +391,8 @@ export async function fetchMembers(tournamentId: string): Promise<MemberSummary[
      * 모르면 배지를 안 그리는 쪽이 맞다.
      */
     grade: parseGrade(r.grade),
+    // 급수와 같은 이유로 여기서도 판별한다 — 배포 시차 동안 모르는 문자열이 온다
+    gender: parseGender(r.gender),
   }))
 }
 
@@ -552,6 +621,45 @@ export async function setDisplayName(memberId: string, name: string): Promise<vo
     p_name: name,
   })
   unwrap(res)
+}
+
+/**
+ * 명단 행의 급수 바꾸기 (본인 또는 운영진).
+ *
+ * RLS 로도 관리자는 이 행을 PATCH 할 수 있지만 RPC 를 쓴다 — 이유 둘은
+ * 마이그레이션 주석에 있다(20260902000001 6/6): **감사 기록**과 **본인
+ * 경로**. 마이페이지에서 프로필을 고쳐도 이미 들어간 명단은 스냅샷이라
+ * 안 바뀌므로, 본인이 오늘 명단의 자기 값을 고칠 길이 따로 있어야 한다.
+ *
+ * `null` 은 "안 바꾼다" 가 아니라 **"모른다로 되돌린다"** 다 — 잘못 누른
+ * 것을 되돌리는 경로가 이것뿐이다.
+ */
+export async function setMemberGrade(
+  memberId: string,
+  grade: PlayerGrade | null,
+): Promise<TournamentMemberRow> {
+  const res = await supabase.rpc('set_member_grade', {
+    p_member_id: memberId,
+    p_grade: grade,
+  })
+  return unwrap(res) as TournamentMemberRow
+}
+
+/**
+ * 명단 행의 성별 바꾸기 — `setMemberGrade` 와 같은 규칙.
+ *
+ * 함수가 둘인 이유: 하나로 합치면 "안 바꾼다" 와 "비운다" 를 한 인자로
+ * 구별할 수 없다. 나눠 두면 각 null 이 언제나 '모른다' 하나만 뜻한다.
+ */
+export async function setMemberGender(
+  memberId: string,
+  gender: PlayerGender | null,
+): Promise<TournamentMemberRow> {
+  const res = await supabase.rpc('set_member_gender', {
+    p_member_id: memberId,
+    p_gender: gender,
+  })
+  return unwrap(res) as TournamentMemberRow
 }
 
 /** 관리자가 명단에 사람을 미리 넣는다 (계정 없이) */

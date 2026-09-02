@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { lazyPage } from './lazyPage'
+import { AppTabBar } from '@/components/nav/AppTabBar'
 import { useAuth } from '@/features/auth/useAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage'
@@ -64,6 +65,9 @@ const PastMatchEntryPage = lazyPage(() =>
 const MatchEditPage = lazyPage(() =>
   import('@/pages/MatchEditPage').then((m) => ({ default: m.MatchEditPage })),
 )
+const SessionMatchEditPage = lazyPage(() =>
+  import('@/pages/SessionMatchEditPage').then((m) => ({ default: m.SessionMatchEditPage })),
+)
 const MatchScorePage = lazyPage(() =>
   import('@/pages/MatchScorePage').then((m) => ({ default: m.MatchScorePage })),
 )
@@ -106,6 +110,12 @@ const NotificationSettingsPage = lazyPage(() =>
     default: m.NotificationSettingsPage,
   })),
 )
+/*
+ * 마이페이지 — 이름·급수·성별을 본인이 고치는 곳. 알림과 로그아웃도 여기
+ * 모인다. 대회 밑이 아니라 홈 밑인 이유는 알림 설정과 같다: 계정 하나에
+ * 하나뿐인 것을 대회 화면에 두면 참가한 대회 수만큼 같은 화면이 생긴다.
+ */
+const MyPage = lazyPage(() => import('@/pages/MyPage').then((m) => ({ default: m.MyPage })))
 
 const MyClubsPage = lazyPage(() =>
   import('@/pages/MyClubsPage').then((m) => ({ default: m.MyClubsPage })),
@@ -179,6 +189,21 @@ function Public({ children }: { children: ReactNode }) {
 }
 
 export function AppRoutes() {
+  return (
+    <>
+      <AppRouteTable />
+      {/*
+        전역 하단탭은 라우트 **밖에** 한 번만 둔다. 화면마다 붙이면 새
+        화면을 만드는 사람이 빠뜨리거나 두 번 붙일 수 있고, 대회 화면에
+        실수로 붙으면 `TournamentTabBar` 와 겹친다. 여기 하나면 규칙
+        (`appTabs.ts`)이 곧 답이라 겹칠 자리가 없다.
+      */}
+      <AppTabBar />
+    </>
+  )
+}
+
+function AppRouteTable() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -259,6 +284,19 @@ export function AppRoutes() {
         element={
           <Protected>
             <NotificationSettingsPage />
+          </Protected>
+        }
+      />
+      {/*
+        `/my`(내 목록)와 한 글자 차이라 헷갈릴 수 있다. 그래도 `/me` 다 —
+        '나' 를 뜻하는 주소로 이보다 짧고 관습적인 것이 없고, 화면 제목
+        ('내 정보' 대 '내 목록')과 들어가는 자리가 서로 다르다.
+      */}
+      <Route
+        path="/me"
+        element={
+          <Protected>
+            <MyPage />
           </Protected>
         }
       />
@@ -447,6 +485,19 @@ export function AppRoutes() {
         element={
           <Protected>
             <MatchEditPage />
+          </Protected>
+        }
+      />
+      {/*
+        모임 경기 고치기. 대회의 `edit` 와 **주소를 갈라 둔다** — 대회는 조를
+        먼저 고르고 모임에는 조가 없어, 같은 화면으로는 둘 다 못 그린다.
+        한 주소에 모드를 얹지 않는 이유는 위 셋과 같다.
+      */}
+      <Route
+        path="/t/:id/matches/:matchId/edit-session"
+        element={
+          <Protected>
+            <SessionMatchEditPage />
           </Protected>
         }
       />

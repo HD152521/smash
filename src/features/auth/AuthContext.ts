@@ -1,6 +1,6 @@
 import { createContext } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import type { PlayerGrade } from '@/types/database'
+import type { PlayerGender, PlayerGrade } from '@/types/database'
 
 export type SocialProvider = 'google' | 'kakao'
 
@@ -11,15 +11,20 @@ export interface AuthState {
   ready: boolean
   signInWithPassword: (email: string, password: string) => Promise<void>
   /**
-   * `grade` 는 **선택**이다 — null 이면 메타데이터에 키 자체를 안 싣는다.
-   * 서버 트리거(handle_new_user)가 없는 키를 null 로 읽으므로 결과는 같지만,
-   * 빈 값을 굳이 실어 보내지 않는 편이 "안 골랐다" 를 정직하게 말한다.
+   * `grade` 와 `gender` 는 **선택**이다 — null 이면 메타데이터에 키 자체를
+   * 안 싣는다. 서버 트리거(handle_new_user)가 없는 키를 null 로 읽으므로
+   * 결과는 같지만, 빈 값을 굳이 실어 보내지 않는 편이 "안 골랐다" 를
+   * 정직하게 말한다.
+   *
+   * 둘 다 나중에 마이페이지(`/me`)에서 고칠 수 있다 — 그래서 가입 화면에서
+   * 필수로 만들 이유가 더더욱 없다.
    */
   signUpWithPassword: (
     email: string,
     password: string,
     name: string,
     grade: PlayerGrade | null,
+    gender: PlayerGender | null,
   ) => Promise<void>
   signInWithSocial: (provider: SocialProvider) => Promise<void>
   signOut: () => Promise<void>

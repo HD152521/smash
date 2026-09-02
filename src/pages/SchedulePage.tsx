@@ -13,7 +13,14 @@ import {
 } from '@/features/tournament/queries'
 import { useTournamentNav } from '@/features/tournament/useTournamentNav'
 import { useDragQueue, type DropTarget } from '@/features/schedule/useDragQueue'
-import { buildSchedule, isUpNext, matchTitle, myMatchRole, type MyMatchRole } from '@/lib/schedule'
+import {
+  buildSchedule,
+  isUpNext,
+  matchEditPath,
+  matchTitle,
+  myMatchRole,
+  type MyMatchRole,
+} from '@/lib/schedule'
 import { toUserMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 import type { MatchOverviewRow } from '@/types/database'
@@ -601,8 +608,18 @@ function MatchCard({
               시작
             </Link>
           )}
+          {/*
+            대회와 모임은 고치는 화면이 다르다. 대회는 조를 먼저 고르고
+            (`MatchEditPage`), 모임에는 조가 없어 사람을 바로 고른다
+            (`SessionMatchEditPage`). 여기서 안 가르면 모임 경기가 조를
+            고르라는 화면으로 열려 고를 조가 하나도 없다.
+
+            돌아올 자리를 함께 넘긴다 — 대진표에서 여러 판을 손보는 중이면
+            코트 화면이 아니라 이 목록으로 돌아와야 스크롤을 다시 안 찾는다.
+          */}
           <Link
-            to={`/t/${tournamentId}/matches/${m.id}/edit`}
+            to={matchEditPath(tournamentId, m.id, session)}
+            state={{ from: `/t/${tournamentId}/schedule` }}
             aria-label={`${matchTitle(m)} 수정`}
             className="grid size-10 shrink-0 place-items-center rounded-lg text-ink-3
                        transition-colors hover:bg-surface-2 hover:text-ink-1

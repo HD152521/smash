@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { ArrowRight, KeyRound, Link2, Settings, Users } from 'lucide-react'
-import { BackBar } from '@/components/ui/BackBar'
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { useAuth } from '@/features/auth/useAuth'
 import { ClubTournamentList } from '@/features/club/ClubTournamentList'
 import { ClubUnavailable } from '@/features/club/ClubScreen'
@@ -42,7 +42,10 @@ export function ClubPage() {
 
   if (!club.data) {
     return (
-      <main className="mx-auto w-full max-w-2xl px-5 pt-10">
+      <main
+        className="mx-auto w-full max-w-2xl px-5 pt-10"
+        style={{ paddingBottom: APP_TAB_PADDING }}
+      >
         <div className="h-40 animate-pulse rounded-2xl bg-surface-2" aria-busy />
       </main>
     )
@@ -52,8 +55,7 @@ export function ClubPage() {
   const memberCount = members.data?.length
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to="/clubs" label="내 동아리" />
+    <main className="mx-auto w-full max-w-2xl px-5 pt-6" style={{ paddingBottom: APP_TAB_PADDING }}>
 
       <p className="mt-6 text-sm font-semibold tracking-widest text-brand-fg uppercase">CLUB</p>
       <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{c.name}</h1>

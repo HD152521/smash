@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { GradePicker } from '@/components/ui/GradePicker'
+import { GenderPicker } from '@/components/ui/GenderPicker'
 import { CourtMotif } from '@/components/brand/CourtMotif'
 import { Shuttlecock } from '@/components/brand/Shuttlecock'
 import { useGuestSessions, useJoinAsGuest } from '@/features/guest/queries'
@@ -9,7 +10,7 @@ import { GUEST_NAME_MAX, guestErrorMessage, validateGuestName } from '@/lib/gues
 import { browserGuestMeStorage, loadGuestName, saveGuestName } from '@/lib/guestMe'
 import { toUserMessage } from '@/lib/errors'
 import { startsAtLabel } from '@/lib/rsvp'
-import type { PlayerGrade } from '@/types/database'
+import type { PlayerGender, PlayerGrade } from '@/types/database'
 
 /**
  * 게스트 등록 — `/g/:guestCode`. 로그인 가드 밖에 있는 두 화면 중 앞의 것이다
@@ -39,6 +40,12 @@ export function GuestJoinPage() {
    * 선택이라 기본값은 '안 골랐다'(null)다.
    */
   const [grade, setGrade] = useState<PlayerGrade | null>(null)
+  /*
+   * 성별도 그때 한 번만 받는다 — 급수와 같은 이유(게스트는 저장할 프로필이
+   * 없다). 비어 있으면 오늘 남복·여복 편성에서 빠지는데, 그건 게스트에게
+   * 특히 아깝다: 코트 앞에 서 있는 사람인데 자동 편성이 못 쓰는 것이다.
+   */
+  const [gender, setGender] = useState<PlayerGender | null>(null)
   const [storage] = useState(browserGuestMeStorage)
   /*
    * 저장한 이름의 만료(36시간)를 잴 기준 시각. 화면을 연 순간으로 한 번만
@@ -142,6 +149,7 @@ export function GuestJoinPage() {
         sessionId: active.id,
         name,
         grade,
+        gender,
       })
       /*
        * **서버가 돌려준 최종 이름**을 남긴다. 같은 이름이 이미 있으면
@@ -248,6 +256,22 @@ export function GuestJoinPage() {
               size="lg"
               disabled={join.isPending}
               hint="선택입니다 — 안 고르셔도 등록됩니다."
+            />
+          </div>
+
+          {/*
+            성별은 급수 바로 아래다. 둘 다 "어느 경기에 넣을까" 에 답하는
+            값이라 한 덩어리로 보여야 한다. 안내 문구만 다르다 — 급수는 안
+            적어도 편성에 들어가지만, 성별이 비면 남복·여복·혼복 어디에도
+            못 들어간다(`matchKindOf`). 그 차이를 문구가 말한다.
+          */}
+          <div className="mt-4">
+            <GenderPicker
+              value={gender}
+              onChange={setGender}
+              size="lg"
+              disabled={join.isPending}
+              hint="적어두면 남복·여복 편성에 들어갑니다."
             />
           </div>
 

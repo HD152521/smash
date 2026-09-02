@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Play } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { ArrowRight, ChevronRight, Plus } from 'lucide-react'
+import { AppHeader } from '@/components/nav/AppHeader'
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { CourtMotif } from '@/components/brand/CourtMotif'
-import { Shuttlecock } from '@/components/brand/Shuttlecock'
+import { EmptyState } from '@/components/brand/EmptyState'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCourts, useMatches, useMembers, useMyTournaments } from '@/features/tournament/queries'
 import {
@@ -12,10 +13,10 @@ import {
   myNextInTournament,
   myNextLabel,
   pickTodayFocus,
+  todayLabel,
   type TodayFocus,
 } from '@/lib/home'
 import { countRsvp, startsAtLabel } from '@/lib/rsvp'
-import { useMyClubs } from '@/features/club/queries'
 
 /**
  * 메인 — **오늘을 보여주는 곳.** 이 화면의 책임은 그 하나다.
@@ -28,9 +29,28 @@ import { useMyClubs } from '@/features/club/queries'
  * (`docs/ui-redesign.md` 의 「홈이 그냥 메뉴다」).
  *
  * 원칙이 틀린 게 아니라 **책임을 잘못 골랐다.** 홈에 온 사람의 질문은
- * "어디로 갈까" 가 아니라 **"내가 지금 뭘 해야 하지"** 다. 책임을
- * "오늘을 보여준다" 로 바꾸면 원칙은 그대로 지켜지고, 문은 그 아래
- * 딸린 것이 된다.
+ * "어디로 갈까" 가 아니라 **"내가 지금 뭘 해야 하지"** 다.
+ *
+ * ── 2026-08-31 — 문을 전부 하단탭으로 내렸다 ───────────────────────
+ *
+ * 책임은 바꿨는데 **문이 그대로 남아 있었다.** 오늘 카드 아래에 작은 줄
+ * 다섯(모임 열기 · 내 목록 · 대회 만들기 · 참가하기 · 내 정보)이 그대로
+ * 쌓여 있어서, 화면이 여전히 "요약 한 칸 + 링크 목록" 으로 읽혔다.
+ * 갈 곳이 없어서가 아니라 **갈 곳을 둘 자리가 없어서** 홈에 쌓인
+ * 것이었다 — 대회 밖에는 하단탭이 없었으니까.
+ *
+ * 전역 하단탭(`AppTabBar`)이 생기면서 그 자리가 생겼다.
+ *
+ *   내 목록 · 내 정보 · 동아리  →  탭. **모든 화면에서** 한 번에 닿는다
+ *   대회 만들기 · 참가하기      →  「내 목록」. 내 대회에 관한 일이다
+ *   모임 열기                   →  홈에 남는다. **오늘 하는 일**이라서다
+ *
+ * 큰 초록 '동아리' 버튼도 걷어냈다. 동아리가 탭이 된 이상 같은 화면에서
+ * 같은 곳으로 가는 버튼이 둘이 되고, 그러면 *"둘 다 덜 믿게 된다"*
+ * (`BackBar` 주석). 동아리가 하나뿐인 사람을 바로 그 동아리로 보내던
+ * 규칙은 탭이 그대로 이어받았다.
+ *
+ * 남은 것은 **오늘 하나**다.
  *
  * ── 그래서 무엇을 안 그리는가 ──────────────────────────────────────
  *
@@ -49,54 +69,23 @@ import { useMyClubs } from '@/features/club/queries'
  * (`enabled`).
  */
 export function HomePage() {
-  const { signOut } = useAuth()
+  const now = useNow()
 
   return (
     <div className="min-h-dvh bg-surface-0">
       {/*
-        코트 라인 모티프를 머리 뒤에 아주 옅게 깐다. relative 부모 +
-        absolute 모티프라 아래 내용의 높이·탭 수에 관여하지 않는다
-        (docs/design.md 시각 정체성 · 원칙 — "높이를 늘리지 않고 진해진다").
+        세로로 늘어나는 칸이다. 오늘 볼 것은 위에, **하는 것은 맨 아래**에
+        붙인다(docs/design.md 원칙 3 — 화면 아래 3분의 1이 엄지가 닿는 곳).
+        `fixed` 로 띄우지 않는 이유는 하단탭이 이미 그 자리를 쓰고 있어서다 —
+        겹치면 화면 아래가 두 겹이 된다. `mt-auto` 는 흐름 안에 있으므로
+        내용이 길어지면 그냥 뒤로 밀린다.
       */}
-      <div className="relative">
-        <CourtMotif className="absolute inset-x-0 top-0 h-40" />
-        {/* 정적 배치 자식은 기본적으로 절대 위치 형제 위에 그려지지만, 명시적으로
-            얹어 둔다 — LoginPage 의 같은 주석 참고 */}
-        <div className="relative z-10">
-          <Header />
-        </div>
-      </div>
-      <main className="mx-auto w-full max-w-2xl px-5 pb-16">
-        <Today />
-
-        <ClubDoor />
-
-        {/*
-          나머지는 전부 한 칸에 작은 줄로. 자주 안 누르는 것에 큰 면적을
-          주면 매일 보는 것(오늘)이 밀려 내려간다.
-        */}
-        <nav className="mt-3 overflow-hidden rounded-2xl border border-border-subtle bg-surface-1">
-          <SmallRow to="/new/session" title="모임 열기" />
-          <SmallRow to="/my" title="내 목록" />
-          <SmallRow to="/new" title="대회 만들기" />
-          <SmallRow to="/join" title="대회 참가하기" />
-          {/*
-            알림은 대회가 아니라 이 브라우저에 붙는다. 대회 설정 안에 두면
-            참가한 대회 수만큼 같은 스위치가 생기고, 아직 어느 대회에도 안
-            들어간 사람은 켤 자리가 없다.
-          */}
-          <SmallRow to="/settings/alerts" title="알림" last />
-        </nav>
-
-        {/*
-          로그아웃은 몇 달에 한 번 누른다. 화면 맨 위가 아니라 여기가 맞다.
-          링크가 아니라 동작이라 줄 목록 밖에 따로 둔다.
-        */}
-        <div className="mt-6 flex justify-center">
-          <Button size="sm" variant="ghost" onClick={() => void signOut()}>
-            로그아웃
-          </Button>
-        </div>
+      <main
+        className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-5"
+        style={{ paddingBottom: APP_TAB_PADDING }}
+      >
+        <AppHeader mark title="오늘" meta={todayLabel(now)} />
+        <Today now={now} />
       </main>
     </div>
   )
@@ -107,35 +96,44 @@ export function HomePage() {
 /**
  * 이 화면의 본문.
  *
- * 실패해도 오류 문구를 띄우지 않는다. 아래에 멀쩡한 문 다섯 개가 있고,
- * 요약 한 칸이 막혔다고 사람을 멈춰 세울 이유가 없다.
+ * 실패해도 오류 문구를 띄우지 않는다. '모임 열기' 는 요약과 무관하게 늘
+ * 눌리고, 나머지 갈 곳은 하단탭에 있다 — 요약 한 칸이 막혔다고 사람을
+ * 멈춰 세울 이유가 없다.
  */
-function Today() {
+function Today({ now }: { now: Date }) {
   const { data, isPending } = useMyTournaments()
 
-  /*
-   * 렌더 중에 `new Date()` 를 부르면 react-hooks/purity 에 걸린다.
-   * 마운트 시각으로 고정한다 — 홈에 머무는 몇 초 사이에 "내일" 이
-   * "오늘" 로 바뀔 일은 없다.
-   */
-  const now = useNow()
-
-  if (isPending) return <TodaySkeleton />
+  if (isPending)
+    return (
+      <>
+        <TodaySkeleton />
+        <OpenSessionButton />
+      </>
+    )
 
   const list = data ?? []
   const focus = pickTodayFocus(list, now)
   const attended = attendanceThisMonth(list, now)
 
-  if (!focus) return <NothingToday attended={attended} />
+  if (!focus)
+    return (
+      <>
+        <NothingToday attended={attended} />
+        <OpenSessionButton />
+      </>
+    )
 
   return (
-    <section aria-labelledby="today-heading" className="mt-6">
-      <h2 id="today-heading" className="text-xs font-bold tracking-[0.14em] text-ink-3 uppercase">
-        오늘
-      </h2>
-      <FocusCard focus={focus} now={now} />
-      {attended > 0 && <AttendanceLine count={attended} />}
-    </section>
+    <>
+      <section aria-labelledby="today-heading" className="mt-5">
+        <h2 id="today-heading" className="sr-only">
+          오늘
+        </h2>
+        <FocusCard focus={focus} now={now} />
+        {attended > 0 && <AttendanceLine count={attended} />}
+      </section>
+      <OpenSessionButton />
+    </>
   )
 }
 
@@ -148,6 +146,10 @@ function Today() {
  *
  * **색만으로 말하지 않는다.** 띠 옆에 "진행 중" · "내일" 같은 글자가
  * 항상 붙는다 — 체육관 조명과 햇빛에서 색이 제일 먼저 무너진다.
+ *
+ * 카드 뒤에 코트 라인을 깐다. **배경 레이어**라 카드가 커지지 않는다
+ * (docs/design.md — "높이를 늘리지 않고 진해진다"). 이 화면에서 가장
+ * 중요한 한 칸이 이 앱의 물건처럼 보여야 한다.
  */
 function FocusCard({ focus, now }: { focus: TodayFocus; now: Date }) {
   const t = focus.tournament
@@ -158,39 +160,50 @@ function FocusCard({ focus, now }: { focus: TodayFocus; now: Date }) {
   return (
     <Link
       to={`/t/${t.id}`}
-      className={`group mt-3 flex min-h-24 items-center gap-3 rounded-2xl border
-                  border-border-subtle border-l-4 bg-surface-1 px-5 py-4 transition-colors
-                  hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2
-                  focus-visible:outline-brand-600
+      className={`group relative block overflow-hidden rounded-3xl border border-border-subtle
+                  border-l-4 bg-surface-1 px-5 py-5 shadow-[var(--shadow-card)]
+                  transition-transform hover:-translate-y-0.5
+                  focus-visible:-translate-y-0.5 focus-visible:outline-2
+                  focus-visible:outline-offset-2 focus-visible:outline-brand-600
+                  active:translate-y-0 active:scale-[0.99]
                   ${live ? 'border-l-state-open' : 'border-l-border-subtle'}`}
     >
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-xl font-black tracking-tight text-ink-1">
+      {/*
+        카드 뒤 코트 마킹. 머리말(0.11)보다 옅다 — 여기는 이름과 '내 차례'
+        라는 확실한 내용 위라, 같은 세기면 글자를 방해한다(docs/design.md —
+        "읽는 것을 방해하면 실패다").
+      */}
+      <CourtMotif className="absolute inset-0 h-full opacity-[0.07]" />
+
+      <span className="relative block">
+        {/*
+          눈썹 줄 — 상태를 이름보다 먼저 말한다. 홈에 온 사람이 카드에서
+          제일 먼저 알고 싶은 것은 "이게 지금 돌아가고 있나" 다.
+        */}
+        <span className="flex items-center gap-2">
+          {live ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-state-open/12 px-2.5 py-1 text-xs font-black text-state-open-fg">
+              <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-state-open" />
+              {t.kind === 'session' ? '모임' : '대회'} 진행 중
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-black text-ink-2">
+              {inDays}
+              {when && <span className="tabular font-bold text-ink-2">{when}</span>}
+            </span>
+          )}
+          <ArrowRight
+            aria-hidden
+            className="ml-auto size-5 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5"
+          />
+        </span>
+
+        <span className="mt-2.5 block truncate text-2xl font-black tracking-tight text-ink-1">
           {t.name}
         </span>
 
-        {live ? (
-          <>
-            <span className="mt-1 flex items-center gap-1.5 text-sm font-bold text-state-open-fg">
-              <Play className="size-3.5 shrink-0" aria-hidden />
-              {t.kind === 'session' ? '모임' : '대회'} 진행 중
-            </span>
-            <MyNextLine tournamentId={t.id} />
-          </>
-        ) : (
-          <>
-            <span className="mt-1 block text-sm font-bold text-ink-1">
-              {inDays}
-              {when && <span className="ml-1.5 font-medium text-ink-2">{when}</span>}
-            </span>
-            <GoingLine tournamentId={t.id} />
-          </>
-        )}
+        {live ? <MyNextLine tournamentId={t.id} /> : <GoingLine tournamentId={t.id} />}
       </span>
-      <ArrowRight
-        aria-hidden
-        className="size-5 shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5"
-      />
     </Link>
   )
 }
@@ -200,6 +213,9 @@ function FocusCard({ focus, now }: { focus: TodayFocus; now: Date }) {
  *
  * 참가자가 홈에 오는 가장 큰 이유가 "내 차례 언제야" 인데, 전에는 그걸
  * 알려면 코트 화면까지 들어가야 했다. 여기 한 줄이면 안 들어가도 된다.
+ *
+ * 그래서 **면을 깔아 준다.** 카드 안의 다른 글자와 같은 무게로 두면
+ * 이름 밑의 설명문처럼 읽히는데, 이건 이 카드에서 가장 급한 한 줄이다.
  *
  * 편성이 없거나 이름을 모르면 **줄 자체를 안 그린다.** 빈 줄을 남겨 두면
  * 게스트는 "내 경기가 사라졌나" 로 읽는다.
@@ -221,7 +237,14 @@ function MyNextLine({ tournamentId }: { tournamentId: string }) {
   const next = myNextInTournament(matches.data, courts.data, myName)
   if (!next) return null
 
-  return <span className="mt-1.5 block text-sm font-bold text-ink-1">{myNextLabel(next)}</span>
+  return (
+    <span className="mt-3 flex items-center gap-2 rounded-2xl bg-surface-2 px-3.5 py-2.5">
+      <span className="text-xs font-bold tracking-tight text-ink-3">내 차례</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-black text-ink-1">
+        {myNextLabel(next)}
+      </span>
+    </span>
+  )
 }
 
 /**
@@ -240,7 +263,7 @@ function GoingLine({ tournamentId }: { tournamentId: string }) {
   if (counts.going === 0 && counts.undecided === 0) return null
 
   return (
-    <span className="mt-1 block text-sm text-ink-2">
+    <span className="mt-2.5 block text-sm text-ink-2">
       <b className="font-bold text-ink-1">{counts.going}명</b> 참가
       {counts.undecided > 0 && ` · ${counts.undecided}명 미정`}
     </span>
@@ -250,48 +273,96 @@ function GoingLine({ tournamentId }: { tournamentId: string }) {
 /**
  * 진행 중인 것도 다음 모임도 없는 날. **이게 기본 상태다.**
  *
- * 텅 빈 화면을 두지 않는다. 이번 달에 몇 번 나왔는지를 보여주고, 없으면
- * 무엇을 하면 되는지 한 줄로 말한다.
+ * 전에는 회색 글씨 두 줄짜리 작은 칸이었고 화면 아래 절반이 그냥 비어
+ * 있었다. 빈 상태는 **원래 비어 있던 자리**라 정체성을 넣어도 탭이 하나도
+ * 안 는다(docs/design.md 「어디에 넣나」) — 다른 화면들이 이미 쓰는
+ * `EmptyState` 를 그대로 쓴다. 화면마다 다른 빈 상태를 만들면 통일감이
+ * 깨진다.
+ *
+ * 동작(모임 열기)은 여기 안 넣는다. 바로 아래에 하나 있는데 여기 또 두면
+ * 같은 버튼이 둘이 된다.
  */
 function NothingToday({ attended }: { attended: number }) {
   return (
-    <section className="mt-6 flex items-start gap-3 rounded-2xl border border-border-subtle bg-surface-1 px-5 py-6">
-      {/*
-        원래 비어 있던 자리에 마크를 넣는다 — 줄 높이는 그대로 두고 아이콘을
-        글 옆에 둔다(탭도 높이도 늘지 않는다).
-      */}
-      <Shuttlecock size={28} className="mt-0.5 shrink-0 text-ident-navy-fg/70" />
-      <div className="min-w-0">
-        <p className="font-bold text-ink-1">오늘 예정된 모임이 없습니다</p>
-        <p className="mt-1 text-sm text-ink-2">
-          {attended > 0
+    /*
+      남는 높이를 **감싸는 칸**이 먹고, 빈 상태 자체는 제 크기 그대로
+      가운데에 선다. 진행 중인 것도 다음 모임도 없는 날이 **기본 상태**인데
+      (docs/ui-redesign.md), 그때 화면 한가운데가 통째로 비면 '아직 안
+      불러온 것' 처럼 보인다. 셔틀콕이 그 자리에 서 있으면 '없는 게 맞다'
+      로 읽힌다.
+
+      상자 자체를 늘리지 않는 이유는 찍어 보고 알았다 — 점선 테두리가
+      화면 높이만큼 늘어나면 빈 상태가 아니라 **아직 안 채워진 자리**로
+      보인다.
+    */
+    <div className="flex flex-1 items-center py-5">
+      <EmptyState
+        icon="shuttlecock"
+        className="w-full rounded-3xl"
+        title="오늘 예정된 모임이 없습니다"
+        description={
+          attended > 0
             ? `이번 달에 ${attended}번 나오셨습니다.`
-            : '아래에서 모임을 열거나 코드로 참가하세요.'}
-        </p>
-      </div>
-    </section>
+            : '아래에서 모임을 열거나 코드로 참가하세요.'
+        }
+      />
+    </div>
   )
 }
 
 function AttendanceLine({ count }: { count: number }) {
   return (
-    <p className="mt-2 text-sm text-ink-3">
-      이번 달 <b className="font-bold text-ink-2">{count}번</b> 나오셨습니다
+    <p className="mt-3 flex items-center gap-1.5 text-sm text-ink-2">
+      <span className="font-semibold text-ink-3">이번 달</span>
+      <b className="font-black text-ink-1">{count}번</b> 나오셨습니다
     </p>
+  )
+}
+
+/**
+ * 홈에 남은 **단 하나의 동작.**
+ *
+ * 나머지 문(내 목록 · 내 정보 · 동아리)은 하단탭으로, 대회 만들기·
+ * 참가하기는 「내 목록」으로 내려갔다. 모임 열기만 남긴 이유는 이것이
+ * 이 화면의 책임과 같은 것이기 때문이다 — **아무것도 안 돌아가는 날
+ * '오늘' 을 만드는 일이 곧 모임을 여는 일이다.**
+ *
+ * 자리는 맨 아래다. 엄지가 닿는 곳이다(docs/design.md 원칙 3). 고정 바로
+ * 두지 않는 이유는 하단탭이 이미 그 자리를 쓰고 있어서다 — 겹치면
+ * 화면 아래 두 겹이 되고, 홈은 스크롤이 짧아서 그럴 필요도 없다.
+ */
+function OpenSessionButton() {
+  return (
+    <Link
+      to="/new/session"
+      className="mt-auto mb-1 flex min-h-16 items-center gap-3 rounded-2xl bg-brand-600 px-5
+                 text-white shadow-[var(--shadow-card)] transition-transform
+                 hover:-translate-y-0.5 focus-visible:-translate-y-0.5
+                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
+                 active:translate-y-0 active:scale-[0.99]"
+    >
+      <Plus className="size-5 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-black tracking-tight">모임 열기</span>
+        <span className="mt-0.5 block truncate text-sm text-brand-100">
+          코트와 명단을 준비합니다
+        </span>
+      </span>
+      <ChevronRight aria-hidden className="size-5 shrink-0" />
+    </Link>
   )
 }
 
 /**
  * 불러오는 동안 자리를 잡아 둔다.
  *
- * 다 받은 뒤에 칸을 끼워 넣으면 아래 버튼들이 통째로 밀려 내려가고,
+ * 다 받은 뒤에 칸을 끼워 넣으면 아래 버튼이 통째로 밀려 내려가고,
  * 그때 이미 손가락이 내려오고 있던 사람은 엉뚱한 것을 누른다.
  */
 function TodaySkeleton() {
   return (
-    <div aria-hidden className="mt-6">
-      <div className="h-4 w-16 rounded-full bg-surface-2" />
-      <div className="mt-3 h-24 animate-pulse rounded-2xl bg-surface-2" />
+    <div aria-hidden className="mt-5">
+      <div className="h-32 animate-pulse rounded-3xl bg-surface-2" />
     </div>
   )
 }
@@ -300,98 +371,4 @@ function TodaySkeleton() {
 function useNow(): Date {
   const [now] = useState(() => new Date())
   return now
-}
-
-// ── 동아리로 가는 문 ──────────────────────────────────────────────────
-
-/**
- * 이 앱의 중심은 동아리다. 그래서 가장 큰 버튼이 여기다.
- *
- * 전에는 '모임 열기' 가 그 자리였는데, 실제 쓰임은 **동아리에 들어가서
- * 거기서 무엇을 할지 고르는 것**이다 — 게스트 링크도 명단도 산하 모임도
- * 전부 동아리 밑에 있다. 모임 열기는 그 안에서 하는 여러 일 중 하나라
- * 아래 줄로 내렸다.
- *
- * **동아리가 하나뿐이면 목록을 거치지 않고 바로 그 동아리로 보낸다.**
- * 대부분이 여기에 해당한다. 고를 것이 하나뿐인 목록을 한 번 더 보여주는
- * 것은 탭만 하나 늘리는 일이다.
- *
- * 아직 동아리가 없으면 만드는 곳으로 보낸다 — 그 사람에게 "내 동아리" 는
- * 빈 목록이고, 빈 목록을 열게 하는 것보다 무엇을 하면 되는지 말하는 편이
- * 낫다.
- */
-function ClubDoor() {
-  const { data, isPending } = useMyClubs()
-
-  if (isPending)
-    return <div aria-hidden className="mt-6 h-16 animate-pulse rounded-2xl bg-surface-2" />
-
-  const clubs = data ?? []
-  const only = clubs.length === 1 ? clubs[0] : undefined
-  const to = only ? `/c/${only.id}` : '/clubs'
-  const title = only ? only.name : clubs.length === 0 ? '동아리 만들기' : '내 동아리'
-  const desc = only
-    ? '명단 · 게스트 링크 · 모임'
-    : clubs.length === 0
-      ? '명단을 만들어 두면 매번 부르지 않아도 됩니다'
-      : `${clubs.length}개`
-
-  return (
-    <Link
-      to={to}
-      className="mt-6 flex min-h-20 items-center justify-between gap-3 rounded-2xl
-                 bg-brand-600 px-5 py-4 text-white transition-transform
-                 hover:-translate-y-0.5 focus-visible:-translate-y-0.5
-                 focus-visible:outline-2 focus-visible:outline-offset-2
-                 focus-visible:outline-brand-600"
-    >
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-lg font-black tracking-tight">{title}</span>
-        <span className="mt-0.5 block truncate text-sm text-brand-100">{desc}</span>
-      </span>
-      <ArrowRight aria-hidden className="size-5 shrink-0" />
-    </Link>
-  )
-}
-
-// ── 머리 · 문 ─────────────────────────────────────────────────────────
-
-/**
- * 머리에는 표식 하나뿐이다.
- *
- * 전에는 이름과 로그아웃 버튼이 같이 있었는데, 첫 화면에서 가장 위 —
- * 가장 비싼 자리 — 를 **아무도 안 쓰는 것 둘**이 차지하고 있었다.
- * 자기 이름은 이미 알고, 로그아웃은 몇 달에 한 번 누른다.
- *
- * 로고 이미지를 따로 받지 않는 이유는 첫 화면에서 네트워크를 한 번이라도
- * 덜 쓰기 위해서다 — 체육관 회선은 대체로 느리다.
- */
-function Header() {
-  return (
-    <header className="flex items-center gap-2 px-5 pt-5 pb-1">
-      <Shuttlecock size={18} className="text-ident-navy-fg" />
-      <span className="text-sm font-black tracking-[0.25em] text-ink-1 uppercase">Smash</span>
-    </header>
-  )
-}
-
-/**
- * 설명 한 줄을 붙이지 않는다.
- *
- * "내 목록 — 참가했던 대회와 모임" 처럼 이름이 이미 말하는 것을 또 적으면
- * 줄 높이가 두 배가 되고, 그만큼 오늘이 화면 밖으로 밀린다. 눌러 보면
- * 아는 것을 미리 설명하지 않는다.
- */
-function SmallRow({ to, title, last = false }: { to: string; title: string; last?: boolean }) {
-  return (
-    <Link
-      to={to}
-      className={`flex min-h-12 items-center gap-3 px-5 py-2.5 text-sm transition-colors
-                  hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2
-                  focus-visible:outline-brand-600 ${last ? '' : 'border-b border-border-subtle'}`}
-    >
-      <span className="min-w-0 flex-1 font-bold text-ink-1">{title}</span>
-      <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-3" />
-    </Link>
-  )
 }

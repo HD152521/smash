@@ -15,6 +15,8 @@ import {
   useUpdateMatch,
 } from '@/features/tournament/queries'
 import { toUserMessage } from '@/lib/errors'
+import { matchEditPath } from '@/lib/schedule'
+import { isSession } from '@/lib/session'
 import type { MatchOverviewRow } from '@/types/database'
 
 /**
@@ -84,6 +86,22 @@ export function MatchEditPage() {
       playersB: idsOf(editing.players_b),
     })
     setReferees(idsOf(editing.referees))
+  }
+
+  /*
+   * 모임 경기는 이 화면으로 못 고친다 — 사람을 고르는 화면으로 보낸다.
+   *
+   * 여기는 조를 먼저 고르고 그 조에서 선수를 고르는 화면인데, 모임에는 조가
+   * 한 개도 없다. 실제로 열어 보면 A팀·B팀 칸이 **통째로 비어** 있고
+   * (고를 조가 없으니 선수 목록도 안 나온다) 아래에는 "양 팀의 조와 선수를
+   * 고르면 저장할 수 있습니다" 만 남는다 — 영영 만족할 수 없는 조건이다.
+   * 서버도 같은 이유로 거절한다(`update_match` 는 조를 필수로 받는다).
+   *
+   * 대진표의 연필은 이미 갈라 보내지만(`matchEditPath`), 주소를 직접 치거나
+   * 예전 링크를 열면 여기로 온다. 그 길을 여기서 닫는다.
+   */
+  if (tournament.data && isSession(tournament.data.kind) && matchId) {
+    return <Navigate to={matchEditPath(id ?? '', matchId, true)} replace />
   }
 
   // 지워졌거나 없는 경기 — 고칠 것이 없으니 목록으로 돌려보낸다

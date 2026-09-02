@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Gavel,
-  Home,
   LayoutGrid,
   ListOrdered,
   MoreHorizontal,
@@ -28,7 +27,7 @@ import type { TournamentTab } from './TournamentNav'
  * 실측 근거(docs/design.md '이 앱이 실제로 쓰이는 상황')는 운영진이
  * 라이브 중 오가는 화면이 **코트 ↔ 대진표** 둘이라고 말한다. 여기에
  * "경기 몇 대 몇이었지" 를 찾는 기록을 더해 셋이 남는다. 나머지
- * (심판·순위)와 관리·설정·홈은 '더보기' 시트 하나로 묶는다. 라우트는
+ * (심판·순위)와 관리·설정은 '더보기' 시트 하나로 묶는다. 라우트는
  * 그대로 있다 — 탭에서 빠졌을 뿐 어디서도 도달 못 하게 막지 않는다.
  *
  * ## 2026-08-27 — 참가자를 탭으로 되돌렸다
@@ -44,7 +43,18 @@ import type { TournamentTab } from './TournamentNav'
  * (코트·대진표) 쪽에 붙고, 지나간 것을 보는 기록이 뒤로 간다.
  *
  * 모임은 원래 심판·순위가 없다(TournamentNav 참고). 그래서 모임의
- * '더보기' 에는 관리·설정·홈만 남는다.
+ * '더보기' 에는 관리·설정만 남는다.
+ *
+ * ## 2026-08-28 · 2026-09-01 — 홈이 없다
+ *
+ * 여기 있던 '홈' 은 한 번 머리말로 옮겼다가(2026-08-28) 지금은 아예 없다.
+ * 대회를 떠나는 길은 머리말의 하나뿐이고(`TournamentNav` — 동아리 또는 내
+ * 목록), 그 하나를 지나면 전역 하단탭에 홈이 바로 있다. 대회 안에 홈을
+ * 다시 만들면 **대회를 떠나는 길이 둘**이 되고, 둘 중 어느 쪽이 맞는지
+ * 아무도 모르게 된다.
+ *
+ * ⚠ 이 탭들은 전부 `/t/:id` **안**이다. 여기에 대회 밖 주소를 넣지 마라 —
+ * 나가는 길은 머리말 한 곳에만 있어야 한다.
  */
 const PRIMARY_TABS = [
   { key: 'court', label: '코트', path: '', icon: LayoutGrid },
@@ -102,6 +112,8 @@ export function TournamentTabBar({
                   className={cn(
                     'flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
                     'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
+                    // 폰에는 hover 가 없다 — 누르는 순간 반응하는 것은 active 뿐이다
+                    'transition-colors active:bg-surface-2',
                     // 색만으로 현재 탭을 말하지 않는다 — 굵기(아이콘 선 두께)도 같이 바뀐다
                     current ? 'text-brand-fg' : 'text-ink-3',
                   )}
@@ -122,6 +134,7 @@ export function TournamentTabBar({
               className={cn(
                 'flex min-h-16 w-full flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
                 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
+                'transition-colors active:bg-surface-2',
                 moreActive ? 'text-brand-fg' : 'text-ink-3',
               )}
             >
@@ -164,9 +177,6 @@ export function TournamentTabBar({
           )}
           <MoreLink to={`/t/${id}/settings`} icon={Settings} onClick={closeMore}>
             설정
-          </MoreLink>
-          <MoreLink to="/" icon={Home} onClick={closeMore}>
-            홈
           </MoreLink>
         </ul>
       </Modal>

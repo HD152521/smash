@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { MembersPage } from './MembersPage'
@@ -44,6 +44,8 @@ vi.mock('@/features/tournament/queries', () => ({
   useRemoveMember: () => idle,
   useAddRosterMember: () => idle,
   useSetDisplayName: () => idle,
+  useSetMemberGrade: () => idle,
+  useSetMemberGender: () => idle,
 }))
 
 function member(id: string, displayName: string, over: Partial<MemberSummary> = {}): MemberSummary {
@@ -55,9 +57,10 @@ function member(id: string, displayName: string, over: Partial<MemberSummary> = 
     groupId: null,
     rsvp: 'going' as RsvpStatus,
     isGuest: false,
-    // 기본은 '모른다' — 전원이 null 이면 급수 배지가 아예 안 뜬다
-    // (hasGradeContrast). 배지를 시험하는 절만 over 로 값을 준다
+    // 기본은 '모른다' — 전원이 null 이면 급수·성별 배지가 아예 안 뜬다
+    // (hasGradeContrast · hasGenderContrast). 배지를 시험하는 절만 over 로 값을 준다
     grade: null,
+    gender: null,
     ...over,
   }
 }
@@ -312,5 +315,108 @@ describe('급수 배지 — 이름 옆에, 대비가 있을 때만', () => {
     state.members = [member('m2', '김민수', { grade: 'A' }), member('m3', '박지훈')]
     renderMembers()
     expect(gradeBadgeTexts()).toEqual(['급수 A'])
+  })
+})
+
+/**
+ * 성별 배지는 급수 배지와 **같은 규율**이다(대비가 있을 때만). 배지 자체를
+ * 다시 시험하지 않고, 여기서는 급수와 성별이 **한 자리에 함께** 나오는지와
+ * 소리로 들었을 때 무엇의 값인지 갈리는지만 본다.
+ */
+describe('성별 배지 — 급수 옆에, 대비가 있을 때만', () => {
+  test('급수와 성별이 섞여 있으면 둘 다 이름 옆에 뜬다', () => {
+    state.members = [
+      member('m2', '김민수', { grade: 'S', gender: 'male' }),
+      member('m3', '박지훈', { grade: 'beginner', gender: 'female' }),
+    ]
+    renderMembers()
+    expect(gradeBadgeTexts().sort()).toEqual(['급수 S', '급수 초심', '성별 남', '성별 여'])
+  })
+
+  test('전원이 같은 성별이면 성별만 빠진다 — 급수는 그대로 뜬다', () => {
+    state.members = [
+      member('m2', '김민수', { grade: 'S', gender: 'male' }),
+      member('m3', '박지훈', { grade: 'B', gender: 'male' }),
+    ]
+    renderMembers()
+    expect(gradeBadgeTexts().sort()).toEqual(['급수 B', '급수 S'])
+  })
+
+  test("'남'·'여' 로 그린다 — DB 값 male/female 이 화면에 새지 않는다", () => {
+    state.members = [member('m2', '김민수', { gender: 'female' }), member('m3', '박지훈')]
+    renderMembers()
+    expect(gradeBadgeTexts()).toEqual(['성별 여'])
+    expect(screen.queryByText(/female/)).toBeNull()
+  })
+})
+
+/**
+ * 총무가 명단에서 남의 급수·성별을 채우는 길.
+ *
+ * 회원 하나하나가 적기를 기다리면 절반이 빈 채로 남고, 그러면 자동 편성이
+ * 그 절반을 못 쓴다. 여기서 지키는 것 넷:
+ *
+ *  · 값이 비어 있어도 **누를 곳이 있다** (배지는 대비가 없으면 안 뜬다)
+ *  · 일반 참가자에게는 **남의 것을 고치는 버튼이 안 뜬다**
+ *  · 본인 행은 일반 참가자도 고칠 수 있다 (서버 규칙이 '본인 또는 운영진')
+ *  · 미입력 인원이 명단 **위**에 보인다
+ */
+describe('급수·성별 채우기 — 명단에서 총무가 한다', () => {
+  test('운영진에게는 값이 비어 있어도 누를 칸이 뜬다', () => {
+    renderMembers()
+    expect(screen.getByRole('button', { name: '김민수 급수·성별 고치기' })).toBeInTheDocument()
+  })
+
+  test('이미 적힌 값은 그 칸에 함께 적혀 있다 — 눌러 보기 전에 보인다', () => {
+    state.members = [
+      member('admin', '운영진', { userId: 'u-admin', role: 'owner' }),
+      member('m2', '김민수', { grade: 'A', gender: 'female' }),
+    ]
+    renderMembers()
+    expect(screen.getByRole('button', { name: '김민수 급수·성별 고치기' })).toHaveTextContent(
+      'A · 여',
+    )
+  })
+
+  test('일반 참가자에게는 남의 급수·성별을 고치는 칸이 안 뜬다', () => {
+    state.myUserId = 'u-m2'
+    renderMembers()
+    expect(screen.queryByRole('button', { name: '박지훈 급수·성별 고치기' })).toBeNull()
+  })
+
+  /*
+   * 마이페이지에서 프로필을 고쳐도 **이미 들어간 명단은 스냅샷이라 안
+   * 바뀐다.** 본인이 오늘 명단의 자기 값을 고칠 자리가 여기밖에 없어서,
+   * 서버도 '본인 또는 운영진' 으로 열어 뒀다(set_member_gender).
+   */
+  test('일반 참가자도 자기 행은 고칠 수 있다 — 스냅샷은 프로필을 안 따라간다', () => {
+    state.myUserId = 'u-m2'
+    renderMembers()
+    expect(screen.getByRole('button', { name: '김민수 급수·성별 고치기' })).toBeInTheDocument()
+  })
+
+  test('누르면 그 사람 이름이 붙은 창이 열린다', async () => {
+    renderMembers()
+    fireEvent.click(screen.getByRole('button', { name: '김민수 급수·성별 고치기' }))
+    expect(await screen.findByRole('dialog', { name: '김민수 급수·성별' })).toBeInTheDocument()
+  })
+
+  test('미입력 인원을 명단 위에서 센다 — 편성 화면까지 가서야 알면 늦다', () => {
+    state.members = [
+      member('admin', '운영진', { userId: 'u-admin', role: 'owner', grade: 'S', gender: 'male' }),
+      member('m2', '김민수', { grade: 'A' }),
+      member('m3', '박지훈'),
+    ]
+    renderMembers()
+    expect(screen.getByText('성별 2명 · 급수 1명')).toBeInTheDocument()
+  })
+
+  test('다 채워졌으면 아무 말도 안 한다 — 늘 떠 있는 안내는 안 읽힌다', () => {
+    state.members = [
+      member('admin', '운영진', { userId: 'u-admin', role: 'owner', grade: 'S', gender: 'male' }),
+      member('m2', '김민수', { grade: 'A', gender: 'female' }),
+    ]
+    renderMembers()
+    expect(screen.queryByText(/미입력/)).toBeNull()
   })
 })

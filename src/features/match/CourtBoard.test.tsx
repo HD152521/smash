@@ -20,11 +20,14 @@ const MATCH_ID = 'match-42'
 const claim = { mutateAsync: vi.fn(), isPending: false }
 const start = { mutateAsync: vi.fn(), isPending: false }
 const finish = { mutate: vi.fn(), isPending: false, error: null as unknown }
+/** 자동 예약으로 걸린 경기를 카드에서 바로 지우는 길 (AutoQueueRow) */
+const remove = { mutate: vi.fn(), isPending: false }
 
 vi.mock('@/features/tournament/queries', () => ({
   useClaimCourt: () => claim,
   useStartMatch: () => start,
   useFinishMatch: () => finish,
+  useDeleteMatch: () => remove,
 }))
 
 const COURT = { id: 'court-1', name: '1번 코트', sort_order: 1 } as CourtRow
@@ -53,6 +56,11 @@ interface Options {
   isAdmin?: boolean
   myDisplayName?: string
   matches?: MatchOverviewRow[]
+  autoQueue?: {
+    enabled: boolean
+    onChange: (v: boolean) => void
+    onDeleted: (m: MatchOverviewRow) => void
+  } | null
 }
 
 function renderBoard(o: Options = {}) {
@@ -69,6 +77,7 @@ function renderBoard(o: Options = {}) {
               myDisplayName={o.myDisplayName ?? '운영진'}
               isAdmin={o.isAdmin ?? true}
               isSession={o.isSession ?? true}
+              autoQueue={o.autoQueue ?? null}
             />
           }
         />
@@ -82,7 +91,121 @@ const scoreLink = () => screen.queryByRole('link', { name: '점수 기록' })
 
 beforeEach(() => {
   finish.mutate.mockClear()
+  remove.mutate.mockClear()
   finish.error = null
+})
+
+/**
+ * 자동으로 걸린 대기 경기 — `matches.label` 이 '자동' 이다(`lib/autoQueue.ts`).
+ * 이 코트에 배정돼 있고 아직 시작 전(scheduled)이다.
+ */
+function autoQueuedMatch(over: Partial<MatchOverviewRow> = {}): MatchOverviewRow {
+  return {
+    id: 'auto-1',
+    status: 'scheduled',
+    court_id: COURT.id,
+    label: '자동',
+    group_a_name: null,
+    group_b_name: null,
+    players_a: ['정하늘', '강도윤'],
+    players_b: ['윤채원', '임태호'],
+    referees: [],
+    ...over,
+  } as MatchOverviewRow
+}
+
+describe('자동 예약 — 보이고, 한 번에 지운다', () => {
+  /*
+   * 자동 예약은 사람 넷을 묶는다(busy.ts). 그 편성이 접힌 목록 안에 숨어
+   * 있으면 총무는 왜 넷이 후보에서 사라졌는지 모른 채 명단만 본다.
+   * 그래서 '펼치기' 를 누르지 않아도 보여야 하고, 지우는 길이 한 번이어야 한다.
+   */
+  test("'자동' 배지와 누구인지가 펼치지 않아도 보인다", () => {
+    renderBoard({ matches: [autoQueuedMatch()] })
+
+    expect(screen.getByText('자동')).toBeInTheDocument()
+    expect(screen.getByText('정하늘 · 강도윤 vs 윤채원 · 임태호')).toBeInTheDocument()
+  })
+
+  /*
+   * 넷 중 하나만 마음에 안 들 때 통째로 지우고 처음부터 짜게 하면, 지우는
+   * 순간 나머지 셋도 풀려 명단에서 다시 찾아 눌러야 한다. 자동 편성은
+   * 대개 셋은 맞히므로 그건 거의 매번 하는 일이 된다.
+   */
+  test('연필로 그 경기를 고치러 간다 — 지우고 처음부터 짜지 않아도 되게', () => {
+    renderBoard({ matches: [autoQueuedMatch()] })
+
+    const edit = screen.getByRole('link', { name: /자동으로 걸린 .* 고치기/ })
+    expect(edit).toHaveAttribute(
+      'href',
+      `/t/${TOURNAMENT_ID}/matches/auto-1/edit-session`,
+    )
+  })
+
+  test('고칠 권한이 없으면 연필도 안 그린다 — 고치기는 지웠다 다시 만드는 일이다', () => {
+    renderBoard({ matches: [autoQueuedMatch()], isAdmin: false, myDisplayName: '정하늘' })
+
+    expect(screen.queryByRole('link', { name: /고치기/ })).not.toBeInTheDocument()
+  })
+
+  test('× 한 번으로 지운다 — 확인 창을 거치지 않는다', async () => {
+    renderBoard({ matches: [autoQueuedMatch()] })
+
+    await userEvent.click(screen.getByRole('button', { name: /자동으로 걸린 .* 지우기/ }))
+
+    expect(remove.mutate).toHaveBeenCalledTimes(1)
+    expect(remove.mutate.mock.calls[0]?.[0]).toBe('auto-1')
+  })
+
+  test('지우기 전에 자동 예약에게 먼저 알린다 — 같은 편성이 되살아나지 않게', async () => {
+    const onDeleted = vi.fn()
+    renderBoard({
+      matches: [autoQueuedMatch()],
+      autoQueue: { enabled: true, onChange: vi.fn(), onDeleted },
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /자동으로 걸린 .* 지우기/ }))
+
+    expect(onDeleted).toHaveBeenCalledTimes(1)
+    expect((onDeleted.mock.calls[0]?.[0] as { id: string }).id).toBe('auto-1')
+    // 순서가 핵심이다 — 지운 뒤에 알리면 그 사이 목록이 갱신되며 다시 걸린다
+    expect(onDeleted.mock.invocationCallOrder[0]!).toBeLessThan(
+      remove.mutate.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  test('지울 권한이 없으면 × 를 안 그린다 (서버 RLS 는 관리자만 지우게 한다)', () => {
+    renderBoard({ matches: [autoQueuedMatch()], isAdmin: false, myDisplayName: '정하늘' })
+
+    expect(screen.getByText('자동')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /지우기/ })).not.toBeInTheDocument()
+  })
+
+  test('자동 경기는 접히는 대기 줄에서 빠진다 — 한 경기가 두 번 보이지 않는다', () => {
+    renderBoard({ matches: [autoQueuedMatch()] })
+
+    expect(screen.queryByRole('button', { name: /이 코트 대기 .* 펼치기/ })).not.toBeInTheDocument()
+  })
+
+  test('스위치는 내려온 화면에서만 보이고, 누르면 반대 값을 알린다', async () => {
+    const onChange = vi.fn()
+    renderBoard({
+      matches: [autoQueuedMatch()],
+      autoQueue: { enabled: true, onChange, onDeleted: vi.fn() },
+    })
+
+    const toggle = screen.getByRole('switch', { name: /자동 예약/ })
+    expect(toggle).toBeChecked()
+
+    await userEvent.click(toggle)
+    expect(onChange).toHaveBeenCalledWith(false)
+  })
+
+  test('스위치가 안 내려오면 아예 안 그린다 (모임장이 아닌 사람)', () => {
+    renderBoard({ matches: [autoQueuedMatch()], autoQueue: null })
+
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+  })
 })
 
 describe('모임 — 코트 화면에서 바로 끝낸다', () => {

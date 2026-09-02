@@ -16,6 +16,15 @@ export interface TournamentNavState {
   myGroupIsJoker: boolean
   /** 내가 심판으로 걸린, 아직 안 끝난 경기 수 */
   refereeCount: number
+  /**
+   * 소속 동아리. 없으면 `null` (동아리 없이 만든 대회·모임이 대부분이다).
+   *
+   * `useTournament` 가 이미 `tournaments.*` 를 통째로 읽으므로 `club_id` 는
+   * 그 안에 얹혀 온다 — 이 값을 위해 새 쿼리를 띄우지 않는다. 머리말이
+   * 뒤로가기를 '내 모임/내 대회' 대신 이 동아리로 보내는 근거다
+   * (TournamentNav 참고).
+   */
+  clubId: string | null
 }
 
 /**
@@ -50,5 +59,6 @@ export function useTournamentNav(id: string | undefined): TournamentNavState {
           (m) => m.status !== 'finished' && m.status !== 'void' && m.referees?.includes(myName),
         ).length
       : 0,
+    clubId: tournament.data?.club_id ?? null,
   }
 }

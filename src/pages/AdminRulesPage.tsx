@@ -64,7 +64,14 @@ export function AdminRulesPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-28">
-      <BackBar to={`/t/${id}/admin`} label="관리로" />
+      {/*
+        관리 허브가 아니라 **대회 화면**으로 보낸다.
+        허브로 보내면 홈까지 4탭이 된다(관리로 → 대회로 → 동아리 → 홈).
+        관리 화면은 대회를 차릴 때 한 번 훑는 곳이지 오래 머무는 곳이
+        아니라, 나가는 길이 짧은 쪽이 낫다. 관리 허브로 돌아가야 하면
+        대회 화면 하단탭의 '더보기 → 관리' 가 받는다.
+      */}
+      <BackBar to={`/t/${id}`} label="대회로" />
 
       <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">경기 규칙</h1>
       <p className="mt-2 text-sm text-ink-2">

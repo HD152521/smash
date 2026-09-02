@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { UserMinus, Users } from 'lucide-react'
 import { EmptyState } from '@/components/brand/EmptyState'
 import { TournamentNav } from '@/features/tournament/TournamentNav'
 import { AddMemberForm } from '@/features/tournament/AddMemberForm'
 import { NameEditor } from '@/features/tournament/NameEditor'
+import { MemberTraitsModal } from '@/features/tournament/MemberTraitsModal'
 import { Badge } from '@/components/ui/Badge'
 import { useAuth } from '@/features/auth/useAuth'
 import {
@@ -17,8 +19,11 @@ import { toUserMessage } from '@/lib/errors'
 import { isSession } from '@/lib/session'
 import { countRsvp, hasAccountContrast, rsvpCountsText, rsvpLabel } from '@/lib/rsvp'
 import { gradeLabel } from '@/lib/grade'
+import { genderLabel } from '@/lib/gender'
 import {
   buildRosterStats,
+  countMissingTraits,
+  hasGenderContrast,
   hasGradeContrast,
   hasRsvpContrast,
   namesInAnyMatch,
@@ -63,6 +68,13 @@ export function MembersPage() {
   const matches = useMatches(id)
   const removeMember = useRemoveMember(id!)
 
+  /*
+   * 고치는 중인 사람의 **id** 만 들고 있는다. 행 객체를 그대로 담으면
+   * 서버가 값을 돌려준 뒤에도 모달이 옛 사본을 계속 그린다 — 방금 누른
+   * 급수가 안 눌린 것처럼 보인다. id 로 매번 최신 목록에서 다시 찾는다.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null)
+
   const all = members.data ?? []
   const me = all.find((m) => m.userId === user?.id)
   const isAdmin = me?.role === 'owner' || me?.role === 'admin'
@@ -92,6 +104,12 @@ export function MembersPage() {
      * roster.ts 가 한다.
      */
     showGrade: hasGradeContrast(all),
+    /*
+     * 성별도 같은 규율로 대비가 있을 때만 배지를 그린다 — 남자만 오는
+     * 모임에서 20줄 전부에 '남' 이 붙으면 이름이 안 읽힌다.
+     */
+    showGender: hasGenderContrast(all),
+    onEditTraits: (m) => setEditingId(m.id),
     onRemove: (m) => {
       if (confirm(`${m.displayName}님을 이 명단에서 뺄까요?`)) removeMember.mutate(m.id)
     },
@@ -128,6 +146,15 @@ export function MembersPage() {
         </div>
       )}
 
+      {/*
+        급수·성별을 안 적은 사람이 몇인지 **명단 위**에 말한다.
+        자동 편성은 성별이 빈 사람을 종목(남복·여복·혼복)에서 통째로
+        빼는데, 그 사실은 편성 화면에서 "왜 저 사람이 후보에 없지" 로만
+        드러난다 — 그때는 이미 코트가 비어 있다. 채울 이유가 채우는
+        자리(명단)에 있어야 한다.
+      */}
+      {all.length > 0 && <MissingTraitsLine members={all} canEdit={isAdmin} />}
+
       {members.error && (
         <p role="alert" className="mt-4 text-sm font-medium text-team-b-fg">
           {toUserMessage(members.error, '참가자를 불러오지 못했습니다')}
@@ -144,7 +171,50 @@ export function MembersPage() {
       ) : (
         <RosterSections groups={groupList} members={all} config={config} view={view} />
       )}
+
+      <MemberTraitsModal
+        tournamentId={id!}
+        member={all.find((m) => m.id === editingId) ?? null}
+        onClose={() => setEditingId(null)}
+      />
     </main>
+  )
+}
+
+/**
+ * "성별 3명 · 급수 5명 안 적었습니다" 한 줄.
+ *
+ * 둘을 한 숫자로 합치지 않는다 — 무게가 다르다(`countMissingTraits`).
+ * 성별을 앞에 두는 이유도 같다: 급수가 비면 짝이 덜 맞을 뿐이지만 성별이
+ * 비면 그 사람은 편성에서 아예 빠진다.
+ *
+ * 다 채워졌으면 **아무 말도 안 한다.** 늘 떠 있는 안내는 곧 안 읽히는
+ * 안내가 되고, 그러면 정말 비었을 때도 눈에 안 들어온다.
+ *
+ * 색은 warn 이다 — 오류가 아니라 **눌러서 고칠 수 있는 것**이라는 뜻이
+ * 이 저장소의 약속이다(docs/design.md · Badge 의 warn 주석).
+ */
+function MissingTraitsLine({
+  members,
+  canEdit,
+}: {
+  members: MemberSummary[]
+  canEdit: boolean
+}) {
+  const missing = countMissingTraits(members)
+  if (missing.gender === 0 && missing.grade === 0) return null
+
+  const parts = [
+    missing.gender > 0 ? `성별 ${missing.gender}명` : null,
+    missing.grade > 0 ? `급수 ${missing.grade}명` : null,
+  ].filter((p): p is string => p !== null)
+
+  return (
+    <p className="mt-3 rounded-xl border border-warn/25 bg-warn/8 px-4 py-2.5 text-xs text-ink-2">
+      <b className="font-bold text-warn-fg">{parts.join(' · ')}</b> 미입력
+      {missing.gender > 0 && ' — 성별이 없으면 남복·여복 편성에서 빠집니다.'}
+      {canEdit && <span className="block text-ink-3">이름 옆 회색 칸을 눌러 채울 수 있습니다.</span>}
+    </p>
   )
 }
 
@@ -254,6 +324,9 @@ interface RosterView {
   showAccount: boolean
   showRsvp: boolean
   showGrade: boolean
+  showGender: boolean
+  /** 급수·성별 고치기 창을 연다. 열 수 있는 사람인지는 `canEditTraits` 가 정한다 */
+  onEditTraits: (m: MemberSummary) => void
   onRemove: (m: MemberSummary) => void
   removing: boolean
 }
@@ -322,6 +395,13 @@ function RosterRow({ member: m, view }: { member: MemberSummary; view: RosterVie
   const isLocked = view.locked.has(m.displayName)
   // 주최자는 뺄 수 없다(서버 규칙) — 없어지면 대회 주인이 사라진다
   const canRemove = view.isAdmin && m.role !== 'owner' && !isMe
+  /*
+   * 급수·성별은 **본인도** 고친다 — 서버 규칙(set_member_grade ·
+   * set_member_gender)이 "본인 또는 운영진" 이라 화면도 같아야 한다.
+   * 마이페이지에서 프로필을 고쳐도 이미 들어간 명단은 스냅샷이라 안
+   * 바뀌므로, 본인이 오늘 명단의 자기 값을 고칠 자리가 여기밖에 없다.
+   */
+  const canEditTraits = view.isAdmin || isMe
 
   return (
     <li className="flex items-center gap-2 py-1.5 pr-2 pl-4">
@@ -348,24 +428,15 @@ function RosterRow({ member: m, view }: { member: MemberSummary; view: RosterVie
 
         {isMe && <span className="shrink-0 text-xs font-bold text-brand-fg">나</span>}
         {/*
-          급수를 배지 중 **맨 앞**에 둔다. 이 화면을 여는 가장 잦은 이유가
-          "다음 경기에 누굴 넣지" 이고, 거기서 이름 다음으로 보는 것이
-          급수다 — 역할·게스트 여부보다 먼저 눈에 닿아야 한다.
+          급수·성별을 배지 중 **맨 앞**에 둔다. 이 화면을 여는 가장 잦은
+          이유가 "다음 경기에 누굴 넣지" 이고, 거기서 이름 다음으로 보는
+          것이 이 둘이다 — 역할·게스트 여부보다 먼저 눈에 닿아야 한다.
 
-          색으로 말하지 않는다. 급수는 **언제나 글자**로 적혀 있고, 다른
-          중립 배지와는 색이 아니라 굵기로 갈린다(docs/design.md — 체육관
-          조명·햇빛·색맹에서 색이 제일 먼저 무너진다).
-
-          `sr-only` 로 '급수' 를 앞에 붙이는 이유: 눈으로 보면 배드민턴
-          맥락에서 'S' 한 글자가 곧 급수지만, 소리로 들으면 'S' 하나만
-          읽혀 무엇의 S 인지 알 수 없다.
+          고칠 수 있는 사람에게는 **같은 자리가 버튼**이 된다. 줄 끝에
+          연필을 하나 더 달면 이름 몫이 그만큼 줄고(좁은 화면에서는 이름이
+          한 글자도 못 나온다), 값이 비어 있을 때 누를 곳이 없어진다.
         */}
-        {view.showGrade && gradeLabel(m.grade) && (
-          <Badge className="font-black">
-            <span className="sr-only">급수 </span>
-            {gradeLabel(m.grade)}
-          </Badge>
-        )}
+        <Traits member={m} view={view} isEditable={canEditTraits} />
         {m.role === 'owner' && <Badge>주최</Badge>}
         {m.role === 'admin' && <Badge tone="ok">관리</Badge>}
         {/*
@@ -433,5 +504,78 @@ function RosterRow({ member: m, view }: { member: MemberSummary; view: RosterVie
         view.isAdmin && <span aria-hidden className="size-10 shrink-0" />
       )}
     </li>
+  )
+}
+
+/**
+ * 한 사람의 급수·성별.
+ *
+ * ## 읽기만 하는 사람에게는 배지, 고칠 수 있는 사람에게는 버튼
+ *
+ * 같은 자리에 같은 글자가 나오지만 역할이 다르다. 배지는 `showGrade` ·
+ * `showGender` 대비 판단을 따라 **갈라 줄 때만** 뜨고(모두에게 붙는 배지는
+ * 잡음이다), 버튼은 값이 비어 있어도 **언제나** 뜬다 — 비어 있다는 사실
+ * 자체가 눌러야 할 이유이고, 안 그리면 누를 곳이 없다.
+ *
+ * ## 색으로 말하지 않는다
+ *
+ * 값은 언제나 글자('S' · '남')로 적혀 있고, 배지끼리는 색이 아니라 굵기로
+ * 갈린다(docs/design.md — 체육관 조명·햇빛·색맹에서 색이 제일 먼저
+ * 무너진다).
+ *
+ * ## `sr-only` 라벨
+ *
+ * 눈으로 보면 배드민턴 맥락에서 'S' 한 글자가 곧 급수지만, 소리로 들으면
+ * 'S' 하나만 읽혀 무엇의 S 인지 알 수 없다. '남' 도 마찬가지다.
+ */
+function Traits({
+  member: m,
+  view,
+  isEditable,
+}: {
+  member: MemberSummary
+  view: RosterView
+  isEditable: boolean
+}) {
+  const grade = gradeLabel(m.grade)
+  const gender = genderLabel(m.gender)
+
+  if (isEditable) {
+    const filled = [grade, gender].filter((v): v is string => v !== null)
+    return (
+      <button
+        type="button"
+        onClick={() => view.onEditTraits(m)}
+        aria-label={`${m.displayName} 급수·성별 고치기`}
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5',
+          'text-xs font-semibold tracking-tight transition-colors',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
+          filled.length > 0
+            ? 'border-border-subtle bg-surface-2 font-black text-ink-2 hover:bg-surface-0'
+            : // 비어 있으면 점선 — '아직 안 채워진 칸' 이라는 뜻이 모양에 있다
+              'border-dashed border-ink-3/50 text-ink-3 hover:border-brand-500 hover:text-brand-fg',
+        )}
+      >
+        {filled.length > 0 ? filled.join(' · ') : '급수·성별'}
+      </button>
+    )
+  }
+
+  return (
+    <>
+      {view.showGrade && grade && (
+        <Badge className="font-black">
+          <span className="sr-only">급수 </span>
+          {grade}
+        </Badge>
+      )}
+      {view.showGender && gender && (
+        <Badge className="font-black">
+          <span className="sr-only">성별 </span>
+          {gender}
+        </Badge>
+      )}
+    </>
   )
 }

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
-import { buildSchedule, isUpNext, matchTitle, myMatchRole, queuePosition } from './schedule'
+import {
+  buildSchedule,
+  isUpNext,
+  matchEditPath,
+  matchTitle,
+  myMatchRole,
+  queuePosition,
+} from './schedule'
 
 const courts = [
   { id: 'c1', name: '1번 코트' },
@@ -170,5 +177,20 @@ describe('queuePosition — 알림이 나가는 자리와 같은 정의', () => 
     expect(isUpNext(2, 2)).toBe(true)
     expect(isUpNext(3, 2)).toBe(false)
     expect(isUpNext(null, 2)).toBe(false)
+  })
+})
+
+/*
+ * 고치러 가는 문이 둘이다 (대진표의 연필 · 코트 화면의 자동 경기 줄).
+ * 대회 경기가 모임 화면으로 가면 고를 사람은 있는데 조가 없고, 모임 경기가
+ * 대회 화면으로 가면 고를 조가 하나도 없다 — 둘 다 못 쓰는 화면이다.
+ */
+describe('matchEditPath', () => {
+  it('모임 경기는 사람을 고르는 화면으로 간다', () => {
+    expect(matchEditPath('t1', 'm1', true)).toBe('/t/t1/matches/m1/edit-session')
+  })
+
+  it('대회 경기는 지금처럼 조를 고르는 화면으로 간다', () => {
+    expect(matchEditPath('t1', 'm1', false)).toBe('/t/t1/matches/m1/edit')
   })
 })

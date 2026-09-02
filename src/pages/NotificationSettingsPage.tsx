@@ -1,4 +1,5 @@
-import { BackBar } from '@/components/ui/BackBar'
+import { AppHeader } from '@/components/nav/AppHeader'
+import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { PushToggle } from '@/features/notifications/PushToggle'
 
 /**
@@ -19,10 +20,14 @@ import { PushToggle } from '@/features/notifications/PushToggle'
  */
 export function NotificationSettingsPage() {
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 pt-6 pb-16">
-      <BackBar to="/" label="메인으로" />
-
-      <h1 className="mt-6 text-3xl font-black tracking-tight text-ink-1">알림</h1>
+    <main className="mx-auto w-full max-w-2xl px-5" style={{ paddingBottom: APP_TAB_PADDING }}>
+      {/*
+        위쪽 이동이 없다 — 이 화면에는 전역 하단탭이 뜨고 '나' 탭이 켜진 채로
+        열린다(`appTabs.ts`). 그 탭이 곧 부모 화면(`/me`)이라 나가는 길이
+        이미 있다. 위에 '내 정보' 를 또 두면 같은 곳으로 가는 것이 둘이 된다
+        (`BackBar` 주석).
+      */}
+      <AppHeader title="알림" />
       <p className="mt-2 text-sm text-ink-2">
         내 경기 차례가 가까워지면 알려드립니다. 참가 중인 모든 대회와 모임에 함께 적용됩니다.
       </p>

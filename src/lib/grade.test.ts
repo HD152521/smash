@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { PLAYER_GRADES, gradeLabel, parseGrade } from './grade'
+import {
+  PLAYER_GRADES,
+  UNKNOWN_GRADE_RANK,
+  gradeDistance,
+  gradeLabel,
+  gradeRank,
+  gradeRankOrUnknown,
+  parseGrade,
+} from './grade'
 
 describe('PLAYER_GRADES — 값 목록 겸 순서', () => {
   it('앞이 강하다 (S > A > B > C > D > 초심)', () => {
@@ -69,5 +77,56 @@ describe('parseGrade — 모르는 값은 null', () => {
   it('대소문자를 고쳐 주지 않는다 — DB 가 받는 값과 글자 그대로 같아야 한다', () => {
     expect(parseGrade('s')).toBeNull()
     expect(parseGrade('S')).toBe('S')
+  })
+})
+
+describe('gradeRank — 숫자 순위', () => {
+  it('배열 자리 그대로다 — S 가 0, 초심이 5', () => {
+    expect(PLAYER_GRADES.map(gradeRank)).toEqual([0, 1, 2, 3, 4, 5])
+  })
+
+  /*
+   * gradeLabel 과 같은 규율이다. '모른다' 를 아무 숫자로 바꿔 놓으면
+   * 부르는 쪽이 그게 진짜 급수인지 우리가 메운 값인지 구분할 수 없다.
+   * 메울지 말지는 부르는 쪽이 정한다.
+   */
+  it('모르면 null 이다 (0 이 아니다)', () => {
+    expect(gradeRank(null)).toBeNull()
+    expect(gradeRank(undefined)).toBeNull()
+  })
+})
+
+describe('gradeRankOrUnknown — 모르는 급수의 자리', () => {
+  /*
+   * 맨 끝(초심)으로 밀면 초심들하고만 묶이고, 맨 앞(S)으로 당기면 고수
+   * 사이에 끼어 매번 진다. 한가운데는 아무 주장도 안 한다 — 급수를 안
+   * 적었다는 이유로 특정 무리에 갇히지 않는다.
+   */
+  it('한가운데다 — 양 끝에서 똑같이 떨어져 있다', () => {
+    expect(gradeRankOrUnknown(null)).toBe(UNKNOWN_GRADE_RANK)
+    expect(gradeDistance(null, 'S')).toBe(gradeDistance(null, 'beginner'))
+  })
+
+  it('아는 급수는 그대로 통과한다', () => {
+    expect(gradeRankOrUnknown('B')).toBe(2)
+  })
+})
+
+describe('gradeDistance — 두 급수가 얼마나 떨어져 있나', () => {
+  it('같은 급수는 0 이고, 방향은 상관없다', () => {
+    expect(gradeDistance('B', 'B')).toBe(0)
+    expect(gradeDistance('S', 'C')).toBe(gradeDistance('C', 'S'))
+  })
+
+  /*
+   * 확신이 없을 때는 덜 극단적인 쪽으로 틀린다 — 모르는 사람을 S 옆에
+   * 두는 것이 초심을 S 옆에 두는 것보다 덜 위험하다.
+   */
+  it('모르는 급수는 아는 급수끼리의 최대 거리보다 가깝다', () => {
+    expect(gradeDistance(null, 'S')).toBeLessThan(gradeDistance('beginner', 'S'))
+  })
+
+  it('둘 다 모르면 0 이다 — 서로에 대해 아무 근거도 없다', () => {
+    expect(gradeDistance(null, null)).toBe(0)
   })
 })

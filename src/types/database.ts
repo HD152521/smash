@@ -19,6 +19,7 @@ import type {
   MatchOverviewRow,
   MatchTeamsRow,
   MatchesRow,
+  PlayerGender,
   PlayerGrade,
   ProfilesRow,
   RsvpStatus,
@@ -36,6 +37,7 @@ export type {
   MatchStatus,
   MatchTeamPlayersRow,
   MemberRole,
+  PlayerGender,
   PlayerGrade,
   RsvpStatus,
   TeamSide,
@@ -292,6 +294,15 @@ export type Database = {
            * 노출 표면은 필드 단위로 못 박혀 있다(20260829000001).
            */
           p_grade?: PlayerGrade | null
+          /**
+           * 성별(선택). `p_grade` 와 **글자 그대로 같은 규칙**이다 — 맨 뒤
+           * `default null` 이라 안 보내도 되고(옛 3인자·4인자 호출이 그대로
+           * 이 함수를 찾는다), 서버는 text 로 받아 parse_player_gender 로
+           * 푼다(20260902000001).
+           *
+           * 🚫 반환 봉투에도 게스트 현황판에도 성별은 실리지 않는다.
+           */
+          p_gender?: PlayerGender | null
         }
         Returns: Json
       }
@@ -327,6 +338,31 @@ export type Database = {
       }
       set_member_role: {
         Args: { p_member_id: string; p_role: 'admin' | 'member' }
+        Returns: TournamentMemberRow
+      }
+      /**
+       * 명단 행의 급수 바꾸기 — **본인 또는 대회 운영진**(set_display_name 과
+       * 같은 규칙). 남의 값을 바꾸면 감사로그가 남는다.
+       *
+       * `null` 은 "안 바꾼다" 가 아니라 **"모른다로 되돌린다"** 다. 잘못
+       * 누른 것을 되돌리는 유일한 경로라 그 뜻이어야 한다 — 그래서 급수와
+       * 성별이 한 함수가 아니라 둘로 나뉘어 있다(20260902000001 6/6 주석).
+       *
+       * 갱신된 행 하나가 돌아오므로 화면이 그대로 낙관적 갱신에 쓴다.
+       * profiles 는 건드리지 않는다 — 명단의 급수는 그 명단에서의 값이다.
+       */
+      set_member_grade: {
+        Args: { p_member_id: string; p_grade: PlayerGrade | null }
+        Returns: TournamentMemberRow
+      }
+      /**
+       * 명단 행의 성별 바꾸기 — `set_member_grade` 와 같은 규칙.
+       *
+       * 이 값이 비어 있으면 그 사람은 종목(남복·여복·혼복) 편성에서 빠진다.
+       * 총무가 명단에서 바로 채우라고 있는 함수다.
+       */
+      set_member_gender: {
+        Args: { p_member_id: string; p_gender: PlayerGender | null }
         Returns: TournamentMemberRow
       }
       record_manual_match: {
@@ -375,6 +411,25 @@ export type Database = {
           p_group_b: string
           p_players_b: string[]
           p_referees?: string[]
+        }
+        Returns: MatchRow
+      }
+      /**
+       * 모임 경기 고치기 — **제자리에서, 한 트랜잭션 안에서.**
+       *
+       * `update_match` 는 조를 필수로 받아 모임에 못 쓴다(조가 0개다).
+       * 경기 id 와 `queue_order` 가 유지되므로 대기 줄 자리가 안 밀린다.
+       * 예정(`scheduled`) 모임 경기만 대상이고 권한은 `can_run_match` 다
+       * (관리자 ∨ 그 경기 선수).
+       */
+      update_session_match: {
+        Args: {
+          p_match_id: string
+          p_court_id: string | null
+          p_players_a: string[]
+          p_players_b: string[]
+          /** ⚠ 안 보내면 이름이 지워진다 — 편성을 통째로 다시 쓰는 함수다 */
+          p_label?: string | null
         }
         Returns: MatchRow
       }
