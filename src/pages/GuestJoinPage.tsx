@@ -97,7 +97,7 @@ export function GuestJoinPage() {
   if (join.data && join.data.ok) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-5 pb-16 text-center">
-        <Shuttlecock size={32} className="text-ident-navy-fg" />
+        <Shuttlecock size={32} className="text-brand-fg" />
         <p className="mt-3 text-sm font-semibold tracking-widest text-brand-fg uppercase">
           등록 완료
         </p>
@@ -110,7 +110,7 @@ export function GuestJoinPage() {
           <Link
             to={`/g/${guestCode}/${active.id}`}
             className="mt-8 inline-flex min-h-16 w-full items-center justify-center rounded-2xl
-                       bg-brand-600 px-6 text-lg font-semibold text-white transition-colors
+                       bg-brand-600 px-6 text-lg font-semibold text-brand-ink transition-colors
                        hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2
                        focus-visible:outline-brand-600"
           >
@@ -180,7 +180,7 @@ export function GuestJoinPage() {
       <CourtMotif className="absolute inset-x-0 top-0 h-36" />
       <div className="relative z-10">
         <div className="flex items-center gap-2">
-          <Shuttlecock size={18} className="text-ident-navy-fg" />
+          <Shuttlecock size={18} className="text-brand-fg" />
           <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">GUEST</p>
         </div>
         <h1 className="mt-1 text-3xl font-black tracking-tight text-ink-1">{outcome.clubName}</h1>

@@ -336,7 +336,7 @@ function OpenSessionButton() {
     <Link
       to="/new/session"
       className="mt-auto mb-1 flex min-h-16 items-center gap-3 rounded-2xl bg-brand-600 px-5
-                 text-white shadow-[var(--shadow-card)] transition-transform
+                 text-brand-ink shadow-[var(--shadow-card)] transition-transform
                  hover:-translate-y-0.5 focus-visible:-translate-y-0.5
                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600
                  active:translate-y-0 active:scale-[0.99]"
@@ -344,7 +344,7 @@ function OpenSessionButton() {
       <Plus className="size-5 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block text-base font-black tracking-tight">모임 열기</span>
-        <span className="mt-0.5 block truncate text-sm text-brand-100">
+        <span className="mt-0.5 block truncate text-sm text-brand-ink-soft">
           코트와 명단을 준비합니다
         </span>
       </span>

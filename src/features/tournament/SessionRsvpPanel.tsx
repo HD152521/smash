@@ -182,7 +182,7 @@ function RsvpButton({
         'flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 px-4 font-black',
         'transition-colors disabled:cursor-not-allowed disabled:opacity-60',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-        active && value === 'going' && 'border-brand-600 bg-brand-600 text-white',
+        active && value === 'going' && 'border-brand-600 bg-brand-600 text-brand-ink',
         active && value === 'declined' && 'border-ink-3 bg-surface-2 text-ink-1',
         !active && 'border-border-subtle bg-surface-1 text-ink-2 hover:bg-surface-2',
       )}

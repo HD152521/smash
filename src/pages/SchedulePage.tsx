@@ -190,7 +190,7 @@ export function SchedulePage() {
               <Link
                 to={`/t/${id}/matches/${nav.isSession ? 'new-session' : 'new'}`}
                 className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
-                           px-5 text-[0.95rem] font-semibold text-white shadow-sm
+                           px-5 text-[0.95rem] font-semibold text-brand-ink shadow-sm
                            transition-colors hover:bg-brand-700
                            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               >
@@ -203,7 +203,11 @@ export function SchedulePage() {
         <>
           <p className="mt-5 text-sm font-semibold text-ink-1">
             예정 {s.scheduledCount}경기
-            {s.liveCount > 0 && <span className="ml-2 text-live-fg">· 진행 중 {s.liveCount}</span>}
+            {/*
+              '진행 중' 은 정상 상태다 — 빨강(live)을 쓰지 않는다.
+              빨강은 되돌릴 수 없는 일(삭제·무효)에만 남긴다 (docs/design.md '색은 상태다').
+            */}
+            {s.liveCount > 0 && <span className="ml-2 text-ink-2">· 진행 중 {s.liveCount}</span>}
           </p>
           {canDrag && (
             <p className="mt-1 text-xs text-ink-3">
@@ -267,12 +271,12 @@ export function SchedulePage() {
                                focus-visible:outline-brand-600"
                   >
                     <CircleDot
-                      className={cn('size-4 shrink-0', q.live ? 'text-live-fg' : 'text-ink-3')}
+                      className={cn('size-4 shrink-0', q.live ? 'text-ink-1' : 'text-ink-3')}
                       aria-hidden
                     />
                     {q.court.name}
                     <span className="text-ink-3">대기 {rows.length}</span>
-                    {q.live && <span className="text-xs font-black text-live-fg">진행 중</span>}
+                    {q.live && <span className="text-xs font-black text-ink-2">진행 중</span>}
                     {liveMine && <MineTag mine={liveMine} />}
                     <ChevronDown
                       className={cn(
@@ -462,8 +466,9 @@ function MineTag({ mine }: { mine: Exclude<MyMatchRole, null> }) {
   return (
     <span
       className={cn(
-        'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black text-white',
-        mine === 'player' ? 'bg-brand-600' : 'bg-warn',
+        'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black',
+        // 라임 채움 위에는 검은 글씨(다크), 주황 위에는 흰 글씨 — 채움마다 다르다
+        mine === 'player' ? 'bg-brand-600 text-brand-ink' : 'bg-warn text-white',
       )}
     >
       {mine === 'player' ? '내 경기' : '내 심판'}
@@ -554,7 +559,11 @@ function MatchCard({
         <p className="flex items-center gap-1.5 font-bold text-ink-1">
           {order !== undefined && (
             <span
-              className={cn('tabular text-xs font-black', upNext ? 'text-live-fg' : 'text-ink-3')}
+              /* '곧 차례' 는 주황(state-soon)이다 — 코트 화면의 같은 뜻과 색을 맞춘다 */
+              className={cn(
+                'tabular text-xs font-black',
+                upNext ? 'text-state-soon-fg' : 'text-ink-3',
+              )}
             >
               {order}
             </span>
@@ -566,7 +575,7 @@ function MatchCard({
           </span>
           {mine && <MineTag mine={mine} />}
           {upNext && (
-            <span className="shrink-0 rounded-full bg-live/15 px-2 py-0.5 text-[11px] font-black text-live-fg">
+            <span className="shrink-0 rounded-full bg-state-soon/15 px-2 py-0.5 text-[11px] font-black text-state-soon-fg">
               곧 차례
             </span>
           )}

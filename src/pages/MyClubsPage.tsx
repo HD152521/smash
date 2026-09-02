@@ -53,7 +53,7 @@ export function MyClubsPage() {
               <Link
                 to="/clubs/new"
                 className="inline-flex h-11 items-center justify-center rounded-xl bg-brand-600
-                           px-4 text-[0.95rem] font-semibold text-white shadow-sm
+                           px-4 text-[0.95rem] font-semibold text-brand-ink shadow-sm
                            transition-colors hover:bg-brand-700
                            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               >

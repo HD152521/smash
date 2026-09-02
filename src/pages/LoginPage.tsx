@@ -99,7 +99,7 @@ export function LoginPage() {
     <div className="min-h-dvh bg-surface-0">
       {/* 홈과 같은 표식 — 로그인 다음에 오는 화면과 같은 제품임을 바로 보여준다 */}
       <header className="flex items-center gap-2 px-5 pt-6">
-        <Shuttlecock size={20} className="text-ident-navy-fg" />
+        <Shuttlecock size={20} className="text-brand-fg" />
         <span className="text-sm font-black tracking-[0.25em] text-ink-1 uppercase">Smash</span>
       </header>
 

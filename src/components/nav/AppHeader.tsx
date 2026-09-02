@@ -70,10 +70,9 @@ export function AppHeader({
       >
         {mark && (
           <div className="flex items-center gap-1.5 pb-3">
-            <Shuttlecock size={16} className="text-ident-navy-fg" />
-            <span className="text-[0.7rem] font-black tracking-[0.28em] text-ink-2 uppercase">
-              Smash
-            </span>
+            {/* 시안(design/neon)의 라임 셔틀콕 마크 */}
+            <Shuttlecock size={16} className="text-brand-fg" />
+            <span className="eyebrow text-ink-2">Smash</span>
           </div>
         )}
         <div className="flex items-end justify-between gap-3">

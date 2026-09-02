@@ -105,7 +105,7 @@ export function TournamentTabBar({
                   to={`/t/${id}${tab.path}`}
                   aria-current={current ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
+                    'relative flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
                     'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
                     // 폰에는 hover 가 없다 — 누르는 순간 반응하는 것은 active 뿐이다
                     'transition-colors active:bg-surface-2',
@@ -113,6 +113,13 @@ export function TournamentTabBar({
                     current ? 'text-brand-fg' : 'text-ink-3',
                   )}
                 >
+                  {/* 켜진 탭 위의 네온 눈금 — AppTabBar 와 같은 문법 */}
+                  {current && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-[28%] top-0 h-0.5 rounded-full bg-brand-600"
+                    />
+                  )}
                   <Icon className={cn('size-5', current && 'stroke-[2.5]')} aria-hidden />
                   {tab.label}
                 </Link>
@@ -127,12 +134,18 @@ export function TournamentTabBar({
               aria-expanded={moreOpen}
               aria-current={moreActive ? 'page' : undefined}
               className={cn(
-                'flex min-h-16 w-full flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
+                'relative flex min-h-16 w-full flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
                 'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
                 'transition-colors active:bg-surface-2',
                 moreActive ? 'text-brand-fg' : 'text-ink-3',
               )}
             >
+              {moreActive && (
+                <span
+                  aria-hidden
+                  className="absolute inset-x-[28%] top-0 h-0.5 rounded-full bg-brand-600"
+                />
+              )}
               <MoreHorizontal className={cn('size-5', moreActive && 'stroke-[2.5]')} aria-hidden />
               더보기
             </button>
@@ -140,7 +153,7 @@ export function TournamentTabBar({
               <span
                 aria-hidden
                 className="tabular absolute top-2 right-[22%] min-w-4 rounded-full bg-brand-600
-                           px-1 text-center text-[10px] leading-4 font-black text-white"
+                           px-1 text-center text-[10px] leading-4 font-black text-brand-ink"
               >
                 {refereeCount}
               </span>
@@ -208,7 +221,7 @@ function MoreLink({
 
 function CountBadge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="tabular ml-auto min-w-5 rounded-full bg-brand-600 px-1.5 text-center text-xs font-black text-white">
+    <span className="tabular ml-auto min-w-5 rounded-full bg-brand-600 px-1.5 text-center text-xs font-black text-brand-ink">
       {children}
     </span>
   )

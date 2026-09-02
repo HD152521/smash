@@ -86,7 +86,7 @@ export function MyTournamentsPage() {
                   'inline-flex min-h-10 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
                   kind === k
-                    ? 'bg-brand-600 text-white'
+                    ? 'bg-brand-600 text-brand-ink'
                     : 'bg-surface-2 text-ink-2 transition-colors hover:text-ink-1',
                 )}
               >

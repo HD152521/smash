@@ -69,14 +69,14 @@ export function ClubPage() {
         <Link
           to={`/c/${c.id}/guest`}
           className="group mt-7 flex min-h-20 items-center gap-4 rounded-3xl bg-brand-600 px-5 py-4
-                     text-white shadow-[var(--shadow-card)] transition-transform
+                     text-brand-ink shadow-[var(--shadow-card)] transition-transform
                      hover:-translate-y-0.5 focus-visible:-translate-y-0.5
                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >
           <Link2 className="size-6 shrink-0" aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="block text-lg font-black tracking-tight">게스트 링크</span>
-            <span className="mt-0.5 block text-sm text-brand-100">
+            <span className="mt-0.5 block text-sm text-brand-ink-soft">
               계정 없는 사람을 오늘 모임에 부릅니다
             </span>
           </span>

@@ -196,7 +196,7 @@ export function MatchScorePage() {
         점수판을 덮지 않고 위에 한 줄로 끼운다 — 가리면 다음 랠리 점수를 못 누른다.
       */}
       {isLive && changeDue && !courtChanged && (
-        <div className="mx-2 mb-1 flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2.5 text-white">
+        <div className="mx-2 mb-1 flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2.5 text-brand-ink">
           <ArrowLeftRight className="size-5 shrink-0" aria-hidden />
           <p className="flex-1 text-sm font-black">코트를 바꿀 시간입니다</p>
           <button

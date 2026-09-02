@@ -1,12 +1,17 @@
 <!doctype html>
-<html lang="ko">
+<!--
+  다크가 기본이다 (design/neon, 2026-09-01).
+  라이트 토큰은 src/index.css 에 그대로 살아 있다 — 체육관 조명 아래에서
+  안 읽히면 이 속성을 "light" 로 바꾸면 통째로 되돌아온다.
+-->
+<html lang="ko" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>SMASH — 배드민턴 대회 운영</title>
     <meta name="description" content="대진표, 실시간 점수, 조별 순위를 코트에서 바로 관리하는 배드민턴 대회 운영 앱" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#16181d" media="(prefers-color-scheme: dark)" />
+    <!-- 앱 기본이 다크 네이비이므로 OS 설정과 무관하게 한 값이다 (--surface-0) -->
+    <meta name="theme-color" content="#0f1725" />
     <!-- vite.svg 는 존재하지 않는 파일이었다 (파비콘이 안 떴다) -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- 아이폰은 홈 화면에 추가해야 알림을 받는다. 그때 쓰는 아이콘·이름. -->

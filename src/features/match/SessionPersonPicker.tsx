@@ -153,8 +153,8 @@ function PickedSlots({
               'flex h-11 min-w-0 items-center gap-1 rounded-lg border pl-2.5 pr-2 text-xs font-bold',
               'transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
               side === 'a'
-                ? 'border-team-a bg-team-a/10 text-team-a hover:bg-team-a/15'
-                : 'border-team-b bg-team-b/10 text-team-b hover:bg-team-b/15',
+                ? 'border-team-a bg-team-a/10 text-team-a-fg hover:bg-team-a/15'
+                : 'border-team-b bg-team-b/10 text-team-b-fg hover:bg-team-b/15',
             )}
           >
             <span className="max-w-24 truncate">{nameOf(memberId)}</span>

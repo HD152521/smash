@@ -56,6 +56,8 @@ interface Options {
   isAdmin?: boolean
   myDisplayName?: string
   matches?: MatchOverviewRow[]
+  /** 코트 이름을 바꿔서 찍어 볼 때만 넘긴다 (번호 원이 안 그려지는 경우) */
+  courts?: CourtRow[]
   autoQueue?: {
     enabled: boolean
     onChange: (v: boolean) => void
@@ -72,7 +74,7 @@ function renderBoard(o: Options = {}) {
           element={
             <CourtBoard
               tournamentId={TOURNAMENT_ID}
-              courts={[COURT]}
+              courts={o.courts ?? [COURT]}
               matches={o.matches ?? [liveSessionMatch()]}
               myDisplayName={o.myDisplayName ?? '운영진'}
               isAdmin={o.isAdmin ?? true}
@@ -289,19 +291,50 @@ describe('코트 카드 배경 — 코트 마킹 (docs/design.md 위에서 본 �
   })
 
   /**
-   * 전폭 배경(CourtLines)은 v7 이후 네트 두 줄만 남기고 상태 신호를 안
-   * 낸다 — 그 역할은 코트 번호 옆 작은 정비율 도형(CourtBadge)이 진하기로
-   * 대신한다. CourtBadge 는 40×18 고정 크기(h-[18px] w-10)라 전폭
+   * 코트 도형(CourtGlyph)은 상태를 **색**으로 말한다 (2026-09-01, design/neon).
+   * 예전엔 진하기(opacity)만 갈랐는데, 시안의 "라임=비었다 / 시안=진행 중"
+   * 을 가져오면서 색이 1차 신호가 됐다. 도형은 58×26 고정 크기라 전폭
    * 배경(inset-0)과 클래스로 구분할 수 있다.
+   *
+   * ⚠ 색만으로 말하지 않는다 — 아래 다른 테스트들이 "비었습니다" · 점수 ·
+   * "비어 있음" 글자가 항상 함께 선다는 것을 이미 붙잡고 있다.
    */
-  test('진행 중인 코트는 코트 도형이 옅고, 빈 코트는 또렷하다', () => {
-    const { container: busyContainer } = renderBoard() // 기본값: 진행 중 경기 1개
-    const busyBadge = busyContainer.querySelector('svg.w-10[aria-hidden="true"]')
-    expect(busyBadge?.getAttribute('class')).toContain('opacity-[0.35]')
+  /*
+   * 코트 도형만 고른다. 크기 클래스로 고른 이유: viewBox 로 고르면
+   * jsdom 이 선택자의 속성 이름을 소문자로 내려 `viewBox` 와 안 맞는다.
+   * 대괄호는 따옴표 안이라 CSS 이스케이프가 필요 없다.
+   */
+  const GLYPH = 'svg[class*="w-[58px]"]'
+  const glyphClass = (c: HTMLElement) => c.querySelector(GLYPH)?.getAttribute('class') ?? ''
 
-    const { container: idleContainer } = renderBoard({ matches: [] })
-    const idleBadge = idleContainer.querySelector('svg.w-10[aria-hidden="true"]')
-    expect(idleBadge?.getAttribute('class')).toContain('opacity-[0.9]')
+  test('진행 중인 코트는 시안, 빈 코트는 라임, 넣을 게 없으면 회색이다', () => {
+    // 기본값: 진행 중 경기 1개
+    expect(glyphClass(renderBoard().container)).toContain('text-accent-500')
+    // 비었고 잡을 대기도 없다
+    expect(glyphClass(renderBoard({ matches: [] }).container)).toContain('text-court-line')
+    // 비었고 이 코트 대기가 있다 → 들어갈 수 있다
+    const open = renderBoard({ matches: [liveSessionMatch({ status: 'scheduled' })] })
+    expect(glyphClass(open.container)).toContain('text-state-open')
+  })
+
+  test('코트 번호가 도형 안에 들어간다', () => {
+    const { container } = renderBoard({ matches: [] })
+    const glyph = container.querySelector(GLYPH)
+    // COURT.name 이 '1번 코트' 이므로 원 안 숫자는 1
+    expect(glyph?.querySelector('text')?.textContent).toBe('1')
+  })
+
+  /**
+   * 코트 이름은 사람이 고칠 수 있다('입구쪽'). 숫자가 없으면 원을 안 그린다 —
+   * 없는 번호를 순번으로 지어내면 이름과 어긋나 오히려 헷갈린다.
+   */
+  test('이름에 숫자가 없으면 번호 원을 안 그린다', () => {
+    const { container } = renderBoard({
+      matches: [],
+      courts: [{ ...COURT, name: '입구쪽' } as CourtRow],
+    })
+    const glyph = container.querySelector(GLYPH)
+    expect(glyph?.querySelector('text')).toBeNull()
   })
 })
 

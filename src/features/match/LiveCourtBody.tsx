@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { isMatchReferee } from '@/lib/matchAccess'
-import { CourtBadge } from './CourtBadge'
+import { CourtGlyph } from './CourtGlyph'
 import type { MatchOverviewRow } from '@/types/database'
 
 /**
@@ -31,8 +31,8 @@ export function LiveCourtBody({
     <>
       <div className="flex items-baseline justify-between gap-3 px-4 pt-3.5">
         <div className="flex min-w-0 items-center gap-2">
-          {/* 진행 중 — 도형이 옅다(CourtBadge 주석 참고) */}
-          <CourtBadge faint />
+          {/* 진행 중 — 시안(정체성 색). 경고가 아니라 '살아 있다' 는 뜻이다 */}
+          <CourtGlyph state="busy" name={courtName} />
           <h3 className="truncate text-lg font-black text-ink-1">{courtName}</h3>
         </div>
         {trailing}

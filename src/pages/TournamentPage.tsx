@@ -236,7 +236,7 @@ export function TournamentPage() {
           <Link
             to={`/t/${id}/matches/new-session`}
             className="mx-auto flex min-h-14 max-w-2xl items-center justify-center gap-2 rounded-2xl
-                       bg-brand-600 px-5 font-black text-white shadow-sm transition-colors
+                       bg-brand-600 px-5 font-black text-brand-ink shadow-sm transition-colors
                        hover:bg-brand-700
                        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
           >

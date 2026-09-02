@@ -4,7 +4,7 @@ import { ChevronRight, ListOrdered, Loader2, Play } from 'lucide-react'
 import { useClaimCourt, useDeleteMatch, useStartMatch } from '@/features/tournament/queries'
 import { AutoQueueRow } from './AutoQueueRow'
 import { AutoQueueToggle } from './AutoQueueToggle'
-import { CourtBadge } from './CourtBadge'
+import { CourtGlyph, type CourtGlyphState } from './CourtGlyph'
 import { LiveCourtBody } from './LiveCourtBody'
 import { SessionLiveCard } from './SessionLiveCard'
 import { matchEditPath, matchTitle } from '@/lib/schedule'
@@ -230,7 +230,7 @@ function CourtCard({
         선이 함께 늘어지면 '위에서 본 코트' 가 아니라 벽지가 된다).
       */}
       <div className="relative">
-        <CourtLines />
+        <CourtLines tone={state} />
         <div className="relative z-10">
           {live ? (
             access.isSession ? (
@@ -463,8 +463,8 @@ function OpenRow({
   if (!runnable) {
     return (
       <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <CourtBadge faint={false} />
+        <div className="flex min-w-0 items-center gap-2.5">
+          <CourtGlyph state="open" name={court.name} />
           <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
         </div>
         <p className="shrink-0 text-sm font-bold text-state-open-fg">{statusText}</p>
@@ -482,8 +482,8 @@ function OpenRow({
                  transition-colors hover:bg-surface-2 disabled:opacity-60
                  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-state-open"
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <CourtBadge faint={false} />
+      <div className="flex min-w-0 items-center gap-2.5">
+        <CourtGlyph state="open" name={court.name} />
         <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
       </div>
       <p className="flex shrink-0 items-center gap-1.5 text-sm font-black text-state-open-fg">
@@ -502,8 +502,8 @@ function OpenRow({
 function IdleRow({ court, finishedCount }: { court: CourtRow; finishedCount: number }) {
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-      <div className="flex min-w-0 items-center gap-2">
-        <CourtBadge faint={false} />
+      <div className="flex min-w-0 items-center gap-2.5">
+        <CourtGlyph state="idle" name={court.name} />
         <h3 className="truncate text-base font-black text-ink-1">{court.name}</h3>
       </div>
       <p className="shrink-0 text-sm text-ink-3">
@@ -533,14 +533,25 @@ function IdleRow({ court, finishedCount }: { court: CourtRow; finishedCount: num
  * 인라인 SVG · currentColor(다크 모드는 --court-line 토큰이 대신 바뀐다)
  * · non-scaling-stroke(카드 크기가 달라도 선 두께는 그대로).
  */
-function CourtLines() {
+function CourtLines({ tone }: { tone: CourtGlyphState }) {
   return (
     <svg
       aria-hidden="true"
       focusable="false"
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
-      className="pointer-events-none absolute inset-0 size-full text-court-line opacity-[0.1]"
+      className={cn(
+        'pointer-events-none absolute inset-0 size-full',
+        /*
+          2026-09-01. 색만 상태를 따라간다 — 시안(design/neon)의 "코트가
+          상태색으로 발광한다" 를 카드 배경으로 옮긴 것이다. 진하기는
+          그대로 낮게 둔다(0.14 이하). 이 선이 이름·점수보다 눈에 띄면
+          "위에서 본 코트" 가 아니라 벽지가 된다.
+        */
+        tone === 'open' && 'text-state-open opacity-[0.14]',
+        tone === 'busy' && 'text-accent-500 opacity-[0.12]',
+        tone === 'idle' && 'text-court-line opacity-[0.08]',
+      )}
     >
       {/* 네트 — 두께가 있는 띠라 한 줄이 아니라 가까운 두 줄로 그려야 '네트'로 읽힌다 */}
       <line
