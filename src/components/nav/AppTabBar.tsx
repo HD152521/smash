@@ -75,7 +75,7 @@ function Bar({ active }: { active: AppTab }) {
                 to={tab.to}
                 aria-current={current ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
+                  'relative flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',
                   'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600',
                   // 폰에는 hover 가 없다. 누르는 순간 반응하는 것은 active 뿐이다.
                   'transition-colors active:bg-surface-2',
@@ -83,6 +83,17 @@ function Bar({ active }: { active: AppTab }) {
                   current ? 'text-brand-fg' : 'text-ink-3',
                 )}
               >
+                {/*
+                  켜진 탭 위의 네온 눈금 — 시안(design/neon)의 상단 네비
+                  밑줄을 하단탭으로 옮긴 것이다. 색·굵기에 이어 **위치**로도
+                  현재 탭을 말한다. 정적이라 스크롤 성능에 관여하지 않는다.
+                */}
+                {current && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-[28%] top-0 h-0.5 rounded-full bg-brand-600"
+                  />
+                )}
                 <Icon className={cn('size-5', current && 'stroke-[2.5]')} aria-hidden />
                 {tab.label}
               </Link>

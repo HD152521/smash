@@ -175,13 +175,13 @@ export function TournamentAdminPage() {
       <section className="mt-4">
         <Link
           to={`/t/${id}/matches/new`}
-          className="flex items-center justify-between rounded-2xl bg-brand-600 p-5 text-white
+          className="flex items-center justify-between rounded-2xl bg-brand-600 p-5 text-brand-ink
                      transition-transform hover:-translate-y-0.5
                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >
           <div>
             <p className="text-lg font-black">경기 편성</p>
-            <p className="mt-0.5 text-sm text-brand-100">조 vs 조 · 각 조에서 2명씩 · 심판 지정</p>
+            <p className="mt-0.5 text-sm text-brand-ink-soft">조 vs 조 · 각 조에서 2명씩 · 심판 지정</p>
           </div>
           <span aria-hidden className="text-2xl">
             →

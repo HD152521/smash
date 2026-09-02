@@ -113,7 +113,7 @@ function Option({
           size === 'lg' ? 'h-12 text-base' : 'h-10 text-sm',
           'text-ink-3 peer-hover:bg-surface-2',
           // 고른 칸: 색 하나가 아니라 배경 + 글자색 + 굵기로 함께 가른다
-          'peer-checked:bg-brand-600 peer-checked:font-black peer-checked:text-white',
+          'peer-checked:bg-brand-600 peer-checked:font-black peer-checked:text-brand-ink',
           'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600',
         )}
       >

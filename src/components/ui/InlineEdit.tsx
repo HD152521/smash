@@ -124,7 +124,7 @@ export function InlineEdit({
           onClick={() => void save()}
           disabled={pending || (draft ?? '').trim().length === 0}
           aria-label="저장"
-          className="grid size-11 shrink-0 place-items-center rounded-lg bg-brand-600 text-white
+          className="grid size-11 shrink-0 place-items-center rounded-lg bg-brand-600 text-brand-ink
                      transition-opacity disabled:opacity-50
                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >

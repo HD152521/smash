@@ -27,7 +27,7 @@ export function CourtMotif({ className }: { className?: string }) {
       // 불투명도는 코트 카드(`CourtBoard`)의 가장 옅은 값(0.07)보다 조금
       // 올린다(0.11) — 카드는 이름·점수라는 확실한 내용 위의 질감이지만,
       // 여기는 배경 그 자체가 "장식이 있다" 는 걸 알려야 하는 자리다.
-      className={cn('pointer-events-none w-full text-court-line opacity-[0.11]', className)}
+      className={cn('pointer-events-none w-full text-court-line opacity-[0.08]', className)}
     >
       {/* 바깥 라인 */}
       <rect

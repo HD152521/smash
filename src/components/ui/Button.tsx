@@ -10,14 +10,26 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean
 }
 
+/*
+ * 채움 버튼이 **못 누르는 상태**일 때는 색을 흐리는 것으로 부족하다.
+ *
+ * 다크의 네온 라임을 반투명하게 깔면 네이비와 섞여 올리브색 '멀쩡한 버튼'
+ * 이 된다(찍어서 확인). 그래서 채움 두 개(primary · danger)는 못 누를 때
+ * **면색 자체를 중립으로 내려앉힌다** — 색이 아니라 성격이 바뀐다.
+ */
+const disabledFill =
+  'disabled:bg-surface-2 disabled:text-ink-3 disabled:shadow-none disabled:brightness-100'
+
 const variants: Record<Variant, string> = {
   primary:
-    'bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-900 focus-visible:outline-brand-600',
+    'bg-brand-600 text-brand-ink shadow-sm hover:brightness-95 active:brightness-90 focus-visible:outline-brand-600 ' +
+    disabledFill,
   secondary:
     'bg-surface-1 text-ink-1 border border-border-subtle hover:bg-surface-2 active:bg-surface-2 focus-visible:outline-brand-600',
   ghost: 'text-ink-2 hover:bg-surface-2 hover:text-ink-1 focus-visible:outline-brand-600',
   danger:
-    'bg-team-b text-white hover:brightness-95 active:brightness-90 focus-visible:outline-team-b',
+    'bg-team-b text-white hover:brightness-95 active:brightness-90 focus-visible:outline-team-b ' +
+    disabledFill,
 }
 
 // 체육관에서 폰으로 누른다. 최소 44px 는 접근성 권고이자 실전 요구사항이다.

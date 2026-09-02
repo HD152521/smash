@@ -4,26 +4,33 @@
 /* ── Pretendard: 한글 UI 기본. 굵기 대비(400↔900)로 전광판 위계를 만든다 ── */
 
 /*
- * 디자인 방향: 스포츠 브로드캐스트 / 경기장 전광판
- * - 체육관 조명이 밝으므로 라이트가 기본. 심판·관전 화면만 다크 서피스로 집중도를 올린다.
- * - 팀 색은 A=코발트 / B=버밀리언 (중계 관습). 색맹 대비를 위해 색 단독으로 팀을 구분하지 않는다.
- * - 조커는 앰버. 규칙이 다른 팀이므로 색 + 배지 + 목표점수 텍스트 3중으로 표시한다.
+ * 디자인 방향: 스포츠 중계 전광판 — **다크 네이비 + 네온 라임 + 일렉트릭 시안**
+ *
+ * ── 2026-09-01. 다크를 기본으로 돌린다 (design/neon) ────────────────
+ * 전에는 "체육관 조명이 밝으므로 라이트가 기본" 이었다. 그 판단은 버리지
+ * 않는다 — 라이트 토큰을 전부 그대로 두고, `<html data-theme>` 하나로
+ * 되돌릴 수 있게 남긴다. 다만 기본을 다크로 바꾼다:
+ *   - 심판 화면(MatchScorePage)과 관전 화면(LiveBoardPage)은 원래도 항상
+ *     다크였다. 앱만 흰색이라 "로그인은 검정, 앱은 흰색 — 같은 제품으로
+ *     안 보인다"(docs/design.md 실측)가 코트 화면에서도 되풀이됐다
+ *   - 밖에서 안 읽히면 `<html data-theme="light">` 한 줄로 되돌아온다
+ *
+ * ⚠ **대비는 시안보다 앞선다.** 시안은 모니터용이라 네온 라임을 그대로
+ * 밝은 면에 얹지만, 라이트 테마에서 네온 라임 채움은 흰 배경 대비 1.31:1 —
+ * 버튼이 사라진다. 그래서 **채움색은 테마마다 다르다**: 다크는 네온 라임에
+ * 검은 글씨, 라이트는 짙은 라임에 흰 글씨. 둘 다 계산으로 AA 를 넘긴다
+ * (src/lib/contrast.test.ts 가 index.css 값을 직접 읽어 검사한다).
+ *
+ * 상태 색 규칙은 안 바뀐다(docs/design.md '색은 상태다'):
+ *   라임 = 들어갈 수 있다 / 주황 = 곧 끝난다 / 빨강 = 되돌릴 수 없다.
+ * 시안은 **상태가 아니라 정체성**이다 — 진행 중인 코트의 도형·마크·선화에만
+ * 쓴다. 시안 시안(mockup)은 시안을 "사용 중" 상태색으로 썼지만, 이 앱은
+ * "진행 중은 정상이라 색을 더 얹지 않는다" 를 이미 원칙으로 박아 뒀다.
  */
 @theme {
-  /* 브랜드 */
-  --color-brand-50: oklch(97% 0.04 145);
-  --color-brand-100: oklch(93% 0.09 145);
-  --color-brand-300: oklch(80% 0.17 145);
-  --color-brand-500: oklch(66% 0.19 148);
-  --color-brand-600: oklch(52% 0.17 149);
-  --color-brand-700: oklch(45% 0.14 150);
-  --color-brand-900: oklch(28% 0.08 152);
-
-  /* 팀 */
+  /* 팀 — 중계 관습(A=코발트 / B=버밀리언). 색 단독으로 팀을 구분하지 않는다 */
   --color-team-a: oklch(58% 0.19 258);
-  --color-team-a-soft: oklch(94% 0.04 258);
   --color-team-b: oklch(52% 0.20 27);
-  --color-team-b-soft: oklch(94% 0.04 27);
 
   /* 조커 */
   --color-joker: oklch(74% 0.16 78);
@@ -31,7 +38,7 @@
   --color-joker-soft: oklch(96% 0.06 85);
 
   /*
-   * 상태 색.
+   * 상태 색 — 면(배경)으로 쓰는 값.
    *
    * 명도는 감이 아니라 계산으로 정했다. WCAG AA 본문 기준 4.5:1 을
    * 흰 배경과 회색면(surface-2) 양쪽에서 만족하는 최대 명도다.
@@ -42,33 +49,6 @@
   --color-ok: oklch(52% 0.16 152);
   --color-warn: oklch(55% 0.16 70);
 
-  /*
-   * 상태 별칭 — docs/design.md '색은 상태다' 원칙.
-   * 값은 기존 브랜드/경고 색을 그대로 쓴다. 이름을 '상태' 로 따로 두는 이유는
-   * 코트 카드가 브랜드 색을 빌려 쓰는 게 아니라 '들어갈 수 있다' 는 상태
-   * 자체를 표현한다는 걸 코드에서 바로 읽히게 하기 위해서다.
-   *   open — 빈 코트, 대기 경기 있음 → 들어갈 수 있다
-   *   soon — 매치포인트, 대기 2번째 → 곧 끝난다·준비해라
-   * '되돌릴 수 없다' 는 새 별칭을 만들지 않는다 — team-b(빨강)가 이미
-   * 오류·삭제 문구 전체에서 그 뜻으로 쓰이고 있다.
-   */
-  --color-state-open: var(--color-brand-600);
-  --color-state-soon: var(--color-warn);
-
-  /*
-   * 정체성 색 — docs/design.md '시각 정체성 · 팔레트' 절.
-   *
-   * 지금까지 초록 하나 + 회색 중립뿐이었다. 마크 · 선화 · 머리말의 바탕색으로
-   * 네이비/차콜 한 층을 더한다. team-a(코발트, 258)와 같은 계열이라
-   * 색상각을 254 로 살짝 틀고 채도를 크게 낮춰(0.045) 팀 색과 헷갈리지
-   * 않게 한다 — 이건 "누구 편" 이 아니라 "이 브랜드" 라는 뜻이다.
-   *
-   * ⚠ 상태 색(초록=들어갈 수 있다 / 주황=곧 끝난다 / 빨강=되돌릴 수 없다)과는
-   * 다른 축이다. 정체성 색을 상태가 있는 곳(배지·버튼·코트 카드 색)에 쓰지
-   * 않는다 — 마크 · 선화 · 화면 머리에만 쓴다.
-   */
-  --color-ident-navy: oklch(28% 0.045 254);
-
   /* 타이포 */
   --font-sans: 'Pretendard Variable', Pretendard, system-ui, sans-serif;
   --text-score: clamp(3.5rem, 2rem + 12vw, 9rem);
@@ -78,24 +58,73 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/*
+ * ── 라이트 테마 값 (기본 정의) ──────────────────────────────────────
+ *
+ * 여기가 **모든 테마 변수의 원본**이다. 다크 블록은 같은 이름을 덮어쓸 뿐
+ * 새 이름을 만들지 않는다 — 그래야 "다크에만 있는 색" 이 생기지 않는다.
+ */
 :root {
   /*
    * 글씨 전용 강조색.
    *
-   * 같은 초록을 글씨에도 쓰고 버튼 배경에도 쓰면 한쪽이 반드시 깨진다.
+   * 같은 라임을 글씨에도 쓰고 버튼 배경에도 쓰면 한쪽이 반드시 깨진다.
    * 어두운 배경에서 읽히게 색을 밝히면 그 색을 배경으로 깐 흰 글씨가
-   * 3.4:1 로 떨어진다. 그래서 배경용(--color-ok 등)과 글씨용을 나눈다.
+   * 3.4:1 로 떨어진다. 그래서 배경용(--brand-600 등)과 글씨용을 나눈다.
    *
    * 명도는 계산으로 정했다. 라이트는 가장 불리한 면(surface-2, 96%)에서,
-   * 다크도 가장 불리한 면(surface-2, 26%)에서 4.5:1 을 넘긴다.
+   * 다크도 가장 불리한 면(surface-2, 26.5%)에서 4.5:1 을 넘긴다.
    */
-  --fg-brand: oklch(51% 0.17 149);
-  --fg-ok: oklch(51% 0.16 152);
+  --fg-brand: oklch(50% 0.16 133);
+  --fg-ok: oklch(50% 0.15 145);
   --fg-live: oklch(56% 0.21 25);
   --fg-warn: oklch(54% 0.16 70);
+  --fg-team-a: oklch(52% 0.19 258);
   --fg-team-b: oklch(56% 0.20 27);
-  /* 정체성 — 마크 · 선화 · 머리말 글씨. --color-ident-navy 주석 참고 */
+  /* 정체성 — 마크 · 선화 · 머리말 글씨 */
   --fg-ident-navy: oklch(28% 0.045 254);
+  /*
+   * 일렉트릭 시안 — 두 번째 정체성 색.
+   *
+   * ⚠ 상태색이 아니다. 진행 중인 코트의 도형, 마크, 선화에만 쓴다.
+   * 팀 A(코발트, 258)와 헷갈리지 않게 색상각을 205 로 크게 벌린다.
+   */
+  --fg-accent: oklch(48% 0.12 205);
+
+  /*
+   * 브랜드 램프 — **테마마다 값이 다르다.**
+   *
+   * 라이트에서는 흰 글씨를 얹을 수 있을 만큼 짙은 라임(51%)이고,
+   * 다크에서는 시안(mockup)의 네온 라임(85%)에 검은 글씨를 얹는다.
+   * 색상각은 두 테마 모두 133 근처 — 예전 초록(148)보다 노랑 쪽으로
+   * 틀어 "라임" 으로 읽히게 했다.
+   */
+  --brand-50: oklch(97% 0.05 133);
+  --brand-100: oklch(93% 0.1 133);
+  --brand-300: oklch(80% 0.17 133);
+  /* 64% 는 계산으로 정했다: 승 배지(brand-900 글씨) 4.78:1, 흰 페이지 대비 테두리 3.18:1 */
+  --brand-500: oklch(64% 0.18 133);
+  --brand-600: oklch(51% 0.16 133);
+  --brand-700: oklch(45% 0.14 134);
+  --brand-900: oklch(26% 0.08 136);
+  /*
+   * 라임 채움 위에 얹는 글씨.
+   *
+   * 이 토큰이 있는 이유: 시안의 네온 라임 버튼은 **검은 글씨**다. 라이트에서는
+   * 채움이 짙은 라임이라 흰 글씨가 맞다. 두 테마가 반대이므로 `text-white`
+   * 를 하드코딩하면 한쪽이 반드시 깨진다 — 다크에서 흰 글씨 / 네온 라임은
+   * 1.37:1 로 글자가 통째로 사라진다.
+   */
+  --brand-ink: oklch(100% 0 0);
+  --brand-ink-soft: oklch(93% 0.1 133);
+
+  /* 시안 채움 — 정체성 도형에만 */
+  --accent-500: oklch(50% 0.12 205);
+  --accent-ink: oklch(100% 0 0);
+
+  /* 팀 배경(연한 면) — 그 위에 ink-1 을 얹으므로 테마를 따라 뒤집힌다 */
+  --team-a-soft: oklch(94% 0.04 258);
+  --team-b-soft: oklch(94% 0.04 27);
 
   --surface-0: oklch(98.5% 0.003 250);
   --surface-1: oklch(100% 0 0);
@@ -113,59 +142,115 @@
    * '빈 코트는 더 보이고 찬 코트는 옅어진다' 를 카드에서 조절한다.
    */
   --court-line: oklch(32% 0.02 255);
-}
 
-:root:not([data-theme='light']) {
-  @media (prefers-color-scheme: dark) {
-    --fg-brand: oklch(62% 0.17 149);
-    --fg-ok: oklch(62% 0.16 152);
-    --fg-live: oklch(67% 0.21 25);
-    --fg-warn: oklch(65% 0.16 70);
-    --fg-team-b: oklch(66% 0.20 27);
-    --fg-ident-navy: oklch(76% 0.05 254);
-    --surface-0: oklch(17% 0.012 255);
-    --surface-1: oklch(21% 0.014 255);
-    --surface-2: oklch(26% 0.016 255);
-    --border-subtle: oklch(32% 0.016 255);
-    --ink-1: oklch(96% 0.004 255);
-    --ink-2: oklch(76% 0.008 255);
-    --ink-3: oklch(64% 0.010 255);
-    --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
-    --court-line: oklch(90% 0.008 255);
-  }
+  /*
+   * 글로우 — 시안(mockup)의 네온 발광.
+   *
+   * ⚠ **정적이다. 애니메이션하지 않는다.** 그리고 `box-shadow` 를 여러 겹
+   * 쌓지 않는다 — 폰에서 스크롤이 끊긴다. 딱 한 겹의 `drop-shadow` 로
+   * 코트 도형에만 쓴다(`CourtGlyph`).
+   *
+   * 라이트에서는 끈다. 흰 면 위의 발광은 빛이 아니라 얼룩으로 보인다.
+   */
+  --glow-open: 0 0 0 transparent;
+  --glow-busy: 0 0 0 transparent;
 }
 
 /*
  * :root 만이 아니라 어떤 엘리먼트에든 걸리게 한다.
- * 심판 화면·관전 화면은 페이지 전체 테마와 무관하게 항상 어둡게 둔다
- * (체육관 조명 아래에서 점수가 가장 잘 읽힌다).
+ * 심판 화면·관전 화면은 페이지 테마와 무관하게 항상 어둡다
+ * (체육관 조명 아래에서 점수가 가장 잘 읽힌다). 그리고 2026-09-01 부터는
+ * `<html data-theme="dark">` 로 앱 전체의 기본값이기도 하다.
  */
 :root[data-theme='dark'],
 [data-theme='dark'] {
-  --fg-brand: oklch(62% 0.17 149);
-  --fg-ok: oklch(62% 0.16 152);
-  --fg-live: oklch(67% 0.21 25);
-  --fg-warn: oklch(65% 0.16 70);
-  --fg-team-b: oklch(66% 0.20 27);
-  --fg-ident-navy: oklch(76% 0.05 254);
-  --surface-0: oklch(17% 0.012 255);
-  --surface-1: oklch(21% 0.014 255);
-  --surface-2: oklch(26% 0.016 255);
-  --border-subtle: oklch(32% 0.016 255);
-  --ink-1: oklch(96% 0.004 255);
-  --ink-2: oklch(76% 0.008 255);
-  --ink-3: oklch(64% 0.010 255);
+  --fg-brand: oklch(85% 0.2 130);
+  --fg-ok: oklch(85% 0.19 142);
+  --fg-live: oklch(72% 0.2 25);
+  --fg-warn: oklch(80% 0.15 72);
+  --fg-team-a: oklch(74% 0.14 258);
+  --fg-team-b: oklch(72% 0.19 27);
+  --fg-ident-navy: oklch(80% 0.05 254);
+  --fg-accent: oklch(82% 0.13 197);
+
+  /*
+   * 네온 라임. 500·600 이 같은 값인 건 실수가 아니다 — 다크에서는 채움이
+   * 하나뿐이고, 700·900 은 그 채움을 **누를 때 어두워지는 단계**로만 쓴다.
+   * 900 은 라임 채움 위의 글씨(승 배지)로도 쓰이므로 반드시 어두워야 한다.
+   */
+  --brand-50: oklch(30% 0.055 133);
+  --brand-100: oklch(38% 0.08 133);
+  --brand-300: oklch(70% 0.17 132);
+  --brand-500: oklch(85% 0.2 130);
+  --brand-600: oklch(85% 0.2 130);
+  --brand-700: oklch(76% 0.19 130);
+  --brand-900: oklch(24% 0.06 133);
+  --brand-ink: oklch(19% 0.05 262);
+  --brand-ink-soft: oklch(32% 0.07 133);
+
+  --accent-500: oklch(82% 0.13 197);
+  --accent-ink: oklch(19% 0.05 262);
+
+  --team-a-soft: oklch(33% 0.06 258);
+  --team-b-soft: oklch(33% 0.07 27);
+
+  /*
+   * 면 — 검정이 아니라 **네이비**다.
+   *
+   * 예전 다크(명도 17% · 채도 0.012)는 거의 무채색이라 찍어 보니 검정으로
+   * 읽혔고, 그 위에 라임이 얹히니 색이 떠 보였다. 명도를 19% 로 올리고
+   * 채도를 0.042 로 키워 **파랑이 보이는 어둠**으로 만든다 — 시안의
+   * 다크 네이비다. 명도를 올렸어도 잉크는 전부 AA 를 넘긴다
+   * (ink-3 / surface-2 가 4.91:1 로 가장 빠듯하다).
+   */
+  --surface-0: oklch(19% 0.042 262);
+  --surface-1: oklch(23.5% 0.042 262);
+  --surface-2: oklch(29% 0.042 262);
+  --border-subtle: oklch(37% 0.04 262);
+  --ink-1: oklch(96% 0.005 262);
+  --ink-2: oklch(78% 0.016 262);
+  --ink-3: oklch(68% 0.02 262);
   --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.4), 0 8px 24px oklch(0% 0 0 / 0.3);
-  --court-line: oklch(90% 0.008 255);
+  --court-line: oklch(88% 0.02 262);
+
+  --glow-open: 0 0 6px oklch(85% 0.2 130 / 0.55);
+  --glow-busy: 0 0 6px oklch(82% 0.13 197 / 0.5);
 }
 
 @theme inline {
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-300: var(--brand-300);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-900: var(--brand-900);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-ink-soft: var(--brand-ink-soft);
+  --color-accent-500: var(--accent-500);
+  --color-accent-ink: var(--accent-ink);
+  --color-team-a-soft: var(--team-a-soft);
+  --color-team-b-soft: var(--team-b-soft);
   --color-brand-fg: var(--fg-brand);
   --color-ok-fg: var(--fg-ok);
   --color-live-fg: var(--fg-live);
   --color-warn-fg: var(--fg-warn);
+  --color-team-a-fg: var(--fg-team-a);
   --color-team-b-fg: var(--fg-team-b);
   --color-ident-navy-fg: var(--fg-ident-navy);
+  --color-accent-fg: var(--fg-accent);
+  /*
+   * 상태 별칭 — docs/design.md '색은 상태다' 원칙.
+   * 값은 브랜드/경고 색을 그대로 쓴다. 이름을 '상태' 로 따로 두는 이유는
+   * 코트 카드가 브랜드 색을 빌려 쓰는 게 아니라 '들어갈 수 있다' 는 상태
+   * 자체를 표현한다는 걸 코드에서 바로 읽히게 하기 위해서다.
+   *   open — 빈 코트, 대기 경기 있음 → 들어갈 수 있다
+   *   soon — 매치포인트, 대기 2번째 → 곧 끝난다·준비해라
+   * '되돌릴 수 없다' 는 새 별칭을 만들지 않는다 — team-b(빨강)가 이미
+   * 오류·삭제 문구 전체에서 그 뜻으로 쓰이고 있다.
+   */
+  --color-state-open: var(--brand-600);
+  --color-state-soon: var(--color-warn);
   --color-state-open-fg: var(--fg-brand);
   --color-state-soon-fg: var(--fg-warn);
   --color-surface-0: var(--surface-0);
@@ -180,6 +265,12 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* 다크가 기본이라 브라우저 기본 UI(스크롤바·폼)도 같이 뒤집어 준다 */
+  color-scheme: dark;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
 }
 
 body {
@@ -196,6 +287,18 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
+}
+
+/*
+ * 전광판 눈금 — 화면 머리의 작은 라틴 라벨(SMASH · COURT 등).
+ * 시안의 굵은 대문자 제목을 폰으로 옮긴 것이다. 한글은 대문자가 없으므로
+ * **자간과 굵기**로만 같은 성격을 낸다.
+ */
+.eyebrow {
+  font-weight: 900;
+  font-size: 0.7rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
 }
 
 /*

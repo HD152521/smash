@@ -42,8 +42,11 @@ const FG = [
   '--fg-ok',
   '--fg-live',
   '--fg-warn',
+  '--fg-team-a',
   '--fg-team-b',
   '--fg-ident-navy',
+  // 일렉트릭 시안 — 정체성 색이지만 글씨로도 쓰이므로 같은 잣대를 댄다
+  '--fg-accent',
   '--ink-3',
 ]
 const SURFACES = ['--surface-0', '--surface-1', '--surface-2']
@@ -62,7 +65,6 @@ describe('글씨 강조색은 두 테마 · 모든 면에서 AA 를 넘는다', 
 
 describe('색을 배경으로 깔고 글씨를 얹는 곳도 AA 를 넘는다', () => {
   const cases: Array<[string, string, string]> = [
-    ['흰 글씨 / brand-600', 'oklch(100% 0 0)', '--color-brand-600'],
     ['흰 글씨 / ok', 'oklch(100% 0 0)', '--color-ok'],
     ['흰 글씨 / live', 'oklch(100% 0 0)', '--color-live'],
     ['흰 글씨 / warn', 'oklch(100% 0 0)', '--color-warn'],
@@ -80,10 +82,51 @@ describe('색을 배경으로 깔고 글씨를 얹는 곳도 AA 를 넘는다', 
     ).toBeGreaterThanOrEqual(AA)
   })
 
-  it('승 배지 (brand-900 / brand-500)', () => {
-    // 흰 글씨였을 때 2.87 이었다. 심판이 결과를 확인하는 배지다.
-    expect(
-      contrastRatio(token('--color-brand-900'), token('--color-brand-500')),
-    ).toBeGreaterThanOrEqual(AA)
-  })
+  /*
+   * 라임 채움 위의 글씨 — **테마마다 반대색이다.**
+   *
+   * 다크는 시안(design/neon)의 네온 라임에 검은 글씨, 라이트는 짙은 라임에
+   * 흰 글씨다. 여기가 이 개편에서 가장 깨지기 쉬운 자리다 — 다크에서
+   * 흰 글씨를 그대로 뒀다면 1.37:1 로 버튼 글자가 통째로 사라졌다.
+   * `--brand-ink` 토큰이 그걸 막는 장치이고, 이 테스트가 그 장치를 지킨다.
+   */
+  for (const dark of [false, true]) {
+    it(`${dark ? '다크' : '라이트'} brand-ink / brand-600`, () => {
+      expect(
+        contrastRatio(token('--brand-ink', { dark }), token('--brand-600', { dark })),
+      ).toBeGreaterThanOrEqual(AA)
+    })
+    it(`${dark ? '다크' : '라이트'} accent-ink / accent-500`, () => {
+      expect(
+        contrastRatio(token('--accent-ink', { dark }), token('--accent-500', { dark })),
+      ).toBeGreaterThanOrEqual(AA)
+    })
+    it(`${dark ? '다크' : '라이트'} 승 배지 (brand-900 / brand-500)`, () => {
+      // 흰 글씨였을 때 2.87 이었다. 심판이 결과를 확인하는 배지다.
+      expect(
+        contrastRatio(token('--brand-900', { dark }), token('--brand-500', { dark })),
+      ).toBeGreaterThanOrEqual(AA)
+    })
+    it(`${dark ? '다크' : '라이트'} 선택된 칩 (brand-700 / brand-50)`, () => {
+      expect(
+        contrastRatio(token('--brand-700', { dark }), token('--brand-50', { dark })),
+      ).toBeGreaterThanOrEqual(AA)
+    })
+    it(`${dark ? '다크' : '라이트'} 큰 버튼 보조 문구 (brand-ink-soft / brand-600)`, () => {
+      // 18px 미만이 아니므로 대문자 기준 3:1 이 아니라 본문 4.5:1 을 요구한다
+      expect(
+        contrastRatio(token('--brand-ink-soft', { dark }), token('--brand-600', { dark })),
+      ).toBeGreaterThanOrEqual(AA)
+    })
+    it(`${dark ? '다크' : '라이트'} 팀 면 위 본문 (ink-1 / team-a-soft)`, () => {
+      expect(
+        contrastRatio(token('--ink-1', { dark }), token('--team-a-soft', { dark })),
+      ).toBeGreaterThanOrEqual(AA)
+    })
+    it(`${dark ? '다크' : '라이트'} 팀 면 위 본문 (ink-1 / team-b-soft)`, () => {
+      expect(
+        contrastRatio(token('--ink-1', { dark }), token('--team-b-soft', { dark })),
+      ).toBeGreaterThanOrEqual(AA)
+    })
+  }
 })
