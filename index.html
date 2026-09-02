@@ -8,8 +8,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      ── 카톡 미리보기 카드 ────────────────────────────────────────────
+      이 두 주석 사이가 **통째로 갈아 끼워지는 블록**이다.
+
+      이 앱은 Vite SPA 라 화면을 전부 JS 가 그리는데, 카카오톡·페이스북
+      크롤러는 JS 를 실행하지 않는다. 그래서 카드에 실릴 것은 반드시
+      **서버가 응답할 때 이미 HTML 안에 있어야** 한다. 여기 적힌 것이
+      그 기본값이고, 게스트 링크(`/g/...`)만은 `api/share.ts` 가 요청
+      시각에 이 블록을 그 모임의 문구로 바꿔 끼운다.
+
+      ⚠ `share-card:start` · `share-card:end` 주석을 지우지 마라. 지우면
+        모든 링크가 이 기본 카드로 돌아간다(앱은 안 깨진다 —
+        `injectCardMeta` 가 못 찾으면 원본을 그대로 내보낸다).
+
+      ⚠ og:url 은 일부러 없다. 여기에 한 주소를 박으면 `/t/...` 를 공유해도
+        카드가 홈으로 걸린다. 크롤러는 og:url 이 없으면 자기가 요청한
+        주소를 쓴다.
+
+      로그인해야 보이는 화면(`/t/:id` 등)이 받는 카드도 이것이다 —
+      모임 이름조차 싣지 않는다. 카톡으로 전달된 링크는 회원이 아닌
+      사람도 받고, 그 사람에게 로그인 벽이 막고 있던 것을 카드가 대신
+      알려 주면 안 된다.
+    -->
+    <!-- share-card:start -->
     <title>SMASH — 배드민턴 대회 운영</title>
     <meta name="description" content="대진표, 실시간 점수, 조별 순위를 코트에서 바로 관리하는 배드민턴 대회 운영 앱" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SMASH" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="SMASH — 배드민턴 대회 운영" />
+    <meta property="og:description" content="대진표, 실시간 점수, 조별 순위를 코트에서 바로 관리하는 배드민턴 대회 운영 앱" />
+    <meta property="og:image" content="https://smash.juganlab.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SMASH — 배드민턴 대회 운영" />
+    <meta name="twitter:description" content="대진표, 실시간 점수, 조별 순위를 코트에서 바로 관리하는 배드민턴 대회 운영 앱" />
+    <meta name="twitter:image" content="https://smash.juganlab.com/og.png" />
+    <!-- share-card:end -->
     <!-- 앱 기본이 다크 네이비이므로 OS 설정과 무관하게 한 값이다 (--surface-0) -->
     <meta name="theme-color" content="#0f1725" />
     <!-- vite.svg 는 존재하지 않는 파일이었다 (파비콘이 안 떴다) -->

@@ -5,7 +5,29 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/g/:code",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(kakaotalk-scrap|facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|TelegramBot|WhatsApp|SkypeUriPreview|LinkedInBot|redditbot|Embedly|Iframely|vkShare).*"
+        }
+      ],
+      "destination": "/api/share?kind=guest&code=:code"
+    },
+    {
+      "source": "/g/:code/:sessionId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(kakaotalk-scrap|facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|TelegramBot|WhatsApp|SkypeUriPreview|LinkedInBot|redditbot|Embedly|Iframely|vkShare).*"
+        }
+      ],
+      "destination": "/api/share?kind=board&code=:code&sessionId=:sessionId"
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
   ],

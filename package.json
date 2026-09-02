@@ -37,6 +37,7 @@
     "check:csp": "tsx scripts/check-csp.ts",
     "push:keys": "tsx scripts/gen-vapid.ts",
     "gen:icons": "tsx scripts/gen-icons.ts",
+    "gen:og": "tsx scripts/gen-og.ts",
     "verify": "npm run typecheck && npm run lint && npm run test && npm run check:csp && npm run build"
   },
   "dependencies": {
