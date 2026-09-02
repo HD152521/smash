@@ -47,6 +47,31 @@ describe('오늘 보여줄 하나 고르기', () => {
     expect(focus?.tournament.id).toBe('now')
   })
 
+  test('시작 시각이 아직 안 된 모임은 진행 중이 아니다', () => {
+    /*
+     * create_session 은 모임을 **항상 live 로 만든다** — 다음 주 모임도
+     * 만든 순간부터 live 다. status 만 보면 홈이 다음 주 모임을
+     * "진행 중" 이라고 말한다. 실제 명단에 미래 모임을 넣어 보고서야
+     * 드러난 버그다.
+     */
+    const focus = pickTodayFocus(
+      [t({ id: 'next', status: 'live', startsAt: '2026-08-30T20:00:00+09:00' })],
+      NOW,
+    )
+
+    expect(focus).toEqual({
+      kind: 'upcoming',
+      tournament: expect.objectContaining({ id: 'next' }),
+      startsAt: '2026-08-30T20:00:00+09:00',
+    })
+  })
+
+  test('시각 없는 즉석 모임은 만든 순간부터 진행 중이다', () => {
+    // 즉석 모임은 판단할 시각이 없다 — hasStarted 가 true 를 낸다.
+    const focus = pickTodayFocus([t({ id: 'now', status: 'live', startsAt: null })], NOW)
+    expect(focus?.kind).toBe('live')
+  })
+
   test('진행 중이 없으면 가장 가까운 다음 모임', () => {
     const focus = pickTodayFocus(
       [

@@ -1,4 +1,5 @@
 import { buildSchedule, myMatchRole, queuePosition } from './schedule'
+import { hasStarted } from './rsvp'
 import type { MyTournament } from '@/features/tournament/api'
 import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
@@ -50,7 +51,16 @@ export type TodayFocus =
  * 모임 안내보다 지금 서 있는 코트가 급하다.
  */
 export function pickTodayFocus(tournaments: readonly MyTournament[], now: Date): TodayFocus | null {
-  const live = tournaments.find((t) => t.status === 'live')
+  /*
+   * ⚠ `status === 'live'` 만 보면 안 된다. `create_session` 은 **모임을
+   * 항상 live 로 만든다** — 다음 주 화요일 모임도 만든 순간부터 live 다.
+   * 시작했는지는 status 가 아니라 `hasStarted` 가 판단한다(서버는 시각을
+   * 판단하지 않는다는 규율 — `docs/이어서시작.md` 「참가 신청」).
+   *
+   * 이걸 빠뜨려서 홈이 **다음 주 모임을 "진행 중"** 으로 표시했다.
+   * 실제 명단에 미래 모임을 넣어 보고서야 드러났다.
+   */
+  const live = tournaments.find((t) => t.status === 'live' && hasStarted(t.startsAt, now))
   if (live) return { kind: 'live', tournament: live }
 
   const upcoming = tournaments
