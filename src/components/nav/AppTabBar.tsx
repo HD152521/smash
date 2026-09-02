@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { CalendarDays, Home, User, Users } from 'lucide-react'
 import { appTabFor, type AppTab } from './appTabs'
 import { useAuth } from '@/features/auth/useAuth'
-import { useMyClubs } from '@/features/club/queries'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,13 +15,22 @@ import { cn } from '@/lib/utils'
  * 어느 화면에 뜨는지는 `appTabs.ts` 의 규칙 하나가 정한다. 두 탭바가
  * 동시에 뜨는 일은 거기서 막힌다(`/t/**` 는 허용 목록에 없다).
  *
- * ## 동아리 탭은 동아리가 하나뿐이면 그 동아리로 바로 간다
+ * ## 동아리 탭은 **언제나 목록으로** 간다
  *
- * 홈에 있던 큰 초록 버튼(`ClubDoor`)이 쓰던 규칙 그대로다 — *"고를 것이
- * 하나뿐인 목록을 한 번 더 보여주는 것은 탭만 하나 늘리는 일이다."*
- * 그 버튼을 홈에서 걷어내고 탭으로 옮겼으므로 규칙도 같이 옮겨 온다.
- * 목록이 아직 안 왔으면 `/clubs` 로 둔다 — 그것도 맞는 화면이라
- * 잘못 가는 것이 아니라 한 칸 덜 간 것뿐이다.
+ * 한때 동아리가 하나뿐이면 그 동아리로 바로 보냈다. 홈의 큰 버튼이 쓰던
+ * 규칙("고를 것이 하나뿐인 목록을 한 번 더 보여주는 것은 탭만 하나 늘리는
+ * 일이다")을 그대로 옮겨 온 것이었는데, **탭에는 그 규칙이 안 맞는다.**
+ *
+ * 탭은 늘 화면 아래에 있는 것이라 **누르기 전에 어디로 갈지 알아야 한다.**
+ * 동아리 수에 따라 목적지가 달라지면, 두 번째 동아리에 들어간 날부터
+ * 같은 탭이 다른 곳으로 간다 — 그날 사용자는 앱이 바뀌었다고 느낀다.
+ *
+ * 그리고 동아리 하나짜리 사용자는 그 바로가기 때문에 **`/clubs` 에 영영
+ * 못 갔다.** 거기에만 있는 '동아리 만들기 · 코드로 참가' 가 같이 사라져,
+ * 두 번째 동아리를 만들 길이 없었다.
+ *
+ * 지름길이 필요하면 홈의 카드가 한다 — 거기는 "오늘" 을 보여주는 자리라
+ * 상황에 따라 달라지는 것이 맞다.
  */
 const TABS = [
   { key: 'home', label: '홈', to: '/', icon: Home },
@@ -40,20 +48,12 @@ export function AppTabBar() {
   const { user } = useAuth()
   const active = appTabFor(pathname)
 
-  /*
-   * 탭이 안 뜨는 화면에서는 **컴포넌트 자체를 렌더하지 않는다.** 안쪽에서
-   * `useMyClubs` 를 부르므로, 여기서 걸러 두면 코트 화면(가장 자주 보는
-   * 화면)에서 쓰지도 않을 동아리 조회가 나가지 않는다.
-   */
+  // 탭이 안 뜨는 화면에서는 컴포넌트 자체를 렌더하지 않는다.
   if (!user || !active) return null
   return <Bar active={active} />
 }
 
 function Bar({ active }: { active: AppTab }) {
-  const { data } = useMyClubs()
-  const clubs = data ?? []
-  const clubsTo = clubs.length === 1 ? `/c/${clubs[0]!.id}` : '/clubs'
-
   return (
     /*
       엄지가 닿는 화면 맨 아래(docs/design.md '자주 누르는 것은 아래에
@@ -72,7 +72,7 @@ function Bar({ active }: { active: AppTab }) {
           return (
             <li key={tab.key} className="min-w-0 flex-1">
               <Link
-                to={tab.key === 'clubs' ? clubsTo : tab.to}
+                to={tab.to}
                 aria-current={current ? 'page' : undefined}
                 className={cn(
                   'relative flex min-h-16 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-bold',

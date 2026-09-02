@@ -241,8 +241,11 @@ try {
   )
 
   const stolenFinish = await rpc(outsider.token, 'finish_match', { p_match_id: m2Id })
-  check('뛰지 않는 참가자는 경기를 끝낼 수 없다', stolenFinish.status >= 400,
-    `status=${stolenFinish.status}`)
+  check(
+    '뛰지 않는 참가자는 경기를 끝낼 수 없다',
+    stolenFinish.status >= 400,
+    `status=${stolenFinish.status}`,
+  )
 
   console.log('\n── 점수를 세면 대회와 똑같이 동작한다 ──')
   for (let i = 0; i < 21; i++) {
@@ -410,11 +413,7 @@ try {
     byOutsider.status >= 400,
     `status=${byOutsider.status} — can_run_match 의 '자기 경기' 경계가 여기도 그대로여야 한다`,
   )
-  check(
-    '거절해도 편성은 그대로다',
-    (await lineup(eAId)) === beforeLineup,
-    `${await lineup(eAId)}`,
-  )
+  check('거절해도 편성은 그대로다', (await lineup(eAId)) === beforeLineup, `${await lineup(eAId)}`)
 
   console.log('\n   · 고치면 바뀌고, 경기 id 와 자리는 그대로다')
   /*

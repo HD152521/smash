@@ -1,5 +1,7 @@
+import { useNavigate } from 'react-router-dom'
 import { Check, X } from 'lucide-react'
 import { useSetMyRsvp } from './queries'
+import { useAutoJoin } from './useAutoJoin'
 import { countRsvp, groupRsvp, rsvpCountsText, rsvpErrorMessage, startsAtLabel } from '@/lib/rsvp'
 import { cn } from '@/lib/utils'
 import type { MemberSummary } from './api'
@@ -31,6 +33,32 @@ export function SessionRsvpPanel({
   onShowCourts: () => void
 }) {
   const setRsvp = useSetMyRsvp(tournamentId)
+  const navigate = useNavigate()
+
+  /*
+   * 나간다고 눌렀으면 이 화면에 남아 있을 이유가 없다. 여기서 볼 것은
+   * "몇 명 오나" 와 "누가 오나" 뿐인데, 안 가는 사람에게는 둘 다 남의
+   * 일이다.
+   *
+   * `replace` 로 보낸다 — 밀어 넣으면 폰 뒤로가기가 방금 나온 모임으로
+   * 도로 데려간다.
+   */
+  function leave() {
+    setRsvp.mutate('declined', {
+      onSuccess: () => navigate('/', { replace: true }),
+    })
+  }
+
+  /*
+   * 들어오면 참가로 표시한다. 바꾸는 것은 '미정' 하나뿐이고 한 번만
+   * 시도한다 — 근거는 `useAutoJoin` 머리 주석에 있다.
+   */
+  useAutoJoin({
+    rsvp: me?.rsvp,
+    enabled: Boolean(me),
+    onJoin: () => setRsvp.mutate('going'),
+  })
+
   const counts = countRsvp(members)
   const groups = groupRsvp(members)
   const timeLabel = startsAtLabel(startsAt)
@@ -55,32 +83,12 @@ export function SessionRsvpPanel({
         )}
 
         {me ? (
-          <>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <RsvpButton
-                value="going"
-                current={me.rsvp}
-                pending={setRsvp.isPending}
-                onClick={() => setRsvp.mutate('going')}
-              >
-                <Check className="size-5" aria-hidden />
-                참가할게요
-              </RsvpButton>
-              <RsvpButton
-                value="declined"
-                current={me.rsvp}
-                pending={setRsvp.isPending}
-                onClick={() => setRsvp.mutate('declined')}
-              >
-                <X className="size-5" aria-hidden />안 갈래요
-              </RsvpButton>
-            </div>
-            <p className="mt-2 text-xs text-ink-3">
-              {me.rsvp === 'invited'
-                ? '아직 안 눌렀습니다. 늦게 눌러도 되고, 눌렀다가 바꿔도 됩니다.'
-                : '마음이 바뀌면 다시 누르면 됩니다. 늦게 도착해도 참가를 누를 수 있습니다.'}
-            </p>
-          </>
+          <MyRsvpLine
+            rsvp={me.rsvp}
+            pending={setRsvp.isPending}
+            onGoing={() => setRsvp.mutate('going')}
+            onDecline={leave}
+          />
         ) : (
           <p className="mt-4 text-sm text-ink-2">
             이 모임 명단에 없어 참가를 누를 수 없습니다. 모임이 열린 뒤에 동아리에 들어왔다면 다음
@@ -152,43 +160,86 @@ export function SessionRsvpPanel({
 }
 
 /**
- * 참가/불참 한 짝.
+ * 내 참가 상태 한 줄.
  *
- * 지금 고른 쪽을 `aria-pressed` 로 알린다 — 색만으로 표시하면 스크린리더는
- * 두 버튼 중 어느 쪽이 내 답인지 읽어 줄 수 없다. 누르는 동안에도 비활성만
- * 하고 글자는 그대로 둔다. 서버가 멱등이라 한 번 더 눌려도 조용히 통과한다.
+ * ── 큰 버튼 둘을 걷어낸 이유 ────────────────────────────────────────
+ *
+ * 전에는 `참가할게요` · `안 갈래요` 가 화면 폭을 반씩 차지하는 큰 버튼
+ * 둘이었다. 그런데 **여기까지 들어온 사람은 대개 온다.** 모임 화면을
+ * 일부러 열었다는 것 자체가 "간다" 는 뜻에 가깝다.
+ *
+ * 그래서 기본값을 뒤집는다 — 들어오면 **참가**이고, 못 오는 사람만
+ * `모임 나가기` 를 누른다. 오는 사람은 아무것도 안 눌러도 되고, 화면은
+ * 그만큼 조용해진다.
+ *
+ * ⚠ **자동으로 바꾸는 것은 '미정'(invited) 일 때뿐이다.** 이미 `불참`
+ * 을 누른 사람을 다시 참가로 되돌리면, 그 사람이 화면을 볼 때마다
+ * 자기가 누른 것이 뒤집힌다 — 앱이 자기 말을 안 듣는다고 읽는다.
+ * 그 판단은 `useAutoJoin` 에 있다.
+ *
+ * ⚠ **조용히 바꾸지 않는다.** 서버에 쓰는 일을 사람이 모르면 안 되므로
+ * 화면이 "참가로 표시했습니다" 라고 먼저 말한다.
  */
-function RsvpButton({
-  value,
-  current,
+function MyRsvpLine({
+  rsvp,
   pending,
-  onClick,
-  children,
+  onGoing,
+  onDecline,
 }: {
-  value: Extract<RsvpStatus, 'going' | 'declined'>
-  current: RsvpStatus
+  rsvp: RsvpStatus
   pending: boolean
-  onClick: () => void
-  children: React.ReactNode
+  onGoing: () => void
+  onDecline: () => void
 }) {
-  const active = current === value
+  /*
+   * 나가기를 누르면 화면을 떠나므로 이 분기는 **다시 들어온 사람**만 본다
+   * (마음이 바뀌었거나, 주소를 다시 열었거나). 그래서 여기서 크게 말할
+   * 것은 '다시 참가' 하나다.
+   */
+  if (rsvp === 'declined') {
+    return (
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <p className="flex-1 text-sm font-bold text-ink-2">안 간다고 표시했습니다</p>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onGoing}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-brand-600 px-4
+                     text-sm font-bold text-brand-ink transition-transform active:scale-[0.98]
+                     disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2
+                     focus-visible:outline-brand-600"
+        >
+          <Check className="size-4" aria-hidden />
+          다시 참가
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      disabled={pending}
-      className={cn(
-        'flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 px-4 font-black',
-        'transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600',
-        active && value === 'going' && 'border-brand-600 bg-brand-600 text-brand-ink',
-        active && value === 'declined' && 'border-ink-3 bg-surface-2 text-ink-1',
-        !active && 'border-border-subtle bg-surface-1 text-ink-2 hover:bg-surface-2',
-      )}
-    >
-      {children}
-    </button>
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <p className="flex-1 text-sm font-bold text-ink-1">
+        <Check className="mr-1 inline size-4 align-[-2px] text-brand-fg" aria-hidden />
+        참가로 표시했습니다
+      </p>
+      {/*
+        나가기는 조용한 버튼이다. 이 화면에 온 사람 대부분은 오는 사람이고,
+        그 사람들 눈에 제일 크게 띄어야 할 것은 "몇 명 오나" 이지 나가는
+        문이 아니다.
+      */}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onDecline}
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm
+                   font-semibold text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink-1
+                   active:bg-surface-2 disabled:opacity-40 focus-visible:outline-2
+                   focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      >
+        <X className="size-4" aria-hidden />
+        모임 나가기
+      </button>
+    </div>
   )
 }
 

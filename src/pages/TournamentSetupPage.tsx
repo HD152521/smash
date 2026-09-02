@@ -1,4 +1,5 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { BackBar } from '@/components/ui/BackBar'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/features/auth/useAuth'
 import { GroupPicker } from '@/features/tournament/GroupPicker'
@@ -46,7 +47,15 @@ export function TournamentSetupPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 pt-10 pb-40">
-      <p className="text-sm font-semibold tracking-widest text-brand-fg uppercase">
+      {/*
+        나가는 길. 이 화면에는 하단탭이 없고(온보딩이라 일부러 없다) 아래
+        '다음' 은 조를 골라야 켜진다 — 조를 고르기 싫은 사람에게는 여기가
+        막다른 화면이었다. 조는 나중에 설정에서도 고를 수 있으므로 그냥
+        대회로 들여보낸다. 껍데기가 `pt-10` 이라 머리말이 지는 여백도 그만큼.
+      */}
+      <BackBar to={`/t/${id}`} label="대회로" className="-mt-10" topPad="2.5rem" />
+
+      <p className="mt-6 text-sm font-semibold tracking-widest text-brand-fg uppercase">
         {tournament.data.name}
       </p>
       <h1 className="mt-2 text-3xl leading-tight font-black tracking-tight text-ink-1">
