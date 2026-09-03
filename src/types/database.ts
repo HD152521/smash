@@ -10,6 +10,7 @@
  * 스키마를 바꿨으면: npm run db:push && npm run db:types
  */
 import type {
+  ClubDuesRow,
   ClubMembersRow,
   ClubsRow,
   CourtsRow,
@@ -91,6 +92,8 @@ export type ProfileRow = ProfilesRow
 /** 동아리는 대회 위에 얹힌 선택 계층이다 — 명단의 원천이지 권한 축이 아니다 */
 export type ClubRow = ClubsRow
 export type ClubMemberRow = ClubMembersRow
+/** 월 회비 장부의 한 줄. grain 은 회원 × 달이다 (20260903000002) */
+export type ClubDuesEntryRow = ClubDuesRow
 export type { MatchOverviewRow }
 
 // ── 3. RPC 반환 타입 (테이블이 아니라 함수 결과) ─────────────────────
@@ -134,6 +137,30 @@ export type JoinClubResult =
       error: 'unauthenticated' | 'rate_limited' | 'bad_format' | 'not_found'
       message: string
     }
+
+/**
+ * club_dues_summary 가 돌려주는 봉투 — **회원이 볼 수 있는 전부**다.
+ *
+ * 🔴 여기에 키를 늘리는 것이 곧 노출 표면을 넓히는 것이다. 남의 이름·남의
+ * 납부 여부·인원 수는 절대 들어오면 안 된다 — 동아리에서 "누가 회비 안
+ * 냈다" 가 공개되면 실제로 사람이 나간다. 운영진 화면은 이 봉투가 아니라
+ * `club_dues` 테이블을 직접 읽는다(RLS 가 운영진에게만 연다).
+ *
+ * `mine` 에 note 가 없는 것도 의도다 — 메모는 총무가 통장에서 사람을 찾으려고
+ * 적는 사적인 글이라 본인에게도 안 보낸다.
+ *
+ * 게스트비가 생기면 여기에 키를 더한다 (서버가 jsonb 를 돌려주는 이유).
+ */
+export type ClubDuesSummary = {
+  /** 그 달 1일 — 'YYYY-MM-DD' */
+  period_month: string
+  /** 걷을 돈 */
+  expected_total: number
+  /** 걷힌 돈 */
+  collected_total: number
+  /** 내 회비 한 줄. 계정 없는 회원은 로그인을 못 하므로 여기 안 걸린다 */
+  mine: { id: string; amount: number; paid_on: string | null } | null
+}
 
 // ── 4. Functions 를 얹은 최종 Database 타입 ──────────────────────────
 type GenTables = GeneratedDatabase['public']['Tables']
@@ -252,6 +279,54 @@ export type Database = {
       /** 동아리에서 빼기 / 스스로 나가기. owner 행은 어느 쪽도 못 뺀다 */
       remove_club_member: {
         Args: { p_member_id: string }
+        Returns: void
+      }
+      /**
+       * 월 회비 — **회원용 창구.** 합계 둘과 본인 행만 돌려준다.
+       *
+       * 🔴 회원이 회비를 보는 길은 이것 하나뿐이다. `club_dues` 테이블의
+       * RLS 는 운영진에게만 열려 있어서, 회원이 직접 조회하면 0행이 온다.
+       * 그렇게 막아 둔 이유는 행을 한 줄이라도 열면 "paid_on 이 null 인
+       * 사람 = 미납자" 가 그대로 드러나기 때문이다.
+       */
+      club_dues_summary: {
+        Args: { p_club_id: string; p_period: string }
+        Returns: ClubDuesSummary
+      }
+      /**
+       * 그 달 장부 열기 — 회원 전원에게 행을 만든다. 재실행 안전하다.
+       *
+       * 이미 있는 행의 금액은 덮어쓰지 않으므로, 중간에 들어온 회원을
+       * 채울 때도 같은 함수를 부른다. 새로 만든 행 수를 돌려준다.
+       */
+      open_dues_month: {
+        Args: { p_club_id: string; p_period: string; p_amount: number }
+        Returns: number
+      }
+      /**
+       * 납부 체크 **및 되돌리기**. p_paid=false 면 입금일을 지운다.
+       *
+       * 양방향인 것이 핵심이다 — 돈 기록은 반드시 틀리고(잘못 체크, 늦은
+       * 이체), 되돌릴 수 없으면 총무가 앱을 안 믿는다. 양쪽 다 감사로그에
+       * 남는다.
+       */
+      set_dues_paid: {
+        Args: { p_dues_id: string; p_paid: boolean; p_paid_on?: string | null }
+        Returns: ClubDuesEntryRow
+      }
+      /** 금액 고치기. 앱은 회비를 계산하지 않는다 — 총무가 적는다 */
+      set_dues_amount: {
+        Args: { p_dues_id: string; p_amount: number }
+        Returns: ClubDuesEntryRow
+      }
+      /** 입금자명이 회원 이름과 다를 때의 실마리. 빈 문자열이면 지운다 */
+      set_dues_note: {
+        Args: { p_dues_id: string; p_note: string }
+        Returns: ClubDuesEntryRow
+      }
+      /** 이 달에 받을 것이 없는 사람을 '걷을 돈' 에서 뺀다. 지우기 전에 감사로그에 남는다 */
+      remove_dues_entry: {
+        Args: { p_dues_id: string }
         Returns: void
       }
       /**

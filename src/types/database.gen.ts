@@ -31,6 +31,19 @@ export type AuditLogsRow = {
   club_id: string | null
 }
 
+export type ClubDuesRow = {
+  id: string
+  club_id: string
+  member_id: string | null
+  member_name: string
+  period_month: string
+  amount: number
+  paid_on: string | null
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type ClubMembersRow = {
   id: string
   club_id: string
@@ -234,6 +247,7 @@ export type Database = {
   public: {
     Tables: {
       audit_logs: { Row: AuditLogsRow; Insert: Partial<AuditLogsRow> & Pick<AuditLogsRow, 'action' | 'target_type'>; Update: Partial<AuditLogsRow>; Relationships: [] }
+      club_dues: { Row: ClubDuesRow; Insert: Partial<ClubDuesRow> & Pick<ClubDuesRow, 'club_id' | 'member_name' | 'period_month' | 'amount'>; Update: Partial<ClubDuesRow>; Relationships: [] }
       club_members: { Row: ClubMembersRow; Insert: Partial<ClubMembersRow> & Pick<ClubMembersRow, 'club_id' | 'display_name'>; Update: Partial<ClubMembersRow>; Relationships: [] }
       clubs: { Row: ClubsRow; Insert: Partial<ClubsRow> & Pick<ClubsRow, 'name' | 'invite_code' | 'owner_id' | 'guest_code'>; Update: Partial<ClubsRow>; Relationships: [] }
       courts: { Row: CourtsRow; Insert: Partial<CourtsRow> & Pick<CourtsRow, 'tournament_id' | 'name' | 'sort_order'>; Update: Partial<CourtsRow>; Relationships: [] }

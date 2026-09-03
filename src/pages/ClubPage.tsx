@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, KeyRound, Link2, Settings, Users } from 'lucide-react'
+import { ArrowRight, KeyRound, Link2, Settings, Users, Wallet } from 'lucide-react'
 import { APP_TAB_PADDING } from '@/components/nav/appTabs'
 import { useAuth } from '@/features/auth/useAuth'
 import { ClubTournamentList } from '@/features/club/ClubTournamentList'
@@ -112,6 +112,22 @@ export function ClubPage() {
             desc="회원을 명단에 들이는 코드"
           />
         )}
+        {/*
+          회비는 회원에게도 문이 열려 있다 — 회원은 그 안에서 **자기 것
+          한 줄**만 본다. 문을 운영진에게만 열면 회원은 자기가 냈는지
+          확인할 곳이 없어져 총무에게 카톡으로 묻게 되는데, 그 카톡을
+          없애는 것이 이 기능의 목적이다.
+
+          ⚠ 여기에 미납 인원 수를 `count` 로 달지 마라. 허브는 회원도
+            보는 화면이고, "미납 3" 은 회원 수를 아는 사람에게 곧 명단을
+            좁히는 단서가 된다.
+        */}
+        <HubRow
+          to={`/c/${c.id}/dues`}
+          icon={<Wallet className="size-5" aria-hidden />}
+          title="회비"
+          desc={canManage ? '누가 냈고 누가 안 냈나' : '내 회비 상태'}
+        />
         <HubRow
           to={`/c/${c.id}/settings`}
           icon={<Settings className="size-5" aria-hidden />}
