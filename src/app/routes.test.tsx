@@ -87,7 +87,7 @@ const ROUTES = [
   '/settings/alerts',
   '/me',
 
-  // 동아리 — 허브 하나에 하위 넷
+  // 동아리 — 허브 하나에 하위 다섯
   '/clubs',
   '/clubs/new',
   '/clubs/join',
@@ -95,6 +95,7 @@ const ROUTES = [
   `/c/${CLUB_ID}/guest`,
   `/c/${CLUB_ID}/invite`,
   `/c/${CLUB_ID}/members`,
+  `/c/${CLUB_ID}/dues`,
   `/c/${CLUB_ID}/settings`,
 
   /*

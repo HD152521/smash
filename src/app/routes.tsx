@@ -139,6 +139,9 @@ const ClubMembersPage = lazyPage(() =>
 const ClubSettingsPage = lazyPage(() =>
   import('@/pages/ClubSettingsPage').then((m) => ({ default: m.ClubSettingsPage })),
 )
+const ClubDuesPage = lazyPage(() =>
+  import('@/pages/ClubDuesPage').then((m) => ({ default: m.ClubDuesPage })),
+)
 
 /*
  * 게스트 화면 둘은 이 앱에서 **로그인 가드 밖**에 있는 유일한 화면들이다.
@@ -339,7 +342,7 @@ function AppRouteTable() {
         }
       />
       {/*
-        동아리도 대회 관리와 같은 모양이다 — 허브 하나에 하위 넷.
+        동아리도 대회 관리와 같은 모양이다 — 허브 하나에 하위 다섯.
         한 장에 이름·코드 둘·산하 대회·명단 30줄·나가기를 쌓아 뒀더니,
         체육관에서 가장 자주 쓰는 게스트 링크가 명단 밑으로 밀렸다.
 
@@ -369,6 +372,20 @@ function AppRouteTable() {
         element={
           <Protected>
             <ClubMembersPage />
+          </Protected>
+        }
+      />
+      {/*
+        회비는 명단 옆이지 설정 안이 아니다 — 매달 여는 화면이고, 설정은
+        어쩌다 한 번 여는 화면이다. `/admin/` 같은 하위 이름공간을 안 쓰는
+        것은 동아리 쪽 규칙이다(운영진 전용 화면인 게스트 링크·동아리 코드도
+        한 단어짜리다). 운영진만 보이는 것은 주소가 아니라 화면이 가른다.
+      */}
+      <Route
+        path="/c/:clubId/dues"
+        element={
+          <Protected>
+            <ClubDuesPage />
           </Protected>
         }
       />
