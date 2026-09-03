@@ -118,6 +118,49 @@ async function main() {
     await rpc(token, 'add_roster_member', { p_tournament_id: sess.id, p_name: n })
   }
 
+  /*
+   * 「내 목록」 캘린더용 데이터.
+   *
+   * 캘린더에서 봐야 하는 것은 셋이고, 하나라도 빠지면 화면이 실제로 어떻게
+   * 보이는지 알 수 없다:
+   *
+   *   1. **패턴** — 매주 같은 요일에 점이 서는가. 한 주만 만들면 안 보인다
+   *   2. **여러 동아리가 한 판에** — 모양·색·자리가 실제로 갈리는가
+   *   3. **지평선** — 동아리마다 만들어 둔 데가 다를 때 어디서 흐려지는가.
+   *      그래서 두 동아리의 마지막 날을 일부러 어긋나게 만든다
+   */
+  const clubB = (await rpc(token, 'create_club', {
+    p_name: '주말클럽',
+    p_display_name: '운영진',
+  })) as { id: string }
+
+  const dated: string[] = []
+  async function openAt(name: string, clubId: string, at: Date) {
+    const row = (await rpc(token, 'create_session', {
+      p_name: name,
+      p_display_name: '운영진',
+      p_court_count: 2,
+      p_club_id: clubId,
+      p_starts_at: at.toISOString(),
+    })) as { id: string }
+    dated.push(row.id)
+  }
+
+  const today = new Date()
+  /** 오늘로부터 며칠 뒤 20:00 (로컬) */
+  function at(days: number, hour = 20) {
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate() + days, hour, 0)
+  }
+
+  // 화요일·목요일 정기모임 — 지난 2주 + 앞으로 2주 (앞이 더 멀리 만들어져 있다)
+  for (const d of [-14, -12, -7, -5, -2, 2, 5, 7, 12, 14]) {
+    await openAt(`${d < 0 ? '지난' : '다음'} 정기모임`, club.id, at(d))
+  }
+  // 주말클럽은 이번 주까지만 만들어 뒀다 — 지평선이 여기서 걸린다
+  for (const d of [-9, -2, 3]) {
+    await openAt('주말 모임', clubB.id, at(d, 10))
+  }
+
   console.log('브라우저 띄우는 중…')
   const browser = await chromium.launch()
   const ctx = await browser.newContext({
@@ -143,19 +186,56 @@ async function main() {
   await shoot(page, `/t/${sess.id}/members`, 'members')
   await shoot(page, `/clubs`, 'clubs')
   await shoot(page, `/c/${club.id}`, 'club')
+  await shoot(page, `/my`, 'my')
+
+  /*
+   * 「내 목록」은 **320px 에서도** 찍는다. 캘린더가 일곱 칸을 가로로
+   * 나누는 유일한 화면이라, 여기서만 깨진다 — 390px 에서 여유로워 보이는
+   * 칸이 320px 에서는 40px 이 된다. 이 앱의 교훈이 "고친 것 중 절반은
+   * 코드로는 안 보이고 찍어야만 보였다" 이고, 그 절반이 이런 것이다.
+   */
+  const narrow = await browser.newContext({
+    viewport: { width: 320, height: 720 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+  })
+  const narrowPage = await narrow.newPage()
+  await narrowPage.goto(`${APP}/login`)
+  await narrowPage.evaluate(
+    ([key, value]) => window.localStorage.setItem(key!, value!),
+    [storageKey(), JSON.stringify(session)],
+  )
+  await shoot(narrowPage, '/my', 'my-320')
+
+  /*
+   * 캘린더에서 하루를 고른 모습. 7일 밖의 일정에 닿는 유일한 길이라
+   * 눌린 칸이 실제로 눌린 것처럼 보이는지 눈으로 봐야 한다.
+   */
+  const someDay = narrowPage.getByRole('button', { name: /월 \d+일 · / }).last()
+  if (await someDay.count()) {
+    await someDay.click()
+    await narrowPage.waitForTimeout(300)
+    await narrowPage.screenshot({ path: `${OUT}/my-320-day.png`, fullPage: true })
+    console.log(`  ${OUT}/my-320-day.png`)
+  }
 
   await browser.close()
 
   console.log('정리 중…')
   await rpc(token, 'delete_club_cascade_stub', {}).catch(() => {})
-  await fetch(`${URL_BASE}/rest/v1/tournaments?id=eq.${sess.id}`, {
-    method: 'DELETE',
-    headers: { apikey: ANON, Authorization: `Bearer ${token}` },
-  })
-  await fetch(`${URL_BASE}/rest/v1/clubs?id=eq.${club.id}`, {
-    method: 'DELETE',
-    headers: { apikey: ANON, Authorization: `Bearer ${token}` },
-  })
+  for (const id of [sess.id, ...dated]) {
+    await fetch(`${URL_BASE}/rest/v1/tournaments?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { apikey: ANON, Authorization: `Bearer ${token}` },
+    })
+  }
+  for (const id of [club.id, clubB.id]) {
+    await fetch(`${URL_BASE}/rest/v1/clubs?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { apikey: ANON, Authorization: `Bearer ${token}` },
+    })
+  }
   console.log(`\n${OUT}/ 에 저장했습니다. 계정: ${EMAIL}`)
 }
 
