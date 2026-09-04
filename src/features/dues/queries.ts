@@ -5,6 +5,7 @@ import {
   fetchDuesSummary,
   openDuesMonth,
   removeDuesEntry,
+  restoreDuesEntry,
   setDuesAmount,
   setDuesNote,
   setDuesPaid,
@@ -96,6 +97,15 @@ export function useRemoveDuesEntry(clubId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (duesId: string) => removeDuesEntry(duesId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: duesKeys.all(clubId) }),
+  })
+}
+
+/** 뺀 사람 되돌리기. 그 행을 살리는 것이라 금액·메모가 그대로 돌아온다 */
+export function useRestoreDuesEntry(clubId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (duesId: string) => restoreDuesEntry(duesId),
     onSuccess: () => qc.invalidateQueries({ queryKey: duesKeys.all(clubId) }),
   })
 }

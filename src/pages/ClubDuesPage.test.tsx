@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { ClubDuesPage } from './ClubDuesPage'
 import type { ClubMemberSummary } from '@/features/club/api'
+import type { DuesEntry } from '@/lib/dues'
 import type { ClubRole } from '@/types/database'
 
 /**
@@ -44,7 +45,7 @@ vi.mock('@/features/club/queries', () => ({
   useClubMembers: () => ({ data: members(), isPending: false, error: null }),
 }))
 
-const ENTRIES = [
+const ENTRIES: DuesEntry[] = [
   {
     id: 'd1',
     memberId: 'cm1',
@@ -52,9 +53,37 @@ const ENTRIES = [
     amount: 30000,
     paidOn: '2026-09-01',
     note: null,
+    removedAt: null,
   },
-  { id: 'd2', memberId: 'cm2', memberName: '정하늘', amount: 30000, paidOn: null, note: null },
-  { id: 'd3', memberId: 'cm3', memberName: '최유진', amount: 30000, paidOn: null, note: null },
+  {
+    id: 'd2',
+    memberId: 'cm2',
+    memberName: '정하늘',
+    amount: 30000,
+    paidOn: null,
+    note: null,
+    removedAt: null,
+  },
+  {
+    id: 'd3',
+    memberId: 'cm3',
+    memberName: '최유진',
+    amount: 30000,
+    paidOn: null,
+    note: null,
+    removedAt: null,
+  },
+  // 뺀 사람. 🔴 회원 화면에는 이 이름도 안 나와야 한다 — 「뺀 사람」 칸은
+  // 운영진 화면에만 있고, 회원은 애초에 장부를 조회하지도 않는다.
+  {
+    id: 'd4',
+    memberId: 'cm4',
+    memberName: '휴회중',
+    amount: 30000,
+    paidOn: null,
+    note: null,
+    removedAt: '2026-09-03T00:00:00Z',
+  },
 ]
 
 const SUMMARY = {
@@ -85,6 +114,7 @@ vi.mock('@/features/dues/queries', () => ({
   useSetDuesAmount: () => idle,
   useSetDuesNote: () => idle,
   useRemoveDuesEntry: () => idle,
+  useRestoreDuesEntry: () => idle,
 }))
 
 function renderPage() {
@@ -116,6 +146,9 @@ describe('회원 화면 — 자기 것 한 줄과 합계뿐이다', () => {
     renderPage()
     expect(screen.queryByText('정하늘')).toBeNull()
     expect(screen.queryByText('최유진')).toBeNull()
+    // 뺀 사람도 마찬가지다. "이 달 회비에서 빠진 사람" 이 누구인지도
+    // 회원에게는 알 필요가 없고, 알게 두면 그 자체가 명단이 된다.
+    expect(screen.queryByText('휴회중')).toBeNull()
   })
 
   test('🔴 「안 낸 사람」 목록 자체가 없다', () => {

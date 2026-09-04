@@ -13,11 +13,25 @@ import {
   shiftMonth,
   suggestedAmount,
   validateDuesAmount,
+  validateDuesInput,
   type DuesEntry,
 } from './dues'
 
 function entry(name: string, amount: number, paidOn: string | null = null): DuesEntry {
-  return { id: `d-${name}`, memberId: `m-${name}`, memberName: name, amount, paidOn, note: null }
+  return {
+    id: `d-${name}`,
+    memberId: `m-${name}`,
+    memberName: name,
+    amount,
+    paidOn,
+    note: null,
+    removedAt: null,
+  }
+}
+
+/** 이 달 회비에서 뺀 사람. 행은 남아 있고 합계에만 안 든다 */
+function removedEntry(name: string, amount: number, paidOn: string | null = null): DuesEntry {
+  return { ...entry(name, amount, paidOn), removedAt: '2026-09-03T00:00:00Z' }
 }
 
 describe('formatWon', () => {
@@ -227,5 +241,100 @@ describe('suggestedAmount — 계산이 아니라 입력칸의 초기값이다',
 
   test('지난 달이 없으면 빈 칸으로 시작한다', () => {
     expect(suggestedAmount([])).toBeNull()
+  })
+
+  /*
+   * 뺀 사람의 금액은 '우리 동아리 회비' 가 아니다. 휴회로 0원을 둔 사람을
+   * 두 명만 빼도 다음 달 기본값이 0원으로 뜬다.
+   */
+  test('뺀 사람은 기본값을 정하는 데 안 센다', () => {
+    const previous = [entry('김민수', 30000), removedEntry('휴회1', 0), removedEntry('휴회2', 0)]
+    expect(suggestedAmount(previous)).toBe(30000)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════════
+// 「빼기」는 지우기가 아니다 — 뺀 행은 남고, 합계에서만 빠진다
+//
+// 지우기로 두면 잘못 뺐을 때 되돌릴 길이 없다. 총무가 손으로 고친 금액도,
+// 입금일도, 이미 명단에서 나간 사람이라는 사실도 같이 사라진다.
+// 그래서 서버는 `removed_at` 을 채울 뿐이고, 화면은 그 행을 합계에서
+// 빼되 **보이는 곳에 남겨** 되돌릴 수 있게 한다.
+// ════════════════════════════════════════════════════════════════════
+
+describe('뺀 사람은 합계에 안 든다', () => {
+  test('걷을 돈에서도 걷힌 돈에서도 빠진다', () => {
+    const t = duesTotals([
+      entry('김민수', 30000, '2026-09-01'),
+      entry('정하늘', 30000),
+      removedEntry('휴회', 30000),
+    ])
+    expect(t.expected).toBe(60000)
+    expect(t.collected).toBe(30000)
+    expect(t.paidCount).toBe(1)
+    expect(t.unpaidCount).toBe(1)
+  })
+
+  /*
+   * 낸 사람은 애초에 못 뺀다(서버가 거절한다). 그래도 옛 데이터나 손으로
+   * 고친 행이 이 상태로 올 수 있으니, 화면의 합계도 같은 답을 내야 한다 —
+   * 두 곳이 다르면 총무는 어느 쪽이 맞는지 알 방법이 없다.
+   */
+  test('뺀 행에 입금일이 남아 있어도 걷힌 돈에 안 든다', () => {
+    const t = duesTotals([entry('김민수', 30000, '2026-09-01'), removedEntry('뺀사람', 50000, '2026-09-02')])
+    expect(t.expected).toBe(30000)
+    expect(t.collected).toBe(30000)
+  })
+})
+
+describe('partitionDues — 뺀 사람은 세 번째 칸이다', () => {
+  test('안 낸 사람·낸 사람 어느 쪽에도 안 섞인다', () => {
+    const { unpaid, paid, removed } = partitionDues([
+      entry('김민수', 30000, '2026-09-01'),
+      entry('정하늘', 30000),
+      removedEntry('휴회', 30000),
+    ])
+    expect(unpaid.map((e) => e.memberName)).toEqual(['정하늘'])
+    expect(paid.map((e) => e.memberName)).toEqual(['김민수'])
+    expect(removed.map((e) => e.memberName)).toEqual(['휴회'])
+  })
+
+  test('뺀 사람도 이름순이다', () => {
+    const { removed } = partitionDues([removedEntry('최유진', 30000), removedEntry('김민수', 30000)])
+    expect(removed.map((e) => e.memberName)).toEqual(['김민수', '최유진'])
+  })
+})
+
+// ════════════════════════════════════════════════════════════════════
+// 「적었는데요」 — 빈 칸과 잘못 적은 값은 다른 오류다
+// ════════════════════════════════════════════════════════════════════
+
+describe('validateDuesInput — 총무가 친 문자열을 그대로 본다', () => {
+  test('빈 칸은 적어 달라고 한다', () => {
+    expect(validateDuesInput('')).toBe('금액을 적어 주세요')
+    expect(validateDuesInput('   ')).toBe('금액을 적어 주세요')
+  })
+
+  /*
+   * 여기가 이 함수가 생긴 이유다. '-30000' 을 치고 "금액을 적어 주세요"
+   * 를 들으면 총무는 무엇을 고쳐야 하는지 모른 채 같은 값을 다시 친다.
+   */
+  test('적었는데 숫자가 아니면 그렇다고 말한다', () => {
+    for (const bad of ['-30000', '30.5', '삼만원', '3e4', 'abc']) {
+      const message = validateDuesInput(bad)
+      expect(message).not.toBeNull()
+      expect(message).not.toBe('금액을 적어 주세요')
+    }
+  })
+
+  test('통장에서 복사한 값은 그대로 통과한다', () => {
+    expect(validateDuesInput('30,000')).toBeNull()
+    expect(validateDuesInput('30,000원')).toBeNull()
+    expect(validateDuesInput('0')).toBeNull()
+  })
+
+  test('상한은 DB 제약과 같은 값이다', () => {
+    expect(validateDuesInput(String(DUES_AMOUNT_MAX))).toBeNull()
+    expect(validateDuesInput(String(DUES_AMOUNT_MAX + 1))).not.toBeNull()
   })
 })

@@ -2,13 +2,8 @@ import { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { toUserMessage } from '@/lib/errors'
-import { formatPaidOn, parseWon, validateDuesAmount, type DuesEntry } from '@/lib/dues'
-import {
-  useRemoveDuesEntry,
-  useSetDuesAmount,
-  useSetDuesNote,
-  useSetDuesPaid,
-} from './queries'
+import { formatPaidOn, formatWon, parseWon, validateDuesInput, type DuesEntry } from '@/lib/dues'
+import { useRemoveDuesEntry, useSetDuesAmount, useSetDuesNote, useSetDuesPaid } from './queries'
 
 /**
  * 한 사람의 회비를 **고치는** 자리.
@@ -24,15 +19,32 @@ import {
  * 되돌릴 수 없으면 총무가 앱을 안 믿고 엑셀로 돌아간다. 다만 되돌리기를
  * 목록의 한 번 누르기로 두면, 통장을 훑으며 빠르게 내려가다가 이미 체크한
  * 사람을 스쳐 되돌려 버린다 — 그래서 목록이 아니라 이 시트에 둔다.
+ *
+ * ## 🟠 「빼기」와 「납부 되돌리기」는 다른 일이다
+ *
+ * 이 시트의 버튼 둘은 비슷해 보이지만 지우는 것이 다르다.
+ *   · 납부 되돌리기 = **통장에 들어온 사실**을 지운다
+ *   · 빼기          = 이 달에 **받을 것이 없다**고 표시한다 (휴회·중간 탈퇴)
+ *
+ * 그래서 낸 사람의 빼기는 눌리지 않는다. 한 번의 확인창으로 둘 다 지우면
+ * 걷힌 돈이 조용히 줄고 총무는 그 사실을 못 본다 — 서버도 같은 이유로
+ * 거절한다(20260904000002). 화면이 먼저 막는 것은 **눌리는 버튼이 거절당하는
+ * 경험**을 총무에게 주지 않기 위해서다.
  */
 export function DuesEntrySheet({
   clubId,
   entry,
   onClose,
+  onFailed,
 }: {
   clubId: string
   entry: DuesEntry
   onClose: () => void
+  /**
+   * 실패를 부모에게 넘긴다. 시트 안에만 두면 총무가 시트를 닫는 순간
+   * 오류가 사라지고, 저장이 안 된 채로 "저장했다" 고 믿는다.
+   */
+  onFailed: (message: string) => void
 }) {
   const paid = useSetDuesPaid(clubId)
   const amount = useSetDuesAmount(clubId)
@@ -49,26 +61,33 @@ export function DuesEntrySheet({
   const [amountError, setAmountError] = useState<string | null>(null)
 
   const paidOn = formatPaidOn(entry.paidOn)
+  const isPaid = entry.paidOn !== null
   const busy = paid.isPending || amount.isPending || note.isPending || remove.isPending
   const error = paid.error ?? amount.error ?? note.error ?? remove.error
 
+  /** 실패는 시트 안에도 그리고, 부모에게도 넘긴다 (시트를 닫아도 남게) */
+  function fail(error: unknown, fallback: string) {
+    onFailed(toUserMessage(error, fallback))
+  }
+
   async function handleSaveAmount() {
-    const next = parseWon(amountText)
-    const message = validateDuesAmount(next)
+    const message = validateDuesInput(amountText)
     setAmountError(message)
-    if (message !== null || next === null) return
+    if (message !== null) return
+    const next = parseWon(amountText)
+    if (next === null) return
     try {
       await amount.mutateAsync({ duesId: entry.id, amount: next })
-    } catch {
-      /* amount.error 로 화면에 뿌린다 */
+    } catch (e) {
+      fail(e, '금액을 저장하지 못했습니다')
     }
   }
 
   async function handleSaveNote() {
     try {
       await note.mutateAsync({ duesId: entry.id, note: noteText })
-    } catch {
-      /* note.error 로 화면에 뿌린다 */
+    } catch (e) {
+      fail(e, '메모를 저장하지 못했습니다')
     }
   }
 
@@ -76,23 +95,30 @@ export function DuesEntrySheet({
     try {
       await paid.mutateAsync({ duesId: entry.id, paid: !entry.paidOn })
       onClose()
-    } catch {
-      /* paid.error 로 화면에 뿌린다 */
+    } catch (e) {
+      fail(e, '납부를 바꾸지 못했습니다')
     }
   }
 
   async function handleRemove() {
+    /*
+     * 확인창은 **사실만** 말한다. 옛 문구는 "걷을 돈 합계에서도 빠집니다"
+     * 만 말하고 다시 넣는 길을 «빠진 사람 채우기» 로 틀리게 안내했다 —
+     * 그 버튼은 club_members 를 돌며 새 행을 만들 뿐이라 총무가 손으로 고친
+     * 금액도 안 돌아오고, 명단에서 나간 사람은 아예 못 만든다.
+     */
     if (
       !confirm(
-        `${entry.memberName}님을 이 달 회비에서 뺍니다.\n걷을 돈 합계에서도 빠집니다. 계속할까요?`,
+        `${entry.memberName}님(${formatWon(entry.amount)})을 이 달 회비에서 뺍니다.\n` +
+          `걷을 돈 합계에서 빠집니다. 잘못 뺐으면 아래 «뺀 사람» 에서 그대로 되돌릴 수 있습니다.\n\n계속할까요?`,
       )
     )
       return
     try {
       await remove.mutateAsync(entry.id)
       onClose()
-    } catch {
-      /* remove.error 로 화면에 뿌린다 */
+    } catch (e) {
+      fail(e, '빼지 못했습니다')
     }
   }
 
@@ -192,12 +218,17 @@ export function DuesEntrySheet({
             className="w-full"
             onClick={() => void handleRemove()}
             loading={remove.isPending}
-            disabled={busy}
+            disabled={busy || isPaid}
           >
             이 달 회비에서 빼기
           </Button>
           <p className="mt-2 text-xs break-keep text-ink-3">
-            휴회처럼 이 달에 받을 것이 없을 때만. 다시 넣으려면 «빠진 사람 채우기»를 누르세요.
+            {isPaid
+              ? // 🟠 낸 사람을 빼면 걷힌 돈이 조용히 줄어든다. 총무가 지우려는
+                // 것이 "이 달에 받을 것" 인지 "통장에 들어온 사실" 인지 먼저
+                // 갈라야 한다 — 위의 납부 취소가 후자의 길이다.
+                `${paidOn ?? '입금'} 기록이 있어 뺄 수 없습니다. 잘못 체크한 것이라면 위에서 납부를 먼저 되돌려 주세요.`
+              : '휴회처럼 이 달에 받을 것이 없을 때만. 잘못 뺐으면 목록 아래 «뺀 사람» 에서 그대로 되돌립니다.'}
           </p>
         </div>
 

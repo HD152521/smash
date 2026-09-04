@@ -24,11 +24,17 @@ import type { ClubDuesSummary } from '@/types/database'
  *   RPC 로 둔 것도 같은 이유다(RPC 는 권한이 없으면 예외를 던진다).
  */
 
-/** 그 동아리 · 그 달의 장부 전체. **운영진만** 행을 받는다 */
+/**
+ * 그 동아리 · 그 달의 장부 전체. **운영진만** 행을 받는다.
+ *
+ * 뺀 사람(`removed_at`)도 함께 가져온다. 합계에는 안 들지만 화면 아래
+ * 「뺀 사람」 칸에 남아 있어야 잘못 뺐을 때 되돌릴 수 있다 —
+ * 감사로그에 남아 있다는 말은 총무에게 아무 도움이 안 된다.
+ */
 export async function fetchDuesEntries(clubId: string, monthKey: string): Promise<DuesEntry[]> {
   const res = await supabase
     .from('club_dues')
-    .select('id, member_id, member_name, amount, paid_on, note')
+    .select('id, member_id, member_name, amount, paid_on, note, removed_at')
     .eq('club_id', clubId)
     .eq('period_month', monthStart(monthKey))
   const rows = unwrap(res)
@@ -39,6 +45,7 @@ export async function fetchDuesEntries(clubId: string, monthKey: string): Promis
     amount: r.amount,
     paidOn: r.paid_on,
     note: r.note,
+    removedAt: r.removed_at,
   }))
 }
 
@@ -74,10 +81,30 @@ export async function openDuesMonth(
   return unwrap(res)
 }
 
-/** 납부 체크와 되돌리기. 되돌리기가 있는 것이 이 기능이 신뢰받는 이유다 */
+/**
+ * 납부 체크와 되돌리기. 되돌리기가 있는 것이 이 기능이 신뢰받는 이유다.
+ *
+ * ⚠ 입금일을 **화면이 보낸다.** 서버에 맡기면 DB 세션 타임존(실측 UTC)의
+ *   오늘이 찍히는데, 총무가 보는 달력은 기기 시간대다. KST 9월 1일 아침
+ *   8시 체크가 8월 31일로 저장되면 9월 장부의 줄에 8월 날짜가 남고,
+ *   총무가 통장과 맞춰볼 때 하루가 어긋난다. 서버 기본값도 KST 로 고쳐
+ *   뒀지만(20260904000002), 진짜 답은 **그 기기의 오늘**이다.
+ */
 export async function setDuesPaid(duesId: string, paid: boolean): Promise<void> {
-  const res = await supabase.rpc('set_dues_paid', { p_dues_id: duesId, p_paid: paid })
+  const res = await supabase.rpc('set_dues_paid', {
+    p_dues_id: duesId,
+    p_paid: paid,
+    p_paid_on: paid ? localToday() : null,
+  })
   unwrap(res)
+}
+
+/** 이 기기의 오늘 — 'YYYY-MM-DD'. toISOString 은 UTC 라 쓰면 안 된다 */
+function localToday(): string {
+  const now = new Date()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${m}-${d}`
 }
 
 export async function setDuesAmount(duesId: string, amount: number): Promise<void> {
@@ -91,7 +118,24 @@ export async function setDuesNote(duesId: string, note: string): Promise<void> {
   unwrap(res)
 }
 
+/**
+ * 이 달 회비에서 빼기. **낸 사람은 서버가 거절한다** — 들어온 돈의 기록을
+ * 지우는 것은 「빼기」가 아니라 납부 되돌리기의 몫이기 때문이다.
+ * 지우지 않고 표시만 하므로 `restoreDuesEntry` 로 그대로 되돌아온다.
+ */
 export async function removeDuesEntry(duesId: string): Promise<void> {
   const res = await supabase.rpc('remove_dues_entry', { p_dues_id: duesId })
   unwrapVoid(res)
+}
+
+/**
+ * 뺀 사람을 다시 넣기. **그 행을 살린다** — 새로 만드는 것이 아니다.
+ *
+ * 그래서 총무가 손으로 고친 금액도, 메모도, 이미 명단에서 나간 사람이라는
+ * 사실도 그대로 돌아온다. `openDuesMonth`(«빠진 사람 채우기»)로는 그 달
+ * 최빈값의 **새 행**이 생길 뿐이고, 명단에 없는 사람은 아예 못 만든다.
+ */
+export async function restoreDuesEntry(duesId: string): Promise<void> {
+  const res = await supabase.rpc('restore_dues_entry', { p_dues_id: duesId })
+  unwrap(res)
 }

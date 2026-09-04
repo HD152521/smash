@@ -42,6 +42,8 @@ export type ClubDuesRow = {
   note: string | null
   created_at: string
   updated_at: string
+  removed_at: string | null
+  member_user_id: string | null
 }
 
 export type ClubMembersRow = {

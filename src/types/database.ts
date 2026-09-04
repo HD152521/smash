@@ -324,10 +324,29 @@ export type Database = {
         Args: { p_dues_id: string; p_note: string }
         Returns: ClubDuesEntryRow
       }
-      /** 이 달에 받을 것이 없는 사람을 '걷을 돈' 에서 뺀다. 지우기 전에 감사로그에 남는다 */
+      /**
+       * 이 달에 받을 것이 없는 사람을 '걷을 돈' 에서 뺀다.
+       *
+       * 행을 지우지 않고 `removed_at` 만 찍는다 — 그래야 `restore_dues_entry`
+       * 로 금액·메모·입금일이 **그대로** 돌아온다.
+       * 🔴 낸 사람은 거절한다(PT409). 통장에 들어온 사실을 지우는 것은
+       *    「빼기」가 아니라 `set_dues_paid(false)` 의 몫이다.
+       */
       remove_dues_entry: {
         Args: { p_dues_id: string }
         Returns: void
+      }
+      /**
+       * 뺀 사람을 이 달 회비에 다시 넣는다.
+       *
+       * **그 행을 살린다** — 새로 만드는 것이 아니다. 그래서 총무가 손으로
+       * 고친 금액도, 메모도, 이미 명단에서 나간 사람이라는 사실도 그대로
+       * 돌아온다. `open_dues_month` 로는 그 달 최빈값의 새 행이 생길 뿐이고,
+       * 명단에 없는 사람은 아예 못 만든다.
+       */
+      restore_dues_entry: {
+        Args: { p_dues_id: string }
+        Returns: ClubDuesEntryRow
       }
       /**
        * 게스트 등록 후보 조립. **anon** 이 로그인 없이 부른다.
