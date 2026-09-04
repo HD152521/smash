@@ -119,6 +119,14 @@ const PERIOD_FIRST = `${YM}-01`
 const PERIOD_MID = `${YM}-14`
 const PAID_DAY = `${YM}-05`
 
+// 지난 달. "사람이 나가고 다시 들어와도 **지난 달** 합계는 안 흔들린다" 를
+// 증명하려면 지난 달 장부가 실제로 있어야 한다.
+const PREV = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1)
+const PREV_YM = `${PREV.getFullYear()}-${String(PREV.getMonth() + 1).padStart(2, '0')}`
+const PERIOD_PREV = `${PREV_YM}-01`
+const PREV_PAID_DAY = `${PREV_YM}-03`
+const PREV_AMOUNT = 20000
+
 const DEFAULT_AMOUNT = 30000 // 총무가 달을 열 때 적는 기본 회비
 const GHOST_AMOUNT = 10000 // 신입 할인처럼 총무가 손으로 고친 금액
 
@@ -134,29 +142,43 @@ type ClubRow = { id: string; invite_code: string; name: string }
 type DuesRow = {
   id: string
   member_id: string | null
+  member_user_id: string | null
   member_name: string
   amount: number
   paid_on: string | null
   note: string | null
+  removed_at: string | null
 }
+
+const SELECT_DUES = `select id, member_id, member_user_id, member_name, amount,
+                            paid_on::text as paid_on, note, removed_at::text as removed_at
+                       from club_dues`
 
 const duesOf = async (clubId: string, memberName: string) => {
   const { rows: r } = await db.query<DuesRow>(
-    `select id, member_id, member_name, amount, paid_on::text as paid_on, note
-       from club_dues where club_id=$1 and member_name=$2 and period_month=$3`,
+    `${SELECT_DUES} where club_id=$1 and member_name=$2 and period_month=$3`,
     [clubId, memberName, PERIOD_FIRST],
   )
   return r[0]
 }
 const duesById = async (id: string) => {
-  const { rows: r } = await db.query<DuesRow>(
-    `select id, member_id, member_name, amount, paid_on::text as paid_on, note
-       from club_dues where id=$1`,
-    [id],
-  )
+  const { rows: r } = await db.query<DuesRow>(`${SELECT_DUES} where id=$1`, [id])
   return r[0]
 }
+/**
+ * **살아 있는** 행 수. 「빼기」는 지우기가 아니라 표시라서(20260904000002),
+ * 뺀 행은 표에 남아 있고 합계에만 안 든다. 여기서 전부를 세면 "뺐는데 왜
+ * 그대로냐" 를 못 잡는다 — 전부를 세는 것은 duesCountAll 이다.
+ */
 const duesCount = async (clubId: string) => {
+  const { rows: r } = await db.query<{ n: string }>(
+    `select count(*)::int as n from club_dues where club_id=$1 and removed_at is null`,
+    [clubId],
+  )
+  return Number(r[0]!.n)
+}
+/** 뺀 행까지 포함한 전부. "행이 안 지워졌다" 의 증거다 */
+const duesCountAll = async (clubId: string) => {
   const { rows: r } = await db.query<{ n: string }>(
     `select count(*)::int as n from club_dues where club_id=$1`,
     [clubId],
@@ -164,15 +186,17 @@ const duesCount = async (clubId: string) => {
   return Number(r[0]!.n)
 }
 /** 합계를 pg 로 직접 계산한다 — summary 가 스스로를 채점하지 못하게 한다. */
-const truthTotals = async (clubId: string) => {
+const truthTotalsAt = async (clubId: string, period: string) => {
   const { rows: r } = await db.query<{ expected: string; collected: string }>(
     `select coalesce(sum(amount),0)::int as expected,
             coalesce(sum(amount) filter (where paid_on is not null),0)::int as collected
-       from club_dues where club_id=$1 and period_month=$2`,
-    [clubId, PERIOD_FIRST],
+       from club_dues
+      where club_id=$1 and period_month=$2 and removed_at is null`,
+    [clubId, period],
   )
   return { expected: Number(r[0]!.expected), collected: Number(r[0]!.collected) }
 }
+const truthTotals = async (clubId: string) => truthTotalsAt(clubId, PERIOD_FIRST)
 
 let testClubId: string | null = null
 
@@ -650,14 +674,43 @@ try {
   )
 
   // ══════════════════════════════════════════════════════════════════
-  console.log('\n── 13. 항목 빼기 — 걷을 돈에서 빠진다 ──')
+  console.log('\n── 13. 🟠 항목 빼기 — 낸 사람은 못 뺀다, 뺀 사람은 되돌아온다 ──')
   // ══════════════════════════════════════════════════════════════════
-  // 휴회·중간 탈퇴처럼 이 달에 받을 것이 없는 사람을 합계에서 뺀다.
+  // 「빼기」와 「납부 되돌리기」는 다른 일이다.
+  //   · 빼기       = 이 달에 받을 것이 없다 (휴회·중간 탈퇴). 돈은 안 오갔다.
+  //   · 납부 되돌리기 = 통장에 들어온 사실을 지운다.
+  // 옛 remove_dues_entry 는 paid_on 을 안 보고 행을 지웠다. 그래서 낸 사람을
+  // 빼면 **걷힌 돈까지** 조용히 줄었고, 확인창은 걷을 돈만 말했다.
+  const paidBeforeBlock = await truthTotals(club.id)
+  const blocked = await rpc(owner.token, 'remove_dues_entry', { p_dues_id: ghostDues.id })
+  check(
+    '15) 🟠 낸 사람을 빼려고 하면 거절한다',
+    blocked.status >= 400,
+    `status=${blocked.status} ${msg(blocked)} —` +
+      ' 통과하면 걷힌 돈이 그 사람 금액만큼 조용히 줄고, 아무도 그걸 못 본다',
+  )
+  check(
+    '15) 🟠 거절당한 뒤 걷힌 돈이 그대로다',
+    (await truthTotals(club.id)).collected === paidBeforeBlock.collected &&
+      (await duesById(ghostDues.id))?.removed_at === null,
+    `걷힌돈 ${paidBeforeBlock.collected} → ${(await truthTotals(club.id)).collected} /` +
+      ` removed_at=${String((await duesById(ghostDues.id))?.removed_at)}`,
+  )
+  check(
+    '15) 🟠 거절 문구가 무엇을 먼저 하라고 말한다',
+    /납부/.test(msg(blocked)),
+    `"${msg(blocked)}" — "권한이 없습니다" 류로 뭉뚱그리면 총무는 다음 동작을 모른다`,
+  )
+
+  // 납부를 먼저 되돌리면 뺄 수 있다 — 두 번의 동작이지만 각각 무엇을
+  // 지우는지 총무가 안다.
+  await rpc(owner.token, 'set_dues_paid', { p_dues_id: ghostDues.id, p_paid: false })
   const beforeRemove = await truthTotals(club.id)
+  const rowsBeforeRemove = await duesCountAll(club.id)
   const removed = await rpc(owner.token, 'remove_dues_entry', { p_dues_id: ghostDues.id })
   check(
-    '15) 운영진이 항목을 빼면 행이 사라진다',
-    removed.status < 400 && (await duesById(ghostDues.id)) === undefined,
+    '15) 납부를 되돌린 뒤에는 뺄 수 있다 (과잉 차단이 아니다)',
+    removed.status < 400 && (await duesById(ghostDues.id))?.removed_at !== null,
     `status=${removed.status} ${msg(removed)}`,
   )
   const afterRemove = await truthTotals(club.id)
@@ -671,10 +724,52 @@ try {
     `${beforeRemove.expected} → ${afterRemove.expected} (뺀 금액 ${GHOST_AMOUNT}) / 창구 ${String(sum3['expected_total'])}`,
   )
   check(
-    '15) 남은 행은 3행이다',
+    '15) 살아 있는 행은 3행이다',
     (await duesCount(club.id)) === 3,
     `${await duesCount(club.id)}행`,
   )
+  /*
+   * 🟠 여기가 이 절의 핵심이다. 옛 구현은 행을 지웠고, 화면이 안내한 복구
+   * («빠진 사람 채우기» = open_dues_month)는 club_members 를 돌며 **새 행을**
+   * 만들었다. 총무가 손으로 고친 10,000원은 그 달 최빈값 30,000원으로
+   * 덮이고, 입금일도 사라졌다.
+   */
+  check(
+    '15) 🟠 뺀 행이 지워지지 않고 남아 있다',
+    (await duesCountAll(club.id)) === rowsBeforeRemove,
+    `${rowsBeforeRemove}행 → ${await duesCountAll(club.id)}행 —` +
+      ' 지우면 되돌릴 근거가 감사로그밖에 안 남고, 총무는 SQL 을 안 친다',
+  )
+  const fillBack = await rpc(owner.token, 'open_dues_month', {
+    p_club_id: club.id,
+    p_period: PERIOD_FIRST,
+    p_amount: DEFAULT_AMOUNT,
+  })
+  check(
+    '15) 🟠 «빠진 사람 채우기» 가 뺀 사람을 최빈값으로 되살리지 않는다',
+    Number(fillBack.body) === 0 && (await duesById(ghostDues.id))?.removed_at !== null,
+    `생성=${String(fillBack.body)} removed_at=${String((await duesById(ghostDues.id))?.removed_at)} —` +
+      ' 여기서 되살아나면 휴회로 뺀 사람이 달을 열 때마다 돌아온다',
+  )
+  const restored = await rpc(owner.token, 'restore_dues_entry', { p_dues_id: ghostDues.id })
+  const back = await duesById(ghostDues.id)
+  check(
+    '15) 🟠 다시 넣기가 **원상복구**다 — 손으로 고친 금액이 그대로다',
+    restored.status < 400 && back?.removed_at === null && back?.amount === GHOST_AMOUNT,
+    `status=${restored.status} 금액=${String(back?.amount)} (기대 ${GHOST_AMOUNT}, 최빈값은 ${DEFAULT_AMOUNT}) ${msg(restored)}`,
+  )
+  check(
+    '15) 다시 넣으면 걷을 돈도 원래대로 돌아온다',
+    (await truthTotals(club.id)).expected === beforeRemove.expected,
+    `${afterRemove.expected} → ${(await truthTotals(club.id)).expected} (원래 ${beforeRemove.expected})`,
+  )
+  check(
+    '15) 회원은 되돌리지 못한다 (운영진 전용)',
+    (await rpc(member.token, 'restore_dues_entry', { p_dues_id: ghostDues.id })).status >= 400,
+    '되돌리기가 열려 있으면 빼기를 막은 의미가 없다',
+  )
+  // 뒤 절(합계 불변 증명)을 위해 다시 뺀 상태로 되돌려 둔다
+  await rpc(owner.token, 'remove_dues_entry', { p_dues_id: ghostDues.id })
 
   // ══════════════════════════════════════════════════════════════════
   console.log('\n── 14. 모든 변경이 감사 로그에 남는다 ──')
@@ -759,6 +854,35 @@ try {
     p_paid: true,
     p_paid_on: PAID_DAY,
   })
+
+  // 지난 달 장부를 실제로 만든다. "지난 9월의 39만원이 사람이 나갔다고
+  // 36만원으로 바뀌지 않는다" 는 지난 달이 있어야 증명할 수 있다.
+  const openedPrev = await rpc(owner.token, 'open_dues_month', {
+    p_club_id: club.id,
+    p_period: PERIOD_PREV,
+    p_amount: PREV_AMOUNT,
+  })
+  check(
+    '지난 달 장부를 연다 (전제)',
+    openedPrev.status === 200 && Number(openedPrev.body) === 4,
+    `status=${openedPrev.status} 생성=${String(openedPrev.body)} ${msg(openedPrev)}`,
+  )
+  const { rows: prevMine } = await db.query<{ id: string }>(
+    `select id from club_dues where club_id=$1 and period_month=$2 and member_name=$3`,
+    [club.id, PERIOD_PREV, NAME_MEMBER],
+  )
+  await rpc(owner.token, 'set_dues_paid', {
+    p_dues_id: prevMine[0]!.id,
+    p_paid: true,
+    p_paid_on: PREV_PAID_DAY,
+  })
+  const prevBefore = await truthTotalsAt(club.id, PERIOD_PREV)
+  check(
+    '지난 달에 걷힌 돈이 있다 (전제)',
+    prevBefore.collected === PREV_AMOUNT && prevBefore.expected === PREV_AMOUNT * 4,
+    `걷을돈 ${prevBefore.expected} / 걷힌돈 ${prevBefore.collected}`,
+  )
+
   const beforeLeave = await truthTotals(club.id)
   const rowsBeforeLeave = await duesCount(club.id)
 
@@ -810,6 +934,170 @@ try {
     '나간 사람은 창구가 막힌다',
     leftSummary.status >= 400,
     `status=${leftSummary.status} ${msg(leftSummary)} — 나간 뒤에도 합계가 보이면 탈퇴가 탈퇴가 아니다`,
+  )
+
+  check(
+    '지난 달 합계는 이번 달 소동과 무관하게 그대로다',
+    JSON.stringify(await truthTotalsAt(club.id, PERIOD_PREV)) === JSON.stringify(prevBefore),
+    `${JSON.stringify(prevBefore)} → ${JSON.stringify(await truthTotalsAt(club.id, PERIOD_PREV))}`,
+  )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 16. 🟠 탈퇴 후 재가입해도 같은 달에 두 줄이 안 생긴다 ──')
+  // ══════════════════════════════════════════════════════════════════
+  // member_id 는 on delete set null 이고 unique(member_id, period_month) 는
+  // null 끼리 안 부딪힌다. 그 성질은 나간 사람들의 고아 행을 위해 **일부러**
+  // 고른 것이지만, 같은 성질이 "나간 사람의 고아 행" 과 "재가입해서 새로
+  // 생긴 행" 도 안 부딪히게 만든다. 그러면 12명인데 걷을 돈이 13명분이고,
+  // 한쪽을 납부 처리해도 다른 쪽은 영원히 미납으로 남는다.
+  //
+  // ⚠ 이름으로 맞추면 동명이인에서 깨진다. 열쇠는 member_user_id 스냅샷이다.
+  const orphan = await duesById(memberDues.id)
+  check(
+    '나간 사람의 행에 재가입용 열쇠가 남아 있다 (전제)',
+    orphan?.member_id === null && orphan?.member_user_id === member.uid,
+    `member_id=${String(orphan?.member_id)} member_user_id=${String(orphan?.member_user_id)} —` +
+      ' 열쇠가 없으면 재가입한 사람을 이름 말고는 못 잇는다',
+  )
+
+  const rejoined = await rpc(member.token, 'join_club', {
+    p_code: club.invite_code,
+    p_display_name: NAME_MEMBER,
+  })
+  check('나갔던 사람이 다시 들어온다 (전제)', obj(rejoined)['ok'] === true, msg(rejoined))
+  const { rows: newRow } = await db.query<{ id: string }>(
+    `select id from club_members where club_id=$1 and user_id=$2`,
+    [club.id, member.uid],
+  )
+  check(
+    '재가입하면 명단 행 id 가 새로 난다 (전제)',
+    newRow[0]!.id !== leaverRow[0]!.id,
+    `${leaverRow[0]!.id} → ${newRow[0]!.id} — 그래서 on conflict do nothing 이 안 걸린다`,
+  )
+
+  const beforeFill = await truthTotals(club.id)
+  const liveBeforeFill = await duesCount(club.id)
+  const fillAfterRejoin = await rpc(owner.token, 'open_dues_month', {
+    p_club_id: club.id,
+    p_period: PERIOD_FIRST,
+    p_amount: DEFAULT_AMOUNT,
+  })
+  check(
+    '16) 🟠 «빠진 사람 채우기» 가 두 번째 줄을 안 만든다',
+    fillAfterRejoin.status === 200 && Number(fillAfterRejoin.body) === 0,
+    `생성=${String(fillAfterRejoin.body)} ${msg(fillAfterRejoin)} —` +
+      ' 1이 나오면 같은 사람이 같은 달에 두 번 청구된다',
+  )
+  check(
+    '16) 🟠 살아 있는 행 수가 안 늘어난다',
+    (await duesCount(club.id)) === liveBeforeFill,
+    `${liveBeforeFill}행 → ${await duesCount(club.id)}행`,
+  )
+  check(
+    '16) 🟠 걷을 돈이 한 사람분 더 늘지 않는다',
+    (await truthTotals(club.id)).expected === beforeFill.expected,
+    `${beforeFill.expected} → ${(await truthTotals(club.id)).expected}`,
+  )
+
+  // 두 줄을 막는 것만으로는 부족하다. 고아 행이 그대로면 그 사람은 자기
+  // 회비 줄을 영영 못 본다 — club_dues_summary 의 '본인 행' 이 member_id 로
+  // club_members 를 조인하기 때문이다.
+  const readopted = await duesById(memberDues.id)
+  check(
+    '16) 🟠 고아 행이 새 명단 행에 다시 붙는다 (재입양)',
+    readopted?.member_id === newRow[0]!.id,
+    `member_id=${String(readopted?.member_id)} (기대 ${newRow[0]!.id})`,
+  )
+  check(
+    '16) 🟠 재입양이 금액과 입금일을 안 건드린다',
+    readopted?.amount === orphan?.amount && readopted?.paid_on === orphan?.paid_on,
+    `금액 ${String(orphan?.amount)}→${String(readopted?.amount)} /` +
+      ` 입금일 ${String(orphan?.paid_on)}→${String(readopted?.paid_on)} —` +
+      ' 여기서 값이 바뀌면 재가입만으로 장부가 바뀐다',
+  )
+  const mineAgain = obj(
+    await rpc(member.token, 'club_dues_summary', { p_club_id: club.id, p_period: PERIOD_MID }),
+  )
+  const mineRow = (mineAgain['mine'] ?? null) as Record<string, unknown> | null
+  check(
+    '16) 재가입한 사람이 자기 회비 줄을 다시 본다',
+    mineRow !== null && String(mineRow['id']) === memberDues.id,
+    `mine=${JSON.stringify(mineAgain['mine'])} — null 이면 본인에게 "회비가 아직 안 정해졌다" 로 보인다`,
+  )
+
+  // 표가 지킨다 — 코드를 안 거치고 직접 넣어도 두 줄이 못 된다.
+  let dupBlocked = false
+  try {
+    await db.query(
+      `insert into club_dues (club_id, member_id, member_user_id, member_name, period_month, amount)
+       values ($1, null, $2, $3, $4, 30000)`,
+      [club.id, member.uid, INTRUDER_NAME, PERIOD_FIRST],
+    )
+  } catch {
+    dupBlocked = true
+  }
+  check(
+    '16) 🟠 표(부분 unique 인덱스)가 두 번째 줄을 직접 막는다',
+    dupBlocked,
+    'RPC 만 고치면 나중에 insert 경로가 하나 더 생길 때 같은 버그가 다시 난다',
+  )
+
+  check(
+    '16) 🔴 재가입 소동이 지난 달 합계를 안 흔든다',
+    JSON.stringify(await truthTotalsAt(club.id, PERIOD_PREV)) === JSON.stringify(prevBefore),
+    `${JSON.stringify(prevBefore)} → ${JSON.stringify(await truthTotalsAt(club.id, PERIOD_PREV))} —` +
+      ' 지난 달이 흔들리면 설계 판단 5 가 깨진 것이다',
+  )
+  const { rows: prevOrphan } = await db.query<{ member_id: string | null; member_name: string }>(
+    `select member_id, member_name from club_dues
+      where club_id=$1 and period_month=$2 and member_user_id=$3`,
+    [club.id, PERIOD_PREV, member.uid],
+  )
+  check(
+    '16) 🔴 지난 달의 이름 스냅샷은 안 덮인다',
+    prevOrphan.length === 1 && prevOrphan[0]!.member_name === NAME_MEMBER,
+    `${JSON.stringify(prevOrphan)} — 지난 달 원장의 이름은 그때의 사실이다`,
+  )
+
+  // ══════════════════════════════════════════════════════════════════
+  console.log('\n── 17. 🔴 고친 뒤에도 회원에게는 여전히 한 행도 안 보인다 ──')
+  // ══════════════════════════════════════════════════════════════════
+  // 이 기능의 유일한 진짜 위험이다. 위에서 컬럼 둘과 함수 하나를 더했으므로,
+  // 그 위험이 그대로 막혀 있는지 **행 수로** 다시 증명한다 (RLS 가 전부
+  // 걸러도 PostgREST 는 200 을 준다 — 상태 코드로 판단하면 안 된다).
+  const memberSeesAgain = await api(member.token, `club_dues?club_id=eq.${club.id}&select=*`)
+  check(
+    '17) 🔴 회원이 장부를 조회하면 0행이다 (200 이지 403 이 아니다)',
+    memberSeesAgain.status === 200 && rows(memberSeesAgain).length === 0,
+    `status=${memberSeesAgain.status} 행수=${rows(memberSeesAgain).length}`,
+  )
+  const removedPeek = await api(
+    member.token,
+    `club_dues?club_id=eq.${club.id}&removed_at=not.is.null&select=id,member_name`,
+  )
+  check(
+    '17) 🔴 새로 생긴 removed_at 으로 걸러도 0행이다',
+    removedPeek.status === 200 && rows(removedPeek).length === 0,
+    `status=${removedPeek.status} 행수=${rows(removedPeek).length} —` +
+      ' 컬럼이 늘면 필터도 늘어난다. 새 컬럼으로 명단을 좁힐 수 있으면 안 된다',
+  )
+  const userIdPeek = await api(
+    member.token,
+    `club_dues?member_user_id=eq.${member.uid}&select=id,amount,paid_on`,
+  )
+  check(
+    '17) 🔴 자기 user_id 로 직접 찍어도 0행이다',
+    userIdPeek.status === 200 && rows(userIdPeek).length === 0,
+    `status=${userIdPeek.status} 행수=${rows(userIdPeek).length} —` +
+      ' 본인 행을 여는 순간 "행이 없는 사람 = 미납자" 로 좁히는 길이 열린다',
+  )
+  const restoreByMember = await rpc(member.token, 'restore_dues_entry', {
+    p_dues_id: memberDues.id,
+  })
+  check(
+    '17) 🔴 회원은 새 RPC 도 못 부른다',
+    restoreByMember.status >= 400,
+    `status=${restoreByMember.status} ${msg(restoreByMember)}`,
   )
 
 } finally {

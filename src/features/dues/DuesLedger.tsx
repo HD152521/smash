@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, MoreHorizontal, StickyNote } from 'lucide-react'
+import { Check, MoreHorizontal, StickyNote, Undo2, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/brand/EmptyState'
 import { toUserMessage } from '@/lib/errors'
@@ -10,11 +10,11 @@ import {
   parseWon,
   partitionDues,
   suggestedAmount,
-  validateDuesAmount,
+  validateDuesInput,
   type DuesEntry,
 } from '@/lib/dues'
 import { DuesEntrySheet } from './DuesEntrySheet'
-import { useOpenDuesMonth, useSetDuesPaid } from './queries'
+import { useOpenDuesMonth, useRestoreDuesEntry, useSetDuesPaid } from './queries'
 
 /**
  * 총무가 통장을 보며 체크하는 명부.
@@ -44,29 +44,69 @@ export function DuesLedger({
   previousEntries: DuesEntry[] | undefined
 }) {
   const [editing, setEditing] = useState<DuesEntry | null>(null)
+  /*
+   * 실패한 쓰기를 **총무가 지울 때까지** 붙들어 둔다.
+   *
+   * 옛 화면은 실패를 뮤테이션 상태에만 담았다. 그래서 달을 넘기거나 시트를
+   * 닫으면 오류가 통째로 사라지고, 화면에는 성공한 것과 똑같은 그림이 남았다.
+   * 장부에서 성공과 실패가 구별이 안 되는 것은 틀린 숫자보다 나쁘다 —
+   * 총무는 저장됐다고 믿고 다음 사람으로 넘어간다.
+   */
+  const [failure, setFailure] = useState<string | null>(null)
   const paid = useSetDuesPaid(clubId)
 
-  if (entries.length === 0) {
-    return <OpenMonthForm clubId={clubId} monthKey={monthKey} previousEntries={previousEntries} />
+  /*
+   * 「2026년 9월 · 김철수 — 네트워크 연결을 확인해 주세요」 한 문장.
+   * 달과 이름을 붙이는 이유: 총무가 달을 넘긴 뒤에도 이 알림이 남아 있는데,
+   * 그때 어느 달 누구의 일이었는지 없으면 알림이 오히려 사람을 헷갈리게 한다.
+   */
+  function reportFailure(name: string, message: string) {
+    setFailure(`${monthLabel(monthKey)} · ${name} — ${message}`)
+  }
+  function fail(name: string, error: unknown, fallback: string) {
+    reportFailure(name, toUserMessage(error, fallback))
   }
 
-  const { unpaid, paid: done } = partitionDues(entries)
+  const banner = failure !== null && (
+    <div
+      role="alert"
+      className="mb-4 flex items-start gap-2 rounded-xl border border-border-subtle bg-surface-1 px-4 py-3"
+    >
+      <p className="min-w-0 flex-1 text-sm font-medium break-keep text-team-b-fg">{failure}</p>
+      <button
+        type="button"
+        onClick={() => setFailure(null)}
+        aria-label="알림 지우기"
+        className="shrink-0 text-ink-3 hover:text-ink-1
+                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      >
+        <X className="size-4" aria-hidden />
+      </button>
+    </div>
+  )
+
+  if (entries.length === 0) {
+    return (
+      <>
+        {banner}
+        <OpenMonthForm clubId={clubId} monthKey={monthKey} previousEntries={previousEntries} />
+      </>
+    )
+  }
+
+  const { unpaid, paid: done, removed } = partitionDues(entries)
 
   async function markPaid(entry: DuesEntry) {
     try {
       await paid.mutateAsync({ duesId: entry.id, paid: true })
-    } catch {
-      /* paid.error 로 화면에 뿌린다 */
+    } catch (e) {
+      fail(entry.memberName, e, '납부를 표시하지 못했습니다')
     }
   }
 
   return (
     <>
-      {paid.error != null && (
-        <p role="alert" className="mb-4 text-sm font-medium text-team-b-fg">
-          {toUserMessage(paid.error, '납부를 표시하지 못했습니다')}
-        </p>
-      )}
+      {banner}
 
       <Section title="안 낸 사람" count={unpaid.length}>
         {unpaid.length === 0 ? (
@@ -135,8 +175,19 @@ export function DuesLedger({
       </Section>
 
       {/*
+        🟠 뺀 사람이 화면에서 사라지면 되돌릴 길이 어디에도 없다. 감사로그에
+        남아 있다는 말은 총무에게 아무 도움이 안 된다 — 총무는 SQL 을 안 친다.
+        빈 칸을 안 그리는 이유: 대부분의 달에는 뺀 사람이 없고, 늘 떠 있으면
+        "여기 뭔가 잘못됐나" 로 읽힌다.
+      */}
+      {removed.length > 0 && (
+        <RemovedSection clubId={clubId} entries={removed} onFailed={reportFailure} />
+      )}
+
+      {/*
         중간에 들어온 회원은 이 달 장부에 행이 없다. 같은 RPC 를 다시 부르면
         빠진 사람만 채워진다 — 이미 있는 행의 금액은 안 덮어쓴다.
+        ⚠ 뺀 사람은 여기서 안 돌아온다. 그 길은 위의 «다시 넣기» 하나다.
       */}
       <div className="mt-8 border-t border-border-subtle pt-6">
         <FillMissing clubId={clubId} monthKey={monthKey} entries={entries} />
@@ -149,9 +200,64 @@ export function DuesLedger({
           clubId={clubId}
           entry={editing}
           onClose={() => setEditing(null)}
+          onFailed={(message) => reportFailure(editing.memberName, message)}
         />
       )}
     </>
+  )
+}
+
+/**
+ * 뺀 사람 — 되돌리는 길.
+ *
+ * 「다시 넣기」는 `restore_dues_entry` 를 부른다. **그 행을 살리는 것**이라
+ * 총무가 손으로 고친 금액도, 메모도, 이미 명단에서 나간 사람이라는 사실도
+ * 그대로 돌아온다. 아래의 «빠진 사람 채우기»(open_dues_month)는 새 행을
+ * 만들 뿐이라 그 달 최빈값으로 덮이고, 명단에 없는 사람은 아예 못 만든다.
+ */
+function RemovedSection({
+  clubId,
+  entries,
+  onFailed,
+}: {
+  clubId: string
+  entries: DuesEntry[]
+  onFailed: (name: string, message: string) => void
+}) {
+  const restore = useRestoreDuesEntry(clubId)
+
+  async function handleRestore(entry: DuesEntry) {
+    try {
+      await restore.mutateAsync(entry.id)
+    } catch (e) {
+      onFailed(entry.memberName, toUserMessage(e, '다시 넣지 못했습니다'))
+    }
+  }
+
+  return (
+    <Section title="뺀 사람" count={entries.length} className="mt-8">
+      {entries.map((e) => (
+        <div key={e.id} className="flex items-center gap-3 px-5 py-3">
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-semibold text-ink-3 line-through">
+              {e.memberName}
+            </span>
+            <span className="text-xs text-ink-3">이 달 합계에 안 들어갑니다</span>
+          </span>
+          <span className="tabular shrink-0 text-sm text-ink-3">{formatWon(e.amount)}</span>
+          <Button
+            variant="secondary"
+            onClick={() => void handleRestore(e)}
+            loading={restore.isPending}
+            aria-label={`${e.memberName} 다시 넣기`}
+            className="shrink-0"
+          >
+            <Undo2 className="size-4" aria-hidden />
+            다시 넣기
+          </Button>
+        </div>
+      ))}
+    </Section>
   )
 }
 
@@ -237,10 +343,13 @@ function OpenMonthForm({
   const setText = setTyped
 
   async function handleOpen() {
-    const amount = parseWon(text)
-    const message = validateDuesAmount(amount)
+    // 빈 칸과 '잘못 적은 값' 을 갈라 말한다 — '-30000' 을 치고 "금액을 적어
+    // 주세요" 를 들으면 총무는 같은 값을 다시 친다.
+    const message = validateDuesInput(text)
     setError(message)
-    if (message !== null || amount === null) return
+    if (message !== null) return
+    const amount = parseWon(text)
+    if (amount === null) return
     try {
       await open.mutateAsync(amount)
     } catch {

@@ -52,6 +52,22 @@ export function validateDuesAmount(amount: number | null): string | null {
   return null
 }
 
+/**
+ * 총무가 친 **문자열**을 검사한다. 화면은 이쪽을 쓴다.
+ *
+ * `parseWon` 은 빈 칸에도 null, '-30000'·'30.5'·'삼만원' 에도 null 을 준다.
+ * 그 null 을 그대로 `validateDuesAmount` 에 넘기면 무엇을 쳤든 "금액을 적어
+ * 주세요" 가 나온다 — **적었는데** 그 말을 들으면 총무는 무엇이 틀렸는지
+ * 모른 채 같은 값을 다시 친다. 빈 칸과 잘못 적은 값은 다른 오류다.
+ */
+export function validateDuesInput(raw: string): string | null {
+  if (raw.replace(/[,\s원]/g, '') === '') return '금액을 적어 주세요'
+  const amount = parseWon(raw)
+  // 음수·소수·문자를 한 문장으로 묶는다. 총무가 할 일은 어느 쪽이든 같다.
+  if (amount === null) return '숫자만 적어 주세요 (예: 30,000)'
+  return validateDuesAmount(amount)
+}
+
 // ── 달 ──────────────────────────────────────────────────────────────
 //
 // 달은 'YYYY-MM' 문자열로 다룬다. Date 로 더하고 빼면 시간대에 걸린다 —
@@ -120,6 +136,14 @@ export interface DuesEntry {
   /** null 이면 미납 */
   paidOn: string | null
   note: string | null
+  /**
+   * 이 달 회비에서 뺀 시각. null 이면 살아 있는 줄.
+   *
+   * 「빼기」는 지우기가 아니다(20260904000002). 행이 남아 있어야 잘못 뺐을 때
+   * 금액·메모·입금일을 **그대로** 되돌릴 수 있고, 이미 명단에서 나간 사람도
+   * 되살릴 수 있다 — 새로 만드는 복구로는 둘 다 못 한다.
+   */
+  removedAt: string | null
 }
 
 export interface DuesTotals {
@@ -131,33 +155,52 @@ export interface DuesTotals {
   unpaidCount: number
 }
 
+/**
+ * 뺀 사람은 어느 칸에도 안 든다 — 걷을 돈에도, 걷힌 돈에도, 인원 수에도.
+ *
+ * 서버(`club_dues_summary`)가 `removed_at is null` 만 더하는 것과 **같은
+ * 규칙**이어야 한다. 두 곳이 다르면 위의 합계와 아래 목록이 어긋나고,
+ * 그때 총무는 어느 쪽이 맞는지 알 방법이 없다.
+ */
 export function duesTotals(entries: DuesEntry[]): DuesTotals {
   let expected = 0
   let collected = 0
   let paidCount = 0
+  let live = 0
   for (const e of entries) {
+    if (e.removedAt) continue
+    live += 1
     expected += e.amount
     if (e.paidOn) {
       collected += e.amount
       paidCount += 1
     }
   }
-  return { expected, collected, paidCount, unpaidCount: entries.length - paidCount }
+  return { expected, collected, paidCount, unpaidCount: live - paidCount }
 }
 
 /**
- * 안 낸 사람과 낸 사람으로 가른다.
+ * 안 낸 사람 · 낸 사람 · 뺀 사람으로 가른다.
  *
- * 둘 다 **이름순**이다. 총무의 실제 동작은 통장을 위에서 아래로 훑으며
+ * 셋 다 **이름순**이다. 총무의 실제 동작은 통장을 위에서 아래로 훑으며
  * 이름을 찾는 것이라, 순서가 매번 바뀌면(예: 최근 체크순) 방금 본 자리를
  * 다시 못 찾는다. 체크해도 그 사람만 아래 목록으로 내려가고 나머지 순서는
  * 그대로 남는 것이 이 정렬의 목적이다.
+ *
+ * 뺀 사람이 세 번째 칸인 이유: 「안 낸 사람」에 섞이면 총무가 독촉할 대상으로
+ * 읽고, 화면에서 아예 사라지면 잘못 뺐을 때 되돌릴 길이 어디에도 없다.
  */
-export function partitionDues(entries: DuesEntry[]): { unpaid: DuesEntry[]; paid: DuesEntry[] } {
+export function partitionDues(entries: DuesEntry[]): {
+  unpaid: DuesEntry[]
+  paid: DuesEntry[]
+  removed: DuesEntry[]
+} {
   const byName = (a: DuesEntry, b: DuesEntry) => a.memberName.localeCompare(b.memberName, 'ko')
+  const live = entries.filter((e) => !e.removedAt)
   return {
-    unpaid: entries.filter((e) => !e.paidOn).sort(byName),
-    paid: entries.filter((e) => e.paidOn).sort(byName),
+    unpaid: live.filter((e) => !e.paidOn).sort(byName),
+    paid: live.filter((e) => e.paidOn).sort(byName),
+    removed: entries.filter((e) => e.removedAt).sort(byName),
   }
 }
 
@@ -172,9 +215,12 @@ export function partitionDues(entries: DuesEntry[]): { unpaid: DuesEntry[]; paid
  *   칠 수 있어야 하고, 지난 달이 없으면 null 을 줘서 빈 칸으로 시작한다.
  */
 export function suggestedAmount(previous: DuesEntry[]): number | null {
-  if (previous.length === 0) return null
+  // 뺀 사람의 금액은 '우리 동아리 회비' 가 아니다. 휴회로 0원을 둔 사람이
+  // 둘만 있어도 다음 달 기본값이 0원으로 뜬다.
+  const live = previous.filter((e) => !e.removedAt)
+  if (live.length === 0) return null
   const counts = new Map<number, number>()
-  for (const e of previous) counts.set(e.amount, (counts.get(e.amount) ?? 0) + 1)
+  for (const e of live) counts.set(e.amount, (counts.get(e.amount) ?? 0) + 1)
   let best: number | null = null
   let bestCount = 0
   for (const [amount, count] of counts) {
