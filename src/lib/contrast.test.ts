@@ -130,3 +130,36 @@ describe('색을 배경으로 깔고 글씨를 얹는 곳도 AA 를 넘는다', 
     })
   }
 })
+
+/**
+ * 캘린더 표시 — **비문자 UI 라 잣대가 3:1 이다.**
+ *
+ * 이 넷은 「내 목록」 캘린더가 동아리를 가르는 데 쓰는 색이다
+ * (`MonthCalendar` 의 `TONE_CLASS`). 6px 도형이라 글씨는 아니지만, 안 보이면
+ * 격자에서 패턴이 통째로 사라진다 — 캘린더를 넣은 이유가 사라진다.
+ *
+ * ⚠ **상태색(live·warn·ok)은 여기 못 쓴다.** 다크에서 2.3~2.8:1 로 떨어져
+ * 이 검사에 걸리고, 걸리지 않더라도 이 앱에서 색은 상태를 뜻한다
+ * (`docs/design.md` 「색은 상태다」) — 동아리를 빨강으로 칠하면 그 동아리가
+ * 위험해 보인다. 표시를 늘릴 일이 생기면 여기 한 줄을 먼저 더해 보고
+ * 통과하는 것만 쓴다.
+ *
+ * 색이 **유일한** 단서는 아니다. 모양(원·네모·세모·마름모)과 자리가 먼저
+ * 가르고 이름은 범례가 댄다 — 이 검사는 색이 그 위에 얹는 몫만 지킨다.
+ */
+describe('캘린더 표시는 두 테마 · 모든 면에서 3:1 을 넘는다', () => {
+  const GRAPHIC = 3
+  const MARKS = ['--brand-600', '--accent-500', '--color-team-a', '--ink-2']
+
+  for (const dark of [false, true]) {
+    for (const mark of MARKS) {
+      for (const bg of SURFACES) {
+        it(`${dark ? '다크' : '라이트'} ${mark} on ${bg}`, () => {
+          // team-a 처럼 다크 블록에 없는 토큰은 @theme 의 한 값을 두 테마가 같이 쓴다
+          const value = /^--color-/.test(mark) ? token(mark) : token(mark, { dark })
+          expect(contrastRatio(value, token(bg, { dark }))).toBeGreaterThanOrEqual(GRAPHIC)
+        })
+      }
+    }
+  }
+})
