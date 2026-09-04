@@ -4,7 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { SessionMatchCreatePage } from './SessionMatchCreatePage'
 import { COURT, MEMBERS, TOURNAMENT, TOURNAMENT_ID } from '@/test/matchFixtures'
-import type { MatchOverviewRow } from '@/types/database'
+import type { MemberSummary } from '@/features/tournament/api'
+import type { CourtRow, MatchOverviewRow } from '@/types/database'
 
 /**
  * 모임 경기 짜기 화면의 한 가지 약속:
@@ -21,12 +22,20 @@ vi.mock('@/features/auth/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }
 
 const create = { mutateAsync: vi.fn(), isPending: false, error: null as unknown }
 const edit = { mutateAsync: vi.fn(), isPending: false, error: null as unknown }
-const matches = { data: [] as MatchOverviewRow[] }
+
+/*
+ * `undefined` 를 담을 수 있어야 한다 — **아직 안 왔다** 를 못 그리면 이 화면의
+ * 가장 위험한 상태가 테스트에 아예 존재하지 않는다. 늘 배열을 mock 해 두면
+ * 화면은 언제나 "다 왔다" 만 겪고, 실기기에서만 나는 사고를 여기서 못 잡는다.
+ */
+const matches = { data: [] as MatchOverviewRow[] | undefined }
+const members = { data: MEMBERS as MemberSummary[] | undefined }
+const courts = { data: [COURT] as CourtRow[] | undefined }
 
 vi.mock('@/features/tournament/queries', () => ({
   useTournament: () => ({ data: { ...TOURNAMENT, kind: 'session' } }),
-  useMembers: () => ({ data: MEMBERS }),
-  useCourts: () => ({ data: [COURT] }),
+  useMembers: () => members,
+  useCourts: () => courts,
   useMatches: () => matches,
   useCreateSessionMatch: () => create,
   useUpdateSessionMatch: () => edit,
@@ -66,7 +75,14 @@ beforeEach(() => {
   create.mutateAsync = vi.fn().mockResolvedValue({})
   create.error = null
   matches.data = []
+  members.data = MEMBERS
+  courts.data = [COURT]
 })
+
+/** 명단 한 사람의 참가 여부만 바꾼 사본 */
+function withRsvp(name: string, rsvp: MemberSummary['rsvp']): MemberSummary[] {
+  return MEMBERS.map((m) => (m.displayName === name ? { ...m, rsvp } : m))
+}
 
 describe('다른 경기에 묶인 사람', () => {
   test('진행 중인 경기의 선수는 고를 수 없다', () => {
@@ -224,5 +240,110 @@ describe('사람이 손대면 앱이 물러난다', () => {
     await user.click(personButton('다라'))
 
     expect(screen.queryByText(/적게 친 사람부터/)).not.toBeInTheDocument()
+  })
+})
+
+/*
+ * 🔴 목록이 오기 전에 그리면 **잠금이 통째로 없는 화면**이 된다.
+ *
+ * `useMatches` 가 아직 답을 안 줬을 때 `matches.data ?? []` 로 읽으면, 화면은
+ * "지금 뛰는 사람이 하나도 없다" 를 사실로 받아들인다. 그 순간 잠긴 칸은 0개,
+ * 판수는 전원 0판, 제안은 넷이 다 찬 채로 완성되고 「경기 만들기」가 켜진다.
+ * 1번 코트에서 뛰는 중인 사람이 그 넷에 들어 있어도 화면은 아무 말이 없다.
+ *
+ * 이름을 한 번이라도 누르면 그 목록이 `manual` 로 굳어(파생이 아니라 사람 것이
+ * 된다) 뒤늦게 목록이 도착해도 스스로 고쳐지지 않는다. 저장은 통과하고, 거절은
+ * **초록 버튼을 누르는 코트 앞에서** 나온다 — 만든 사람은 이미 화면을 떠났다.
+ *
+ * 같은 규율이 이미 `TournamentPage` 의 자동 예약에 있다:
+ *   *"명단·경기·코트가 오기 전에는 '대기가 비었다' 가 참이 아니라 모른다 이다."*
+ * 사람이 눌러 확정하는 화면에도 그대로 있어야 한다 — 오히려 여기가 더 급하다.
+ * 자동 예약은 다음 틱에 스스로 다시 계산하지만, 사람이 누른 것은 안 돌아온다.
+ */
+describe('명단·경기·코트가 오기 전에는 아무것도 주장하지 않는다', () => {
+  test('경기 목록이 없으면 제안을 그리지 않는다', () => {
+    matches.data = undefined
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: '경기 만들기' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/적게 친 사람부터/)).not.toBeInTheDocument()
+  })
+
+  test('사람 칸도 안 그린다 — 한 번 누르면 그 목록이 사람 것으로 굳는다', () => {
+    matches.data = undefined
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: /^가나/ })).not.toBeInTheDocument()
+  })
+
+  test('명단이 아직 안 왔을 때도 마찬가지다', () => {
+    members.data = undefined
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: '경기 만들기' })).not.toBeInTheDocument()
+  })
+
+  test('코트가 아직 안 왔을 때도 마찬가지다', () => {
+    courts.data = undefined
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: '경기 만들기' })).not.toBeInTheDocument()
+  })
+
+  test('기다리는 중이라고 말한다 — 빈 화면을 "아무도 없음" 으로 읽지 않게', () => {
+    matches.data = undefined
+    const { container } = renderPage()
+
+    expect(container.querySelector('[aria-busy]')).not.toBeNull()
+  })
+
+  test('다 오면 평소대로 그린다', () => {
+    renderPage()
+
+    expect(screen.getByRole('button', { name: '경기 만들기' })).toBeEnabled()
+  })
+})
+
+/*
+ * 「모임 나가기」를 누른 사람은 **집에 갔다.** 그런데 집에 간 사람은 판수가
+ * 영원히 0이라 "안 친 사람 먼저" 정렬에서 계속 맨 앞이다 — 화면을 열 때마다
+ * 제안 첫 자리에 들어가고, 총무가 매번 손으로 뺀다.
+ *
+ * ⚠ 선은 정확히 여기다. 빼는 것은 **누른 사람(`declined`)** 뿐이고, 안 누른
+ * 사람(`invited`)은 그대로 후보다 — 이 저장소의 「참가는 게이트가 아니다」는
+ * 그쪽 이야기다. 그리고 빼는 것은 **자동 제안에서만**이다. 늦게 와서 마음을
+ * 바꾸는 사람이 실제로 있고, 그때 총무가 직접 고르는 길은 살아 있어야 한다.
+ */
+describe('모임을 나간 사람 (불참)', () => {
+  test('자동 제안에 안 들어간다', () => {
+    members.data = withRsvp('가나', 'declined')
+    renderPage()
+
+    expect(personButton('가나')).toHaveAttribute('aria-pressed', 'false')
+    // 그 자리는 남아 있는 사람이 채운다 — 넷은 그대로 찬다
+    expect(personButton('심판이')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '경기 만들기' })).toBeEnabled()
+  })
+
+  test('안 누른 사람은 그대로 제안에 들어간다 — 참가는 게이트가 아니다', () => {
+    members.data = withRsvp('가나', 'invited')
+    renderPage()
+
+    expect(personButton('가나')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('직접 고를 수는 있다 — 늦게 와서 마음을 바꾸는 사람이 있다', async () => {
+    members.data = withRsvp('가나', 'declined')
+    const user = userEvent.setup()
+    renderPage()
+
+    // 잠기지 않는다 — 잠그는 것은 '다른 경기에 묶임' 뿐이다
+    expect(personButton('가나')).toBeEnabled()
+
+    // 자리를 하나 비우고 직접 넣는다
+    await user.click(personButton('심판이'))
+    await user.click(personButton('가나'))
+
+    expect(personButton('가나')).toHaveAttribute('aria-pressed', 'true')
   })
 })

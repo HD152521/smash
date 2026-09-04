@@ -384,6 +384,20 @@ try {
     return rows[0]?.sig ?? ''
   }
 
+  /**
+   * 이 모임에 경기가 몇 개인가.
+   *
+   * ⚠ 거절을 상태 코드로만 판정하지 않기 위한 눈금이다 — PostgREST 는 RLS 로
+   * 0행이 걸러져도 200 을 준다. 실제로 무엇이 남았나는 행 수로 본다.
+   */
+  async function matchCount() {
+    const { rows } = await db.query<{ n: string }>(
+      `select count(*)::int as n from matches where tournament_id=$1`,
+      [s.id],
+    )
+    return Number(rows[0]!.n)
+  }
+
   async function matchRow(matchId: string | undefined) {
     const { rows } = await db.query<{
       queue_order: string
@@ -564,6 +578,70 @@ try {
     String((busyEdit.body as { message?: string } | null)?.message ?? '(없음)'),
   )
   check('거절했으니 편성도 그대로다', (await lineup(eAId)) === atomicBefore, await lineup(eAId))
+
+  console.log('\n── 🔴 시작할 수 없는 경기는 애초에 안 만들어진다 ──')
+  /*
+   * 감사로 잡힌 구멍이다. 형제 함수 셋 중 `create_session_match` 에만
+   * '한 사람이 두 코트' 검사가 없었다.
+   *
+   *   ① 다른 코트에서 경기 진행 중 (바로 위에서 eC 를 시작해 뒀다)
+   *   ② 그 선수를 새 경기에 넣기      → 예전에는 **200**   ★구멍
+   *   ③ 그 경기를 start_match         → 400 '…경기 중입니다'
+   *
+   * 남는 것은 시작할 수 없는 예정 경기다. 코트를 물고 서 있고, 지우는 것은
+   * 관리자만 할 수 있어서(RLS) 코트 앞에서는 풀 방법이 없다. 그래서 ② 에서
+   * 막아야 한다 — ③ 에서 막는 것은 이미 늦다.
+   */
+  const beforeCount = await matchCount()
+  const busyCreate = await rpc(host.token, 'create_session_match', {
+    p_tournament_id: s.id,
+    p_court_id: null,
+    p_players_a: [M('마바사').id, M('가나다').id],
+    p_players_b: [M('라마바').id, M('사아자').id],
+  })
+  check(
+    '② 뛰는 중인 사람이 낀 새 경기를 거절한다',
+    busyCreate.status >= 400,
+    `status=${busyCreate.status} — update_session_match · start_match 와 같은 기준`,
+  )
+  check(
+    '거절 문구가 누구 때문인지 말한다',
+    String((busyCreate.body as { message?: string } | null)?.message ?? '').includes('마바사'),
+    String((busyCreate.body as { message?: string } | null)?.message ?? '(없음)'),
+  )
+  /*
+   * ⚠ 상태 코드만 믿지 않는다. PostgREST 는 RLS 로 0행이 걸러져도 200 을
+   * 주고, 반대로 어딘가에서 반쯤 만들어진 경기가 남아도 400 은 400 이다.
+   * 실제로 무엇이 남았는지는 **행 수로** 본다.
+   */
+  check(
+    '거절했으니 경기가 하나도 안 생긴다',
+    (await matchCount()) === beforeCount,
+    `${beforeCount} → ${await matchCount()}`,
+  )
+
+  // 대조군 — 아무도 안 뛰고 있으면 그대로 만들어지고, 실제로 시작까지 간다.
+  // 이게 없으면 위 거절이 '검사가 걸렸다' 인지 '만들기가 통째로 죽었다' 인지 모른다.
+  const freeCreate = await rpc(host.token, 'create_session_match', {
+    p_tournament_id: s.id,
+    p_court_id: null,
+    p_players_a: [M('가나다').id, M('라마바').id],
+    p_players_b: [M('사아자').id, M('차카타').id],
+  })
+  check(
+    '뛰는 사람이 없으면 그대로 만들어진다',
+    freeCreate.status === 200,
+    `status=${freeCreate.status}`,
+  )
+  const freeId = (freeCreate.body as unknown as { id: string } | null)?.id
+  const freeStart = await rpc(host.token, 'start_match', { p_match_id: freeId })
+  check(
+    '③ 만든 경기는 실제로 시작된다 — 만들기와 시작하기가 더 이상 안 어긋난다',
+    freeStart.status === 200,
+    `status=${freeStart.status}`,
+  )
+  // 아래 절들이 이 넷을 다시 쓴다 — 코트에 세워 둔 채로 넘기지 않는다
+  await rpc(host.token, 'finish_match', { p_match_id: freeId })
 
   console.log('\n   · 예정 경기만 고친다')
   await rpc(host.token, 'start_match', { p_match_id: eAId })

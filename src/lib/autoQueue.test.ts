@@ -45,7 +45,7 @@ function match(over: Partial<MatchOverviewRow>): MatchOverviewRow {
  * 단계에서 이 파일에 들어온다.
  */
 function member(id: string): AutoMatchCandidate {
-  return { id, displayName: id, grade: null, gender: null }
+  return { id, displayName: id, grade: null, gender: null, rsvp: 'going' }
 }
 
 const EIGHT = ['가', '나', '다', '라', '마', '바', '사', '아'].map(member)
@@ -205,6 +205,32 @@ describe('planAutoQueue — 사람이 모자라면 조용히 안 만든다', () 
 
   test('한 편 인원이 0 이면 만들지 않는다', () => {
     expect(planAutoQueue({ courts: COURTS, matches: [], members: EIGHT, squad: 0 })).toBeNull()
+  })
+})
+
+/*
+ * 🔴 자동 예약에는 사람이 없다. 수동 화면은 총무가 명단을 보고 판단하지만
+ * 여기는 그냥 넣는다 — 그래서 「모임 나가기」를 누른 사람이 코트마다 걸리는
+ * 첫 경기에 그대로 들어갔다. 규칙 자체는 `autoMatch.test.ts` 가 지키고,
+ * 여기서는 자동 예약이 그 규칙 위에서 돈다는 것만 못박는다.
+ */
+describe('planAutoQueue — 모임을 나간 사람은 안 건다', () => {
+  test("rsvp 가 'declined' 인 사람은 자동 예약에 안 들어간다", () => {
+    const members = EIGHT.map((m, i) => (i < 2 ? { ...m, rsvp: 'declined' as const } : m))
+
+    const plan = planAutoQueue({ courts: COURTS, matches: [], members, squad: 2 })
+
+    expect(plan?.playersA.concat(plan.playersB)).not.toContain('가')
+    expect(plan?.playersA.concat(plan.playersB)).not.toContain('나')
+  })
+
+  test('안 누른 사람은 그대로 걸린다 — 참가는 게이트가 아니다', () => {
+    const members = EIGHT.map((m) => ({ ...m, rsvp: 'invited' as const }))
+
+    const plan = planAutoQueue({ courts: COURTS, matches: [], members, squad: 2 })
+
+    expect(plan?.playersA).toHaveLength(2)
+    expect(plan?.playersB).toHaveLength(2)
   })
 })
 

@@ -1,4 +1,4 @@
-import type { MatchOverviewRow, PlayerGender, PlayerGrade } from '@/types/database'
+import type { MatchOverviewRow, PlayerGender, PlayerGrade, RsvpStatus } from '@/types/database'
 import { buildBusyMap } from './busy'
 import type { MatchKind, MatchKindFilter } from './gender'
 import { gradeRankOrUnknown } from './grade'
@@ -84,6 +84,15 @@ export interface AutoMatchCandidate {
    * 짐작해서 채우면 '남복' 이라고 적힌 경기에 여자가 들어간다.
    */
   gender: PlayerGender | null
+  /**
+   * 참가 여부. **`'declined'` 만 후보에서 뺀다** — 아래 `availableCandidates` 참고.
+   *
+   * 필수 칸으로 둔다. `MemberSummary` 가 이미 갖고 있어서 지금 부르는 두
+   * 곳은 그대로 통과하고, 새로 부르는 곳은 "이 사람 참가 여부는 뭔가" 를
+   * 한 번 생각하게 된다. 선택 칸으로 두면 안 보내는 호출부가 생기고, 그
+   * 화면에서만 집에 간 사람이 다시 제안에 오른다.
+   */
+  rsvp: RsvpStatus
 }
 
 /** 계산하는 동안만 쓰는 모양 — 후보 한 사람의 판수·급수·성별·원래 자리 */
@@ -138,11 +147,28 @@ export function excludedByKind(
 }
 
 /**
- * 지금 고를 수 있는 사람 — 다른 경기에 안 묶인 사람.
+ * 지금 고를 수 있는 사람 — 다른 경기에 안 묶였고, 집에 가지 않은 사람.
  *
  * '묶였다' 의 판단은 `busy.ts` 하나뿐이다. 화면이 흐리게 만드는 기준과
  * 제안이 거르는 기준이 갈리면 **화면이 못 누르게 막아 둔 사람을 제안이
  * 채워 넣는다** — 총무가 손도 못 대는 편성이 기본값으로 뜬다.
+ *
+ * ── 「모임 나가기」를 누른 사람은 후보가 아니다 ────────────────────
+ *
+ * 집에 간 사람은 **판수가 영원히 0** 이다. 1단계(판수 계층)는 안 친 사람을
+ * 먼저 앉히므로 그 사람이 매번 맨 앞에 서고, 코트마다 도는 자동 예약의 첫
+ * 경기에 계속 들어간다. 총무는 그걸 하나씩 × 로 지운다 — 앱이 만든 일을
+ * 사람이 치우는 모양이다.
+ *
+ * ⚠ 여기서 선을 정확히 지킨다. 이 저장소에는 **「참가는 게이트가 아니다」**
+ * 라는 확립된 결정이 있고(`rsvp.ts` · `partitionGoing`, 20260827000001 판단 6),
+ * 그건 **안 누른 사람(`invited`)** 이야기다. 안 눌렀다고 못 치게 하는 앱은
+ * 동아리에서 미움받는다. `'declined'` 는 다르다 — 그 사람은 *눌렀다.*
+ *
+ * 그리고 **여기서 빼는 것은 자동 제안뿐이다.** 수동으로 고르는 화면
+ * (`SessionMatchEditor`)은 불참한 사람도 그대로 펼쳐 두고 누를 수 있다.
+ * 총무는 명단을 보고 판단하지만 자동 편성에는 사람이 없다 — 늦게 와서 마음을
+ * 바꾸는 사람은 실제로 있고, 그 사람을 직접 넣는 길은 막지 않는다.
  */
 function availableCandidates(
   members: readonly AutoMatchCandidate[],
@@ -152,6 +178,7 @@ function availableCandidates(
   const busy = buildBusyMap(matches)
   const free: Ranked[] = []
   for (const [order, m] of members.entries()) {
+    if (m.rsvp === 'declined') continue
     if (busy.has(m.displayName)) continue
     free.push({
       id: m.id,

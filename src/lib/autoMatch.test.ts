@@ -44,11 +44,18 @@ function member(
   grade: PlayerGrade | null,
   gender: PlayerGender | null = null,
 ): AutoMatchCandidate {
-  return { id, displayName: id, grade, gender }
+  // 기본은 'going'. 이 파일의 검사 대부분은 참가 여부와 무관하고, 참가를
+  // 안 누른 사람도 그대로 후보다 — 그 규칙은 아래 절에서 따로 못박는다.
+  return { id, displayName: id, grade, gender, rsvp: 'going' }
 }
 
 const man = (id: string, grade: PlayerGrade | null) => member(id, grade, 'male')
 const woman = (id: string, grade: PlayerGrade | null) => member(id, grade, 'female')
+
+/** 참가 여부만 바꾼 사본 — '집에 갔다'(declined) 와 '안 눌렀다'(invited) 를 가른다 */
+function withRsvp(m: AutoMatchCandidate, rsvp: AutoMatchCandidate['rsvp']): AutoMatchCandidate {
+  return { ...m, rsvp }
+}
 
 /** 뽑힌 id 들의 종목 — `gender.ts` 의 판정을 그대로 쓴다 */
 function kindOf(members: readonly AutoMatchCandidate[], picked: readonly string[]) {
@@ -634,5 +641,67 @@ describe("suggestMatch — 'any' 는 종목이 없던 때와 같다", () => {
     ]
 
     expect([...suggestMatch(members, [], 2)!].sort()).toEqual(['C1', 'C2', 'C3', 'C4'])
+  })
+})
+
+/*
+ * 🔴 「모임 나가기」를 누른 사람이 자동 편성 1순위가 되던 자리.
+ *
+ * 집에 간 사람은 **판수가 영원히 0** 이다. 그래서 "안 친 사람 먼저" 인 1단계
+ * 계층에서 매번 맨 앞에 서고, 코트마다 도는 자동 예약의 첫 경기에 계속 들어간다.
+ * 총무는 그걸 하나씩 × 로 지운다 — 앱이 만든 일을 사람이 치우는 모양이다.
+ *
+ * ⚠ 여기서 선을 정확히 지킨다.
+ *
+ *   · **`declined` 만 뺀다.** 그 사람은 *눌렀다.* 「참가는 게이트가 아니다」는
+ *     `invited`(안 누른 사람) 이야기이고 그 규칙은 그대로다 — 안 눌렀다고
+ *     못 치게 하는 앱은 동아리에서 미움받는다.
+ *   · **자동에서만 뺀다.** 수동 화면은 총무가 명단을 보고 판단하지만 자동에는
+ *     사람이 없다. 늦게 와서 마음을 바꾸는 사람을 직접 고르는 길은
+ *     `SessionMatchEditor` 에 그대로 열려 있다(`partitionGoing` 이 접어만 둔다).
+ */
+describe('suggestMatch — 모임을 나간 사람은 자동 편성에서 뺀다', () => {
+  const EIGHT = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => member(id, null))
+
+  test("'declined' 는 후보가 아니다", () => {
+    // 앞 넷이 명단 순서상 먼저라 원래는 그대로 뽑히는 자리다
+    const members = EIGHT.map((m, i) => (i < 2 ? withRsvp(m, 'declined') : m))
+
+    const picked = suggestMatch(members, [], 2)
+
+    expect(picked).not.toContain('a')
+    expect(picked).not.toContain('b')
+    expect(picked).toHaveLength(4)
+  })
+
+  test("판수가 0이어도 안 뽑힌다 — '안 친 사람 먼저' 를 이긴다", () => {
+    /*
+     * 이게 실제로 나던 모양이다. 남은 사람들은 이미 두 판씩 쳤고 집에 간
+     * 사람만 0판이라, 판수만 보면 그 사람이 언제나 1순위다.
+     */
+    const played = playedMatches(['c', 'd', 'e', 'f', 'g', 'h'], 2)
+    const members = EIGHT.map((m, i) => (i < 2 ? withRsvp(m, 'declined') : m))
+
+    const picked = suggestMatch(members, played, 2)
+
+    expect(picked).toHaveLength(4)
+    expect(picked).not.toContain('a')
+    expect(picked).not.toContain('b')
+  })
+
+  test("안 누른 사람('invited')은 그대로 후보다 — 참가는 게이트가 아니다", () => {
+    const members = EIGHT.map((m, i) => (i < 2 ? withRsvp(m, 'invited') : m))
+
+    const picked = suggestMatch(members, [], 2)
+
+    expect(picked).toContain('a')
+    expect(picked).toContain('b')
+  })
+
+  test('나간 사람 때문에 인원이 모자라면 조용히 null 이다', () => {
+    // 여덟 중 다섯이 나가면 셋뿐이다. 셋으로 억지 편성하지 않는다
+    const members = EIGHT.map((m, i) => (i < 5 ? withRsvp(m, 'declined') : m))
+
+    expect(suggestMatch(members, [], 2)).toBeNull()
   })
 })
